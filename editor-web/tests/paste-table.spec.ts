@@ -107,7 +107,8 @@ for (const [name, html, text] of [
     await openEditor(page);
     await page.locator('#source .monaco-editor').click({ position: { x: 130, y: 20 } });
     await paste(page, html, text);
-    expect(await markdown(page)).toBe(text);
+    // Monaco의 붙여넣기는 비동기로 끝납니다.
+    await expect.poll(() => markdown(page)).toBe(text);
   });
 }
 
