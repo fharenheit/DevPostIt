@@ -34,7 +34,7 @@ export class EditorConnection {
     const draft = this.editor.getDraft();
     this.send('note.saveRequested', { markdown: draft.markdown, title: this.editor.getTitle() }, draft.revision);
   }
-  command(type: 'window.collapseRequested' | 'note.newRequested' | 'window.settingsRequested' | 'window.searchRequested' | 'note.imagePasteRequested'): void {
+  command(type: 'window.collapseRequested' | 'note.newRequested' | 'window.settingsRequested' | 'window.searchRequested' | 'note.imagePasteRequested' | 'note.exportPdfRequested'): void {
     if (this.noteId === emptyId || this.editor.isComposing()) return;
     this.publish();
     this.send(type, {}, this.editor.getDraft().revision);
@@ -84,6 +84,8 @@ export class EditorConnection {
         if (keepPreview) this.editor.setMode('preview');
       } finally { this.loading = false; }
       this.status('앱 연결됨 · 자동 저장 사용');
+    } else if (message.noteId === this.noteId && message.type === 'note.pdfFinished' && keys(message.payload, [])) {
+      window.dispatchEvent(new Event('devpostit-pdf-finished'));
     } else if (message.noteId === this.noteId && message.type === 'ui.appearance') {
       const { color, topmost } = message.payload;
       if (keys(message.payload, ['color', 'topmost']) && typeof color === 'string' && noteColors.includes(color) && typeof topmost === 'boolean')

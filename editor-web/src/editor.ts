@@ -70,6 +70,7 @@ export class Editor {
   private generation = 0;
   private mode: EditorMode = 'source';
   private highlightRun = 0;
+  private highlighting: Promise<void> = Promise.resolve();
   imagePasteRequested?: () => void;
 
   constructor(
@@ -172,7 +173,7 @@ export class Editor {
     if (mode === 'preview') {
       this.preview.innerHTML = renderMarkdown(this.draft.markdown);
       this.addCopyButtons();
-      void this.highlightPreview(this.highlightRun);
+      this.highlighting = this.highlightPreview(this.highlightRun);
     }
     this.source.hidden = mode !== 'source';
     this.preview.hidden = mode !== 'preview';
@@ -186,6 +187,14 @@ export class Editor {
   }
 
   getMode(): EditorMode { return this.mode; }
+  // 인쇄 전에 하이라이트까지 끝난 미리보기를 준비합니다. 한글 조합 중이면 false입니다.
+  async renderForPrint(): Promise<boolean> {
+    if (this.composing) return false;
+    this.setMode('preview');
+    await this.highlighting;
+    await Promise.all(Array.from(this.preview.querySelectorAll('img')).map(image => image.decode().catch(() => undefined)));
+    return true;
+  }
   getDraft(): Draft { return { ...this.draft }; }
   getTitle(): string { return this.title; }
   rename(title: string): void {

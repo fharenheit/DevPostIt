@@ -19,6 +19,7 @@ public sealed class AppSettings
     public string? DataRoot { get; set; }
     public string? PendingMigrationFrom { get; set; }
     public bool StartInTray { get; set; }
+    public bool AutoUpdate { get; set; } = true;
     public List<Guid>? OpenNotes { get; set; }
     public List<Guid> CollapsedNotes { get; set; } = [];
     public Dictionary<Guid, NoteWindowState> Notes { get; set; } = [];

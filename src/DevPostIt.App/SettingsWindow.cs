@@ -10,6 +10,7 @@ using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.Wpf;
 using Color = System.Windows.Media.Color;
 using Forms = System.Windows.Forms;
+using FileDialogs = Microsoft.Win32;
 using MessageBox = System.Windows.MessageBox;
 
 namespace DevPostIt.App;
@@ -18,17 +19,23 @@ namespace DevPostIt.App;
 public sealed class SettingsWindow : Window
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+    private readonly DesktopNoteManager manager;
     private readonly string dataFolder;
     private readonly AppSettingsStore? store;
     private readonly bool canChangeFolder;
     internal WebView2 View { get; } = new() { DefaultBackgroundColor = System.Drawing.Color.FromArgb(255, 253, 245) };
+    internal Func<string?> BackupPathPicker { get; set; }
+    internal Func<string?> RestorePathPicker { get; set; }
     internal Action<string> FolderOpener { get; set; } = path => Process.Start(new ProcessStartInfo(path) { UseShellExecute = true })?.Dispose();
-    public SettingsWindow(string dataFolder, AppSettingsStore? store = null, bool canChangeFolder = false)
+    public SettingsWindow(DesktopNoteManager manager, string dataFolder, AppSettingsStore? store = null, bool canChangeFolder = false)
     {
+        this.manager = manager;
+        BackupPathPicker = PickBackupPath;
+        RestorePathPicker = PickRestorePath;
         this.dataFolder = dataFolder; this.store = store; this.canChangeFolder = canChangeFolder && store is not null;
         Title = "설정";
         Icon = NoteIcon.WindowImage;
-        Width = 400; Height = 440; MinWidth = 320; MinHeight = 240;
+        Width = 420; Height = 560; MinWidth = 320; MinHeight = 240;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         Background = new SolidColorBrush(Color.FromRgb(255, 253, 245));
         Content = View;
@@ -59,7 +66,55 @@ public sealed class SettingsWindow : Window
             store.Current.StartInTray = startInTray;
             store.Save();
         }
+        else if (SettingsMessage.TryReadAutoUpdate(json, source, out var autoUpdate) && store is not null)
+        {
+            store.Current.AutoUpdate = autoUpdate;
+            store.Save();
+        }
         else if (SettingsMessage.IsChangeDataFolder(json, source) && canChangeFolder) ChangeDataFolder(core);
+        else if (SettingsMessage.IsBackup(json, source)) _ = BackupAsync(core);
+        else if (SettingsMessage.IsRestore(json, source)) _ = RestoreAsync(core);
+        else if (SettingsMessage.IsCheckUpdate(json, source)) _ = CheckUpdateAsync(core);
+    }
+
+    private string? PickBackupPath()
+    {
+        var dialog = new FileDialogs.SaveFileDialog { Title = "백업 파일 저장", Filter = "DevPostIt 백업 (*.zip)|*.zip", FileName = $"DevPostIt-backup-{DateTime.Now:yyyyMMdd-HHmmss}.zip" };
+        return dialog.ShowDialog(this) == true ? dialog.FileName : null;
+    }
+    private string? PickRestorePath()
+    {
+        var dialog = new FileDialogs.OpenFileDialog { Title = "복원할 백업 파일 선택", Filter = "DevPostIt 백업 (*.zip)|*.zip" };
+        return dialog.ShowDialog(this) == true ? dialog.FileName : null;
+    }
+    private async Task BackupAsync(CoreWebView2 core)
+    {
+        if (BackupPathPicker() is not { } path) return;
+        SendStatus(core, "백업 중입니다…");
+        try
+        {
+            var summary = await manager.BackupAsync(path);
+            SendStatus(core, $"메모 {summary.Notes}개를 백업했습니다: {path}");
+        }
+        catch (Exception error) { SendStatus(core, $"백업하지 못했습니다: {error.Message}"); }
+    }
+    private async Task RestoreAsync(CoreWebView2 core)
+    {
+        if (RestorePathPicker() is not { } path) return;
+        var answer = MessageBox.Show(this, $"백업으로 모든 메모를 바꾸고 앱을 다시 시작합니다.\n{path}\n\n현재 데이터는 지우지 않고 데이터 폴더 옆의 ‘before-restore’ 폴더로 옮깁니다. 앱 설정과 창 위치는 그대로입니다.\n\n계속할까요?", "백업에서 복원", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+        if (answer != MessageBoxResult.Yes) return;
+        SendStatus(core, "백업을 확인하는 중입니다…");
+        try { await manager.RestoreBackupAsync(path); }
+        catch (Exception error) { SendStatus(core, $"복원하지 못했습니다. 현재 메모는 그대로입니다: {error.Message}"); }
+    }
+    private async Task CheckUpdateAsync(CoreWebView2 core)
+    {
+        SendStatus(core, "업데이트를 확인하는 중입니다…");
+        SendStatus(core, await manager.CheckForUpdateAsync());
+    }
+    private void SendStatus(CoreWebView2 core, string message)
+    {
+        if (IsLoaded) core.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "settings.status", message }, Json));
     }
 
     private void ChangeDataFolder(CoreWebView2 core)
@@ -83,6 +138,6 @@ public sealed class SettingsWindow : Window
     private void SendState(CoreWebView2 core, string? pending)
     {
         var next = pending ?? (store?.Current.PendingMigrationFrom is not null ? store.Current.DataRoot : null);
-        core.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "settings.state", dataFolder, pendingFolder = next, startInTray = store?.Current.StartInTray ?? false, canChangeFolder }, Json));
+        core.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "settings.state", dataFolder, pendingFolder = next, startInTray = store?.Current.StartInTray ?? false, canChangeFolder, autoUpdate = store?.Current.AutoUpdate ?? true, canUpdate = manager.CanUpdate, version = DesktopNoteManager.CurrentVersion.ToString(3) }, Json));
     }
 }

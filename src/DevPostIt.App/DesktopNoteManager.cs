@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Net.Http;
 using System.Windows;
 using System.Windows.Threading;
 using DevPostIt.Storage;
@@ -16,6 +18,17 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
     private bool exiting;
     private SettingsWindow? settings;
     private SearchWindow? search;
+    private Action? afterExit;
+    private AppUpdater? updater;
+    private DispatcherTimer? updateTimer;
+    internal Action Relauncher { get; set; } = () => { if (Environment.ProcessPath is { } path) Process.Start(new ProcessStartInfo(path) { UseShellExecute = true })?.Dispose(); };
+    internal AppUpdate? AvailableUpdate { get; private set; }
+    internal string UpdateStatus { get; private set; } = "";
+    public event Action<AppUpdate>? UpdateFound;
+    internal static Version CurrentVersion => System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version ?? new Version(0, 0);
+    // 게시한 단일 exe만 스스로 교체합니다. 소스 실행은 옆에 DLL이 있습니다.
+    private static string? InstalledExecutable => Environment.ProcessPath is { } path && !System.IO.File.Exists(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(path)!, "DevPostIt.dll")) ? path : null;
+    internal bool CanUpdate => InstalledExecutable is not null;
     public MainWindow? ShowNote(Guid id)
     {
         if (exiting) return null;
@@ -54,12 +67,15 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
         var title = workspace.Notes.First(note => note.Id == window.NoteId).Title;
         var state = settingsStore.Note(window.NoteId);
         var icon = new CollapsedNoteWindow(title, () => ShowNote(window.NoteId), window.NoteColor);
-        var area = SystemParameters.WorkArea;
-        var (left, top) = (state.IconLeft ?? window.Left, state.IconTop ?? window.Top);
-        if (!IsOnScreen(left, top, icon.Width, icon.Height)) (left, top) = (window.Left, window.Top);
-        icon.Left = Math.Clamp(left, SystemParameters.VirtualScreenLeft, Math.Max(SystemParameters.VirtualScreenLeft, SystemParameters.VirtualScreenLeft + SystemParameters.VirtualScreenWidth - icon.Width));
-        icon.Top = Math.Clamp(top, SystemParameters.VirtualScreenTop, Math.Max(SystemParameters.VirtualScreenTop, SystemParameters.VirtualScreenTop + SystemParameters.VirtualScreenHeight - icon.Height));
-        if (state.IconLeft is null) { icon.Left = Math.Clamp(window.Left, area.Left, Math.Max(area.Left, area.Right - icon.Width)); icon.Top = Math.Clamp(window.Top, area.Top, Math.Max(area.Top, area.Bottom - icon.Height)); }
+        // 사용자가 옮기기 전까지 마지막 위치를 유지합니다. 처음 접을 때의 위치도 바로 저장합니다.
+        if (state.IconLeft is { } left && state.IconTop is { } top && IsOnScreen(left, top, icon.Width, icon.Height)) { icon.Left = left; icon.Top = top; }
+        else
+        {
+            var area = SystemParameters.WorkArea;
+            icon.Left = Math.Clamp(window.Left, area.Left, Math.Max(area.Left, area.Right - icon.Width));
+            icon.Top = Math.Clamp(window.Top, area.Top, Math.Max(area.Top, area.Bottom - icon.Height));
+            state.IconLeft = icon.Left; state.IconTop = icon.Top;
+        }
         icon.LocationChanged += (_, _) => { state.IconLeft = icon.Left; state.IconTop = icon.Top; RememberSoon(); };
         icons[window.NoteId] = icon;
         icon.Show(); window.Hide();
@@ -79,7 +95,7 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
         if (exiting) return;
         if (settings is null)
         {
-            settings = new SettingsWindow(workspace.Root, settingsStore, canChangeFolder);
+            settings = new SettingsWindow(this, workspace.Root, settingsStore, canChangeFolder);
             settings.Closed += (_, _) => settings = null;
             settings.Show();
         }
@@ -97,6 +113,51 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
         }
         if (search.WindowState == WindowState.Minimized) search.WindowState = WindowState.Normal;
         search.Activate();
+    }
+    public async Task<BackupSummary> BackupAsync(string destination)
+    {
+        await workspace.FlushOpenNotesAsync(CancellationToken.None);
+        return await Task.Run(() => NoteBackup.CreateAsync(workspace.Root, destination, CurrentVersion.ToString(3), CancellationToken.None));
+    }
+    public async Task RestoreBackupAsync(string backup)
+    {
+        await Task.Run(() => NoteBackup.PrepareRestoreAsync(backup, workspace.Root, CancellationToken.None));
+        afterExit = Relauncher;
+        await ExitAsync();
+    }
+    // 앱 시작 후와 하루 간격으로 새 버전을 찾습니다. 설치는 사용자가 고를 때만 합니다.
+    public void StartUpdateChecks()
+    {
+        if (InstalledExecutable is not { } executable) return;
+        updater = new AppUpdater(new HttpClient { Timeout = TimeSpan.FromMinutes(10) }, executable);
+        updater.CleanUp();
+        updateTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(10) };
+        updateTimer.Tick += async (_, _) =>
+        {
+            updateTimer.Interval = TimeSpan.FromHours(24);
+            if (settingsStore.Current.AutoUpdate) await CheckForUpdateAsync();
+        };
+        updateTimer.Start();
+    }
+    public async Task<string> CheckForUpdateAsync()
+    {
+        if (updater is null) return UpdateStatus = "소스에서 실행 중이면 업데이트를 사용할 수 없습니다.";
+        try
+        {
+            var found = await updater.CheckAsync(CurrentVersion, CancellationToken.None);
+            AvailableUpdate = found;
+            UpdateStatus = found is null ? $"최신 버전입니다 ({CurrentVersion.ToString(3)})." : $"새 버전 {found.Version}을 설치할 수 있습니다. 트레이 메뉴에서 설치하세요.";
+            if (found is not null) UpdateFound?.Invoke(found);
+        }
+        catch (Exception error) when (error is HttpRequestException or TaskCanceledException or System.IO.IOException) { UpdateStatus = $"업데이트를 확인하지 못했습니다: {error.Message}"; }
+        return UpdateStatus;
+    }
+    public async Task InstallUpdateAsync()
+    {
+        if (updater is null || AvailableUpdate is not { } update) return;
+        await updater.DownloadAsync(update, CancellationToken.None);
+        afterExit = () => { updater.Install(); Relauncher(); };
+        await ExitAsync();
     }
     public async Task RestoreFromTrashAsync(Guid id)
     {
@@ -128,9 +189,12 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
             search?.Close();
             await workspace.DisposeAsync();
             completed = true;
+            updateTimer?.Stop();
+            try { afterExit?.Invoke(); }
+            catch (Exception error) { System.Windows.MessageBox.Show($"새로 시작하지 못했습니다. 앱을 다시 실행해 주세요.\n{error.Message}", "메모", MessageBoxButton.OK, MessageBoxImage.Warning); }
             (shutdown ?? (() => System.Windows.Application.Current.Shutdown()))();
         }
-        finally { if (!completed) { exiting = false; operations.Resume(); } }
+        finally { if (!completed) { exiting = false; afterExit = null; operations.Resume(); } }
     }
     public static async Task RunAsync(Func<Task> action)
     {

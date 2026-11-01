@@ -125,7 +125,7 @@ dialog p:empty { display: none; }
 #settings, #settings *, #search, #search *, dialog, dialog * { font-size: 14px; }
 
 .setting-actions { display: flex; flex-wrap: wrap; gap: .375rem; }
-#data-folder-path { margin: 0 0 .25rem; overflow-wrap: anywhere; }
+#data-folder-path, #settings-status { margin: 0 0 .25rem; overflow-wrap: anywhere; }
 #search { padding: .75rem 1rem; }
 #search-query { display: block; width: 100%; padding: .35rem .55rem; border: 1px solid var(--line-strong); border-radius: .3rem; background: var(--paper); color: var(--ink); }
 #search-query:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -136,3 +136,15 @@ dialog p:empty { display: none; }
 #search-results strong { display: block; font-weight: 600; }
 #search-results span { display: block; color: var(--ink-muted); }
 #search-results mark { background: #ffe88f; color: var(--ink); }
+
+/* PDF에는 제목과 본문만 넣습니다. 화면 높이에 묶이지 않고 페이지를 넘겨 이어집니다. */
+@media print {
+  html, body, #app, .workspace, .editor-area, #preview { height: auto !important; overflow: visible !important; display: block; }
+  .note-header { background: none; border: none; padding: 0 0 .5rem; }
+  .note-actions, .modes, .format-toolbar, .note-bar, .copy-code, dialog { display: none !important; }
+  h1 { white-space: normal; overflow: visible; }
+  .preview { padding: 0; }
+  .preview > * { max-width: none; }
+  .preview pre { white-space: pre-wrap; break-inside: avoid; }
+  .preview pre code { white-space: pre-wrap; }
+}

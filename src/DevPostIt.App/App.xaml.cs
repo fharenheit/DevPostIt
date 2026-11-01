@@ -13,6 +13,8 @@ public partial class App : System.Windows.Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        // 업데이트 전에 새 exe가 이 PC에서 실행되는지 확인합니다. 창과 데이터는 건드리지 않습니다.
+        if (e.Args.Contains("--update-self-test")) { Shutdown(0); return; }
         try
         {
             var configured = Environment.GetEnvironmentVariable("DEVPOSTIT_DATA_DIR");
@@ -20,6 +22,8 @@ public partial class App : System.Windows.Application
             // 시험용 데이터 폴더를 지정하면 앱 상태도 그 안에 두어 사용자 설정과 섞이지 않게 합니다.
             var store = new AppSettingsStore(configured is null ? System.IO.Path.Combine(local, "DevPostIt", "app-settings.json") : System.IO.Path.Combine(configured, ".hunmin", "app-settings.json"));
             var root = configured ?? await ResolveDataRootAsync(store, local);
+            var previousData = await Task.Run(() => NoteBackup.ApplyPending(root));
+            if (previousData is not null) System.Windows.MessageBox.Show($"백업에서 복원했습니다.\n복원 전 데이터는 아래 폴더에 남아 있습니다.\n{previousData}", "백업에서 복원", MessageBoxButton.OK, MessageBoxImage.Information);
             workspace = await Task.Run(() => NoteWorkspace.OpenAsync(root, CancellationToken.None));
             var manager = new DesktopNoteManager(workspace, null, null, store, configured is null);
             tray = new TrayService(manager, workspace, Dispatcher);
@@ -32,6 +36,7 @@ public partial class App : System.Windows.Application
             };
             workspace.StartWatching();
             manager.RestoreSession();
+            manager.StartUpdateChecks();
         }
         catch (Exception error)
         {

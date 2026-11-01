@@ -54,6 +54,7 @@ public partial class MainWindow : Window
     public event Action? NewNoteRequested;
     public event Action? SettingsRequested;
     public event Action? SearchRequested;
+    internal Func<string, string?> PdfPathPicker { get; set; } = PickPdfPath;
     public event Action<string, bool>? AppearanceChanged;
     public string NoteColor { get; private set; } = NoteColors.Default;
     public void ApplyAppearance(string color, bool topmost)
@@ -189,6 +190,7 @@ public partial class MainWindow : Window
             else if (result.Message.Type == "note.newRequested") NewNoteRequested?.Invoke();
             else if (result.Message.Type == "window.settingsRequested") SettingsRequested?.Invoke();
             else if (result.Message.Type == "window.searchRequested") SearchRequested?.Invoke();
+            else if (result.Message.Type == "note.exportPdfRequested") await ExportPdfAsync();
             else if (result.Message.Type == "window.appearanceChanged")
             {
                 var color = result.Message.Payload.GetProperty("color").GetString()!;
@@ -219,6 +221,30 @@ public partial class MainWindow : Window
         finally { messages.Release(); }
     }
 
+    private static string? PickPdfPath(string title)
+    {
+        var name = string.Concat(title.Select(character => System.IO.Path.GetInvalidFileNameChars().Contains(character) ? '_' : character)).Trim();
+        var dialog = new Microsoft.Win32.SaveFileDialog { Title = "PDF로 저장", Filter = "PDF 파일 (*.pdf)|*.pdf", FileName = (name.Length == 0 ? "메모" : name) + ".pdf" };
+        return dialog.ShowDialog() == true ? dialog.FileName : null;
+    }
+    // 화면은 페이지가 미리보기로 바꿔 둔 상태입니다. 끝나면 항상 원래 보기로 돌리도록 알립니다.
+    private async Task ExportPdfAsync()
+    {
+        try
+        {
+            var state = await service.GetStateAsync(noteId, CancellationToken.None);
+            if (PdfPathPicker(state.Note.Title) is not { } path) return;
+            var core = EditorView.CoreWebView2;
+            var settings = core.Environment.CreatePrintSettings();
+            settings.ShouldPrintBackgrounds = true;
+            settings.ShouldPrintHeaderAndFooter = false;
+            settings.PageWidth = 8.27; settings.PageHeight = 11.69;
+            settings.MarginTop = settings.MarginBottom = settings.MarginLeft = settings.MarginRight = 0.6;
+            var saved = await core.PrintToPdfAsync(path, settings);
+            Send("note.conflict", new { message = saved ? $"PDF로 저장했습니다: {path}" : "PDF로 저장하지 못했습니다." }, bridge!.Revision);
+        }
+        finally { if (!closed) Send("note.pdfFinished", new { }, bridge!.Revision); }
+    }
     private static byte[]? ClipboardPng()
     {
         if (!System.Windows.Clipboard.ContainsImage() || System.Windows.Clipboard.GetImage() is not { } image) return null;

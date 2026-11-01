@@ -42,13 +42,28 @@ if (host) {
   document.querySelector<HTMLElement>('#start-in-tray-row')!.hidden = false;
   document.querySelector('#open-data-folder')!.addEventListener('click', () => host.postMessage({ protocolVersion: 1, type: 'settings.openDataFolder' }));
   change.addEventListener('click', () => host.postMessage({ protocolVersion: 1, type: 'settings.changeDataFolder' }));
+  const autoUpdate = document.querySelector<HTMLInputElement>('#auto-update')!;
+  const status = document.querySelector<HTMLElement>('#settings-status')!;
+  for (const row of ['#backup-row', '#update-row']) document.querySelector<HTMLElement>(row)!.hidden = false;
+  document.querySelector('#backup')!.addEventListener('click', () => host.postMessage({ protocolVersion: 1, type: 'settings.backup' }));
+  document.querySelector('#restore')!.addEventListener('click', () => host.postMessage({ protocolVersion: 1, type: 'settings.restore' }));
+  document.querySelector('#check-update')!.addEventListener('click', () => host.postMessage({ protocolVersion: 1, type: 'settings.checkUpdate' }));
+  autoUpdate.addEventListener('change', () => host.postMessage({ protocolVersion: 1, type: 'settings.autoUpdate', value: autoUpdate.checked }));
   startInTray.addEventListener('change', () => host.postMessage({ protocolVersion: 1, type: 'settings.startInTray', value: startInTray.checked }));
   host.addEventListener('message', event => {
-    const data = event.data as { type?: unknown; dataFolder?: unknown; pendingFolder?: unknown; startInTray?: unknown; canChangeFolder?: unknown } | null;
+    const data = event.data as { type?: unknown; message?: unknown; dataFolder?: unknown; pendingFolder?: unknown; startInTray?: unknown; canChangeFolder?: unknown; autoUpdate?: unknown; canUpdate?: unknown; version?: unknown } | null;
+    if (data?.type === 'settings.status' && typeof data.message === 'string') {
+      status.hidden = false;
+      status.textContent = data.message;
+      return;
+    }
     if (data?.type !== 'settings.state' || typeof data.dataFolder !== 'string') return;
     path.hidden = false;
     path.textContent = typeof data.pendingFolder === 'string' ? `다음 실행부터 사용: ${data.pendingFolder}` : data.dataFolder;
     startInTray.checked = data.startInTray === true;
     change.hidden = data.canChangeFolder !== true;
+    autoUpdate.checked = data.autoUpdate !== false;
+    document.querySelector<HTMLElement>('#auto-update-row')!.hidden = data.canUpdate !== true;
+    if (typeof data.version === 'string') document.querySelector('#app-version')!.textContent = `버전 ${data.version}`;
   });
 }

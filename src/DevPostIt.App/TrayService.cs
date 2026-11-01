@@ -20,6 +20,7 @@ public sealed class TrayService : IDisposable
         void Run(Func<Task> action) => dispatcher.BeginInvoke(new Action(() => _ = DesktopNoteManager.RunAsync(action)));
         tray = new Forms.NotifyIcon { Text = "메모장", Icon = icon, ContextMenuStrip = menu, Visible = true };
         tray.MouseClick += (_, e) => { if (e.Button == Forms.MouseButtons.Left) Run(manager.CreateAsync); };
+        manager.UpdateFound += update => dispatcher.BeginInvoke(new Action(() => tray.ShowBalloonTip(5000, "메모", $"새 버전 {update.Version}이 있습니다. 트레이 메뉴에서 설치할 수 있습니다.", Forms.ToolTipIcon.Info)));
         menu.Opening += (_, _) =>
         {
             foreach (var old in menu.Items.Cast<Forms.ToolStripItem>().ToArray()) old.Dispose();
@@ -37,6 +38,11 @@ public sealed class TrayService : IDisposable
             menu.Items.Add(notes);
             menu.Items.Add(TrashMenu(manager, workspace, Run));
             menu.Items.Add("설정", null, (_, _) => manager.ShowSettings());
+            if (manager.AvailableUpdate is { } update) menu.Items.Add($"업데이트 설치 ({update.Version})", null, (_, _) =>
+            {
+                if (MessageBox.Show($"버전 {update.Version}을 내려받아 설치하고 앱을 다시 시작합니다.\n이 파일은 코드 서명이 없으며 GitHub 릴리즈의 해시로 확인합니다.\n\n계속할까요?", "업데이트", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) == MessageBoxResult.Yes)
+                    Run(manager.InstallUpdateAsync);
+            });
             menu.Items.Add(new Forms.ToolStripSeparator());
             menu.Items.Add("모두 표시", null, (_, _) => manager.ShowAll());
             menu.Items.Add("모두 접기", null, (_, _) => manager.CollapseAll());

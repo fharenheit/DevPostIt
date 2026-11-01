@@ -203,6 +203,28 @@ public class EditorBridgeTests
     }
 
     [Fact]
+    public void BackupAndUpdateRequestsCarryNoPathAndNeedSettingsPage()
+    {
+        Assert.True(SettingsMessage.IsBackup("""{"protocolVersion":1,"type":"settings.backup"}""", EditorOrigin.SettingsPage));
+        Assert.True(SettingsMessage.IsRestore("""{"protocolVersion":1,"type":"settings.restore"}""", EditorOrigin.SettingsPage));
+        Assert.True(SettingsMessage.IsCheckUpdate("""{"protocolVersion":1,"type":"settings.checkUpdate"}""", EditorOrigin.SettingsPage));
+        Assert.False(SettingsMessage.IsRestore("""{"protocolVersion":1,"type":"settings.restore","path":"C:\\a.zip"}""", EditorOrigin.SettingsPage));
+        Assert.False(SettingsMessage.IsBackup("""{"protocolVersion":1,"type":"settings.backup"}""", EditorOrigin.Page));
+        Assert.True(SettingsMessage.TryReadAutoUpdate("""{"protocolVersion":1,"type":"settings.autoUpdate","value":false}""", EditorOrigin.SettingsPage, out var value));
+        Assert.False(value);
+        Assert.False(SettingsMessage.TryReadAutoUpdate("""{"protocolVersion":1,"type":"settings.autoUpdate","value":1}""", EditorOrigin.SettingsPage, out _));
+    }
+
+    [Fact]
+    public async Task PdfRequestCarriesNoPath()
+    {
+        var bridge = new EditorBridge(Id, 7);
+        var request = Change(7) with { Type = "note.exportPdfRequested", Payload = JsonSerializer.SerializeToElement(new { }) };
+        Assert.Null(await bridge.HandleAsync(request, default));
+        await Assert.ThrowsAsync<EditorProtocolException>(() => bridge.HandleAsync(request with { Payload = JsonSerializer.SerializeToElement(new { path = "C:\\a.pdf" }) }, default));
+    }
+
+    [Fact]
     public void AssetsStayOnTrustedOrigin()
     {
         Assert.True(EditorOrigin.IsLocalResource("https://devpostit.local/assets/editor.worker.js"));

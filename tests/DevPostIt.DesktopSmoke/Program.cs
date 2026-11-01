@@ -136,6 +136,27 @@ internal static class Program
             ((Button)icon.Content).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Check(first.IsVisible && !application.Windows.OfType<CollapsedNoteWindow>().Any(), "아이콘 클릭 복원");
         }
+        // 아이콘은 사용자가 옮기기 전까지 마지막 위치를 유지하고 창 이동을 따라가지 않습니다.
+        async Task<CollapsedNoteWindow> CollapseFirstAsync()
+        {
+            first.WindowState = WindowState.Minimized;
+            await UntilAsync(() => Task.FromResult(application.Windows.OfType<CollapsedNoteWindow>().Count() == 1));
+            return application.Windows.OfType<CollapsedNoteWindow>().Single();
+        }
+        void RestoreFirst(CollapsedNoteWindow target) => ((Button)target.Content).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        var remembered = await CollapseFirstAsync();
+        var (rememberedLeft, rememberedTop) = (remembered.Left, remembered.Top);
+        RestoreFirst(remembered);
+        first.Left += 150; first.Top += 90;
+        var afterWindowMove = await CollapseFirstAsync();
+        Check(afterWindowMove.Left == rememberedLeft && afterWindowMove.Top == rememberedTop, "창을 옮겨도 아이콘은 마지막 위치 유지");
+        afterWindowMove.Left = rememberedLeft + 40; afterWindowMove.Top = rememberedTop + 30;
+        await application.Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.ContextIdle);
+        RestoreFirst(afterWindowMove);
+        first.Left -= 150; first.Top -= 90;
+        var afterIconMove = await CollapseFirstAsync();
+        Check(afterIconMove.Left == rememberedLeft + 40 && afterIconMove.Top == rememberedTop + 30, "아이콘을 옮기면 그 위치를 유지");
+        RestoreFirst(afterIconMove);
         tray.Menu.Show(new System.Drawing.Point(120, 120));
         Check(tray.Menu.Items.OfType<Forms.ToolStripMenuItem>().Any(item => item.Text == "메모 목록"), "트레이 메모 목록");
         tray.Menu.Items.OfType<Forms.ToolStripMenuItem>().Single(item => item.Text == "설정").PerformClick();
@@ -209,6 +230,30 @@ internal static class Program
         Check(await restored.RequestCloseAsync(), "복원한 메모 창 닫기");
         manager.ShowSearch();
         var searchWindow = application.Windows.OfType<SearchWindow>().Single();
+        // 실제 WebView2의 PDF 저장과 설정 창의 전체 백업을 파일 결과로 확인합니다.
+        var pdfWindow = manager.ShowNote(second.NoteId)!;
+        await ReadyAsync(pdfWindow);
+        var pdfPath = Path.Combine(root, "note.pdf");
+        pdfWindow.PdfPathPicker = _ => pdfPath;
+        var pdfEditor = (WebView2)pdfWindow.FindName("EditorView");
+        await pdfEditor.ExecuteScriptAsync("document.querySelector('#save-pdf').click()");
+        await UntilAsync(async () => File.Exists(pdfPath) && await pdfEditor.ExecuteScriptAsync("document.querySelector('#save-pdf').disabled") == "false");
+        using (var pdf = File.OpenRead(pdfPath))
+        {
+            var header = new byte[4];
+            pdf.ReadExactly(header);
+            Check(System.Text.Encoding.ASCII.GetString(header) == "%PDF" && pdf.Length > 500, "PDF 파일 저장");
+        }
+        Check(await pdfWindow.RequestCloseAsync(), "PDF 저장 후 메모 닫기");
+        manager.ShowSettings();
+        var backupSettings = application.Windows.OfType<SettingsWindow>().Single();
+        await UntilAsync(async () => backupSettings.View.CoreWebView2 is not null && await backupSettings.View.ExecuteScriptAsync("Boolean(document.querySelector('#backup'))") == "true");
+        var backupPath = Path.Combine(root, "backup.zip");
+        backupSettings.BackupPathPicker = () => backupPath;
+        await backupSettings.View.ExecuteScriptAsync("document.querySelector('#backup').click()");
+        await UntilAsync(() => Task.FromResult(File.Exists(backupPath)));
+        Check(backupSettings.Icon is not null, "설정 창 유지");
+        backupSettings.Close();
         await UntilAsync(async () => searchWindow.View.CoreWebView2 is not null && await searchWindow.View.ExecuteScriptAsync("document.querySelectorAll('#search-results button').length") != "0");
         await searchWindow.View.ExecuteScriptAsync("document.querySelector('#search-results button').click()");
         await UntilAsync(() => Task.FromResult(application.Windows.OfType<MainWindow>().Any()));

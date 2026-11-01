@@ -7,6 +7,7 @@ import './style.css';
 
 declare global { interface Window { hunminEditor: Editor } }
 const colorNames: Record<string, string> = { yellow: '노랑', green: '초록', blue: '파랑', pink: '분홍', purple: '보라', gray: '회색' };
+const pdfIcon = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2v8M5 7l3 3 3-3M3 13h10"/></svg>';
 const pinIcon = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 2h4l-.5 5 2 2.5h-7l2-2.5zM8 9.5V14"/></svg>';
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <section class="workspace" aria-label="Markdown 편집기">
@@ -14,6 +15,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
       <div class="document-heading"><h1 title="더블클릭하면 이름을 변경합니다">나의 첫 메모</h1></div>
       <div class="modes" role="group" aria-label="보기 방식"><button id="source-mode" aria-pressed="true">소스 편집</button><button id="preview-mode" aria-pressed="false">미리보기</button></div>
       <div class="note-actions">
+        <button type="button" id="save-pdf" aria-label="PDF로 저장" title="PDF로 저장">${pdfIcon}</button>
         <button type="button" id="pin" aria-pressed="false" aria-label="항상 위" title="항상 위">${pinIcon}</button>
         <button type="button" id="note-color" aria-label="메모 색상" title="메모 색상" aria-expanded="false"><span class="swatch"></span></button>
         <div id="color-menu" role="group" aria-label="메모 색상 선택" hidden>${noteColors.map(color => `<button type="button" data-color="${color}" aria-label="${colorNames[color]}" aria-pressed="false" title="${colorNames[color]}"><span class="swatch"></span></button>`).join('')}</div>
@@ -152,3 +154,20 @@ window.addEventListener('devpostit-appearance', event => {
   renderAppearance();
 });
 renderAppearance();
+
+const savePdf = document.querySelector<HTMLButtonElement>('#save-pdf')!;
+let modeBeforePdf: 'source' | 'preview' | null = null;
+savePdf.addEventListener('click', async () => {
+  if (!connection) { document.querySelector('#host-status')!.textContent = 'PDF 저장은 앱에서 사용할 수 있습니다.'; return; }
+  if (modeBeforePdf) return;
+  const previous = editor.getMode();
+  if (!await editor.renderForPrint()) return;
+  modeBeforePdf = previous;
+  savePdf.disabled = true;
+  connection.command('note.exportPdfRequested');
+});
+window.addEventListener('devpostit-pdf-finished', () => {
+  if (modeBeforePdf) editor.setMode(modeBeforePdf);
+  modeBeforePdf = null;
+  savePdf.disabled = false;
+});

@@ -91,6 +91,17 @@ public sealed class NoteWorkspace : IAsyncDisposable
         await Service.DeleteAsync(id, cancellationToken);
         lock (notesGate) { deleted.Add(id); notes.TryRemove(id, out _); }
     }
+    // 백업 전에 열린 메모를 파일에 맞춥니다. 저장하지 못한 입력은 복구 기록으로 백업에 들어갑니다.
+    public async Task FlushOpenNotesAsync(CancellationToken cancellationToken)
+    {
+        foreach (var note in Notes)
+        {
+            if (!Service.IsOpen(note.Id)) continue;
+            try { await Service.FlushAsync(note.Id, cancellationToken); }
+            catch (Exception error) when (error is not OperationCanceledException) { }
+        }
+    }
+
     public async Task<NoteSearchResult[]> SearchAsync(string query, int limit, CancellationToken cancellationToken)
     {
         var text = query.Trim();

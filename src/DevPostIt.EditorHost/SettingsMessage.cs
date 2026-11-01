@@ -9,10 +9,15 @@ public static class SettingsMessage
     private const int MaxMessageBytes = 1024;
     public static bool IsOpenDataFolder(string json, string source) => Read(json, source, "settings.openDataFolder", 2, _ => true);
     public static bool IsChangeDataFolder(string json, string source) => Read(json, source, "settings.changeDataFolder", 2, _ => true);
-    public static bool TryReadStartInTray(string json, string source, out bool value)
+    public static bool IsBackup(string json, string source) => Read(json, source, "settings.backup", 2, _ => true);
+    public static bool IsRestore(string json, string source) => Read(json, source, "settings.restore", 2, _ => true);
+    public static bool IsCheckUpdate(string json, string source) => Read(json, source, "settings.checkUpdate", 2, _ => true);
+    public static bool TryReadStartInTray(string json, string source, out bool value) => TryReadFlag(json, source, "settings.startInTray", out value);
+    public static bool TryReadAutoUpdate(string json, string source, out bool value) => TryReadFlag(json, source, "settings.autoUpdate", out value);
+    private static bool TryReadFlag(string json, string source, string type, out bool value)
     {
         var read = false;
-        var accepted = Read(json, source, "settings.startInTray", 3, root =>
+        var accepted = Read(json, source, type, 3, root =>
         {
             if (!root.TryGetProperty("value", out var item) || item.ValueKind is not (JsonValueKind.True or JsonValueKind.False)) return false;
             read = item.GetBoolean();

@@ -206,3 +206,64 @@ test('설정 페이지는 앱이 보낸 상태를 표시하고 경로 없이 요
   await page.getByLabel('트레이로만 시작').uncheck();
   expect((await sent(page)).at(-1)).toEqual({ protocolVersion: 1, type: 'settings.startInTray', value: false });
 });
+
+test('PDF 저장은 미리보기로 바꿔 요청하고 끝나면 원래 보기로 돌아온다', async ({ page }) => {
+  await hosted(page);
+  await send(page, 'note.load', 7, { markdown: '# 제목\n\n본문' });
+  await page.getByRole('button', { name: 'PDF로 저장', exact: true }).click();
+  await expect.poll(async () => (await sent(page)).at(-1)?.type).toBe('note.exportPdfRequested');
+  await expect(page.locator('#preview h1')).toHaveText('제목');
+  await expect(page.getByRole('button', { name: 'PDF로 저장', exact: true })).toBeDisabled();
+  await send(page, 'note.pdfFinished', 7, {});
+  await expect(page.locator('#source-mode')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('button', { name: 'PDF로 저장', exact: true })).toBeEnabled();
+  expect((await draft(page)).dirty).toBe(false);
+});
+
+test('PDF 저장 후에도 미리보기에서 시작했으면 미리보기를 유지한다', async ({ page }) => {
+  await hosted(page);
+  await send(page, 'note.load', 7, { markdown: '본문' });
+  await mode(page, 'preview');
+  await page.getByRole('button', { name: 'PDF로 저장', exact: true }).click();
+  await expect.poll(async () => (await sent(page)).at(-1)?.type).toBe('note.exportPdfRequested');
+  await send(page, 'note.pdfFinished', 7, {});
+  await expect(page.locator('#preview-mode')).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('인쇄 화면은 제목과 본문만 남기고 긴 문서를 자르지 않는다', async ({ page }) => {
+  const body = Array.from({ length: 200 }, (_, index) => `문단 ${index}`).join('\n\n');
+  await openEditor(page, `# 긴 문서\n\n${body}\n\n\`\`\`ts\nconst a = 1;\n\`\`\`\n`);
+  await mode(page, 'preview');
+  await page.emulateMedia({ media: 'print' });
+  for (const selector of ['.note-actions', '.modes', '.format-toolbar', '.note-bar', '.copy-code']) await expect(page.locator(selector).first()).toBeHidden();
+  await expect(page.locator('h1').first()).toBeVisible();
+  const height = await page.evaluate(() => document.documentElement.scrollHeight);
+  expect(height).toBeGreaterThan(3000);
+  const pdf = await page.pdf({ printBackground: true });
+  expect(pdf.subarray(0, 4).toString()).toBe('%PDF');
+});
+
+test('설정 페이지의 백업·복원·업데이트 요청에는 경로가 없다', async ({ page }) => {
+  await page.addInitScript(() => {
+    const messages: unknown[] = [];
+    let receive: ((event: { data: unknown }) => void) | undefined;
+    Object.assign(window, {
+      chrome: { webview: { postMessage: (message: unknown) => messages.push(message), addEventListener: (_type: string, handler: typeof receive) => { receive = handler; } } },
+      hostMessages: messages,
+      fromHost: (message: unknown) => receive?.({ data: message }),
+    });
+  });
+  await page.goto('/settings.html');
+  await page.evaluate(() => (window as any).fromHost({ type: 'settings.state', dataFolder: 'C:\\data', startInTray: false, canChangeFolder: true, autoUpdate: true, canUpdate: true, version: '0.1.0' }));
+  await expect(page.locator('#app-version')).toHaveText('버전 0.1.0');
+  await page.getByRole('button', { name: '백업 만들기', exact: true }).click();
+  expect((await sent(page)).at(-1)).toEqual({ protocolVersion: 1, type: 'settings.backup' });
+  await page.getByRole('button', { name: '복원', exact: true }).click();
+  expect((await sent(page)).at(-1)).toEqual({ protocolVersion: 1, type: 'settings.restore' });
+  await page.getByRole('button', { name: '지금 확인', exact: true }).click();
+  expect((await sent(page)).at(-1)).toEqual({ protocolVersion: 1, type: 'settings.checkUpdate' });
+  await page.getByLabel('자동으로 업데이트 확인').uncheck();
+  expect((await sent(page)).at(-1)).toEqual({ protocolVersion: 1, type: 'settings.autoUpdate', value: false });
+  await page.evaluate(() => (window as any).fromHost({ type: 'settings.status', message: '메모 3개를 백업했습니다' }));
+  await expect(page.locator('#settings-status')).toHaveText('메모 3개를 백업했습니다');
+});

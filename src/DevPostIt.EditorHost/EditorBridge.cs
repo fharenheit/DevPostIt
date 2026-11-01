@@ -33,7 +33,7 @@ public sealed class EditorBridge(Guid noteId, long revision)
             return Task.FromResult<NoteChange?>(null);
         }
         if (message.NoteId != noteId || noteId == Guid.Empty) throw new EditorProtocolException("잘못된 메모 ID입니다.");
-        if (message.Type is "window.collapseRequested" or "note.newRequested" or "window.settingsRequested" or "window.searchRequested" or "note.imagePasteRequested")
+        if (message.Type is "window.collapseRequested" or "note.newRequested" or "window.settingsRequested" or "window.searchRequested" or "note.imagePasteRequested" or "note.exportPdfRequested")
         {
             Fields(message.Payload);
             if (message.Revision != Revision) throw new EditorProtocolException("창 요청 리비전이 일치하지 않습니다.");
