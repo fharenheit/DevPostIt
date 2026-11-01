@@ -15,6 +15,7 @@
 
 1. `docs/development/HANDOFF.md`: 현재 상태, 최근 검증, 확인하지 못한 항목, 다음 후보.
 2. `docs/development/DESIGN.md`: 설계 결정과 이유.
+3. `docs/development/MAC.md`: macOS 지원 설계안(구현 전). Mac 관련 작업일 때 읽습니다.
 
 예전 계획과 작업별 기록은 Git 기록에 있습니다.
 
