@@ -51,3 +51,6 @@ footer { padding: 11px 22px; flex-shrink: 0; border-top: 1px solid #e6ebe8; disp
 .font-controls, .modes button { font-size: 1rem; }
 .document-heading p { font-size: .875rem; }
 footer { font-size: .8rem; }
+ .code-tools { display: flex; align-items: center; flex-wrap: wrap; gap: .6rem; padding: .5rem 1.5rem; border-bottom: 1px solid #e0e7e4; }
+ .code-tools label { display: flex; align-items: center; gap: .4rem; }
+ #format-status { font-size: .8rem; color: #53675f; }

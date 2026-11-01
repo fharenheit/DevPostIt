@@ -2,6 +2,7 @@ import * as monaco from 'monaco-editor/editor/editor.api';
 import 'monaco-editor/languages/definitions/markdown/register';
 import EditorWorker from 'monaco-editor/editor/editor.worker?worker';
 import { renderMarkdown } from './markdown';
+import { formatBlock, CodeBlockError } from './code-format';
 
 globalThis.MonacoEnvironment = { getWorker: () => new EditorWorker() };
 
@@ -89,6 +90,20 @@ export class Editor {
   }
 
   getDraft(): Draft { return { ...this.draft }; }
+  async formatCodeBlock(language?: string): Promise<string> {
+    if (!this.model || this.mode !== 'source' || this.composing) return '소스 편집에서 조합을 마친 뒤 실행해 주세요.';
+    const model = this.model;
+    const version = model.getVersionId();
+    try {
+      const edit = await formatBlock(model.getValue(), (this.view.getPosition()?.lineNumber ?? 1) - 1, language);
+      if (this.model !== model || model.isDisposed() || model.getVersionId() !== version || this.composing || this.mode !== 'source') return '편집 내용이 바뀌어 정리를 취소했습니다.';
+      const start = model.getPositionAt(edit.start), end = model.getPositionAt(edit.end);
+      this.view.pushUndoStop();
+      this.view.executeEdits('format-code', [{ range: new monaco.Range(start.lineNumber, start.column, end.lineNumber, end.column), text: edit.text }]);
+      this.view.pushUndoStop();
+      return '코드를 정리했습니다.';
+    } catch (error) { return error instanceof CodeBlockError ? error.message : '정리하지 못했습니다. 블록의 언어·문법과 닫는 울타리를 확인해 주세요.'; }
+  }
   isComposing(): boolean { return this.composing; }
   markSaved(revision: number): void {
     if (revision !== this.draft.revision || !this.model || this.composing) return;
