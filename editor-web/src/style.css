@@ -1,5 +1,12 @@
-@font-face { font-family: 'D2 Ligature'; src: url('/fonts/D2Codingligature-Regular.ttf') format('truetype'); font-style: normal; font-weight: 400; font-display: swap; }
-@font-face { font-family: 'JetBrains Mono'; src: url('/fonts/JetBrainsMono-Regular.woff2') format('woff2'); font-style: normal; font-weight: 400; font-display: swap; }
+@font-face { font-family: 'D2 Ligature'; src: url('/fonts/D2Codingligature-Regular.ttf') format('truetype'); font-style: normal; font-weight: 400; font-display: block; }
+@font-face { font-family: 'D2 Ligature'; src: url('/fonts/D2Codingligature-Bold.ttf') format('truetype'); font-style: normal; font-weight: 700; font-display: block; }
+@font-face { font-family: 'JetBrains Mono'; src: url('/fonts/JetBrainsMono-Regular.woff2') format('woff2'); font-style: normal; font-weight: 400; font-display: block; }
+@font-face { font-family: 'JetBrains Mono'; src: url('/fonts/JetBrainsMono-Bold.woff2') format('woff2'); font-style: normal; font-weight: 700; font-display: block; }
+/* 라틴 글자 폭이 D2와 다른 글꼴에서 한글이 정확히 2칸이 되도록 크기를 맞춥니다. */
+@font-face { font-family: 'D2 Hangul 120'; src: url('/fonts/D2Codingligature-Regular.ttf') format('truetype'); font-weight: 400; font-display: block; size-adjust: 120%; unicode-range: U+1100-11FF, U+3130-318F, U+AC00-D7AF; }
+@font-face { font-family: 'D2 Hangul 120'; src: url('/fonts/D2Codingligature-Bold.ttf') format('truetype'); font-weight: 700; font-display: block; size-adjust: 120%; unicode-range: U+1100-11FF, U+3130-318F, U+AC00-D7AF; }
+@font-face { font-family: 'D2 Hangul 110'; src: url('/fonts/D2Codingligature-Regular.ttf') format('truetype'); font-weight: 400; font-display: block; size-adjust: 110%; unicode-range: U+1100-11FF, U+3130-318F, U+AC00-D7AF; }
+@font-face { font-family: 'D2 Hangul 110'; src: url('/fonts/D2Codingligature-Bold.ttf') format('truetype'); font-weight: 700; font-display: block; size-adjust: 110%; unicode-range: U+1100-11FF, U+3130-318F, U+AC00-D7AF; }
 
 /* 간격은 rem을 사용해 설정의 전체 글자 크기를 따릅니다. 색은 트레이·접힌 아이콘의 노란 메모지에 맞춥니다. */
 :root {
@@ -15,8 +22,10 @@
   font-size: 15px;
   color: var(--ink);
   background: var(--paper);
-  font-family: 'Segoe UI', 'Malgun Gothic', sans-serif;
-  font-synthesis: none;
+  font-family: var(--body-font, 'Segoe UI', 'Malgun Gothic', sans-serif);
+  /* 굵은 글꼴은 파일을 쓰고, 기울임 파일은 포함하지 않아 합성합니다. */
+  font-synthesis-weight: none;
+  font-synthesis-style: auto;
 }
 * { box-sizing: border-box; }
 body { margin: 0; }
@@ -69,7 +78,7 @@ h1 { margin: 0; font-size: 1.0625rem; font-weight: 600; letter-spacing: -0.3px; 
 .editor-area { position: relative; flex: 1; min-height: 0; }
 #source, #preview { height: 100%; width: 100%; }
 
-.preview { overflow: auto; padding: 1rem var(--spacing-x) 1.5rem; line-height: 1.7; overflow-wrap: anywhere; color: var(--ink); }
+.preview { overflow: auto; padding: 1rem var(--spacing-x) 1.5rem; line-height: var(--text-line-height, 1.7); overflow-wrap: anywhere; color: var(--ink); }
 /* 넓은 창에서도 한 줄이 너무 길어지지 않게 본문 폭을 제한합니다. */
 .preview > * { max-width: 46rem; margin-inline: auto; }
 .preview h1 { font-size: 1.5rem; white-space: normal; border-bottom: 1px solid var(--line); padding-bottom: .5rem; margin-bottom: 1rem; }
@@ -78,14 +87,14 @@ h1 { margin: 0; font-size: 1.0625rem; font-weight: 600; letter-spacing: -0.3px; 
 .preview p, .preview ul, .preview ol { margin-block: .6rem; }
 .preview ul, .preview ol { padding-left: 1.5rem; }
 .preview pre { position: relative; background: var(--paper-sunken); padding: .75rem 1rem; border-radius: .4rem; overflow-x: auto; }
-.preview code { font-family: 'JetBrains Mono', 'D2 Ligature', monospace; font-size: 0.875rem; }
+.preview code { font-family: var(--code-font, 'D2 Ligature', monospace); font-variant-ligatures: var(--code-ligatures, normal); font-size: 0.875rem; }
 .preview pre code { white-space: pre; }
 .preview blockquote { border-left: 3px solid var(--line-strong); padding-left: .9rem; margin-block: .75rem; color: var(--ink-muted); }
 .preview table { border-collapse: collapse; }
 .preview td, .preview th { border: 1px solid var(--line); padding: .3rem .7rem; }
 .preview input { margin-right: 6px; }
 .preview img { max-width: 100%; height: auto; border-radius: .3rem; }
-.copy-code { position: absolute; top: .35rem; right: .35rem; padding: .1rem .45rem; border: 1px solid var(--line-strong); border-radius: .3rem; background: var(--paper); color: var(--ink); font-size: .8rem; font-family: 'Segoe UI', 'Malgun Gothic', sans-serif; opacity: 0; }
+.copy-code { position: absolute; top: .35rem; right: .35rem; padding: .1rem .45rem; border: 1px solid var(--line-strong); border-radius: .3rem; background: var(--paper); color: var(--ink); font-size: .8rem; font-family: var(--body-font, 'Segoe UI', 'Malgun Gothic', sans-serif); opacity: 0; }
 .preview pre:hover .copy-code, .copy-code:focus-visible { opacity: 1; }
 .preview-link { color: var(--accent); text-decoration: underline; }
 
@@ -125,6 +134,8 @@ dialog p:empty { display: none; }
 #settings, #settings *, #search, #search *, dialog, dialog * { font-size: 14px; }
 
 .setting-actions { display: flex; flex-wrap: wrap; gap: .375rem; }
+#font-sample { margin: .25rem 0 .5rem; padding: .5rem .6rem; border-radius: .3rem; background: var(--paper-sunken); font-family: var(--code-font, 'D2 Ligature', monospace); font-variant-ligatures: var(--code-ligatures, normal); white-space: pre-wrap; overflow-wrap: anywhere; }
+#font-reset-row { display: flex; justify-content: flex-end; padding-bottom: .45rem; }
 #data-folder-path, #settings-status { margin: 0 0 .25rem; overflow-wrap: anywhere; }
 #search { padding: .75rem 1rem; }
 #search-query { display: block; width: 100%; padding: .35rem .55rem; border: 1px solid var(--line-strong); border-radius: .3rem; background: var(--paper); color: var(--ink); }
@@ -139,6 +150,8 @@ dialog p:empty { display: none; }
 
 /* PDF에는 제목과 본문만 넣습니다. 화면 높이에 묶이지 않고 페이지를 넘겨 이어집니다. */
 @media print {
+  /* 전체 글자 크기 설정이 커도 PDF 글자는 일정하게 둡니다. */
+  :root { font-size: 11pt !important; }
   html, body, #app, .workspace, .editor-area, #preview { height: auto !important; overflow: visible !important; display: block; }
   .note-header { background: none; border: none; padding: 0 0 .5rem; }
   .note-actions, .modes, .format-toolbar, .note-bar, .copy-code, dialog { display: none !important; }

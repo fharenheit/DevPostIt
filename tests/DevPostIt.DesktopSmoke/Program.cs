@@ -264,6 +264,7 @@ internal static class Program
         await backupSettings.View.ExecuteScriptAsync("document.querySelector('#backup').click()");
         await UntilAsync(() => Task.FromResult(File.Exists(backupPath)));
         Check(backupSettings.Icon is not null, "설정 창 유지");
+        await UntilAsync(async () => await backupSettings.View.ExecuteScriptAsync("document.querySelectorAll('#body-font option').length > 1") == "true");
         backupSettings.Close();
         await UntilAsync(async () => searchWindow.View.CoreWebView2 is not null && await searchWindow.View.ExecuteScriptAsync("document.querySelectorAll('#search-results button').length") != "0");
         await searchWindow.View.ExecuteScriptAsync("document.querySelector('#search-results button').click()");

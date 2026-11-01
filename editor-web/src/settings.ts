@@ -1,38 +1,70 @@
-import { defaultEditorPreferences, readFontSettings, saveFontSettings, type EditorPreferences, type FontKey } from './fonts';
+import { applyTypography, defaultEditorPreferences, defaultFontSettings, editorTextSize, isSafeFontName, maxEditorSize, maxLineHeight, maxTextSize, minEditorSize, minLineHeight, minTextSize, readFontSettings, saveFontSettings, supportsLigatures, type EditorPreferences, type FontKey } from './fonts';
 import './style.css';
 
 // 설정 창 전용 페이지입니다. 저장하면 같은 프로필의 열린 메모가 storage 이벤트로 반영합니다.
 const fontSelect = document.querySelector<HTMLSelectElement>('#font')!;
+const bodySelect = document.querySelector<HTMLSelectElement>('#body-font')!;
 const ligatures = document.querySelector<HTMLInputElement>('#ligatures')!;
-const smaller = document.querySelector<HTMLButtonElement>('#smaller')!;
-const larger = document.querySelector<HTMLButtonElement>('#larger')!;
-let textSize = 15;
+const button = (id: string) => document.querySelector<HTMLButtonElement>(id)!;
 const editorOptions = Object.keys(defaultEditorPreferences) as (keyof EditorPreferences)[];
 const editorOption = (name: keyof EditorPreferences) => document.querySelector<HTMLInputElement>(`#opt-${name}`)!;
+let settings = readFontSettings();
 
+function addOption(select: HTMLSelectElement, value: string, label: string): void {
+  if (Array.from(select.options).some(option => option.value === value)) return;
+  select.append(new Option(label, value));
+}
 function show(): void {
-  const settings = readFontSettings();
-  textSize = settings.size;
+  settings = readFontSettings();
+  if (settings.font.startsWith('custom:')) addOption(fontSelect, settings.font, settings.font.slice('custom:'.length));
+  if (settings.bodyFont) addOption(bodySelect, settings.bodyFont, settings.bodyFont);
   fontSelect.value = settings.font;
+  bodySelect.value = settings.bodyFont;
   ligatures.checked = settings.ligatures;
   for (const name of editorOptions) editorOption(name).checked = settings.editor[name];
   render();
 }
 function render(): void {
-  document.querySelector('#text-size')!.textContent = String(textSize);
-  smaller.disabled = textSize <= 10;
-  larger.disabled = textSize >= 24;
+  const editorSize = editorTextSize(settings);
+  document.querySelector('#text-size')!.textContent = String(settings.size);
+  document.querySelector('#editor-size')!.textContent = String(editorSize);
+  document.querySelector('#line-height')!.textContent = settings.lineHeight.toFixed(1);
+  button('#smaller').disabled = settings.size <= minTextSize;
+  button('#larger').disabled = settings.size >= maxTextSize;
+  button('#editor-smaller').disabled = editorSize <= minEditorSize;
+  button('#editor-larger').disabled = editorSize >= maxEditorSize;
+  button('#line-smaller').disabled = settings.lineHeight <= minLineHeight;
+  button('#line-larger').disabled = settings.lineHeight >= maxLineHeight;
+  ligatures.disabled = !supportsLigatures(settings.font);
+  ligatures.title = ligatures.disabled ? 'Consolas에는 합자가 없습니다.' : '';
+  applyTypography(settings);
 }
 function save(): void {
-  const editor = Object.fromEntries(editorOptions.map(name => [name, editorOption(name).checked])) as EditorPreferences;
-  saveFontSettings({ font: fontSelect.value as FontKey, ligatures: ligatures.checked, size: textSize, editor });
+  saveFontSettings(settings);
   render();
 }
-fontSelect.addEventListener('change', save);
-ligatures.addEventListener('change', save);
-for (const name of editorOptions) editorOption(name).addEventListener('change', save);
-smaller.addEventListener('click', () => { textSize = Math.max(10, textSize - 1); save(); });
-larger.addEventListener('click', () => { textSize = Math.min(24, textSize + 1); save(); });
+function readControls(): void {
+  settings = {
+    ...settings,
+    font: fontSelect.value as FontKey,
+    bodyFont: bodySelect.value,
+    ligatures: ligatures.checked,
+    editor: Object.fromEntries(editorOptions.map(name => [name, editorOption(name).checked])) as EditorPreferences,
+  };
+  save();
+}
+const stepLineHeight = (delta: number) => Math.round(Math.min(maxLineHeight, Math.max(minLineHeight, settings.lineHeight + delta)) * 10) / 10;
+fontSelect.addEventListener('change', readControls);
+bodySelect.addEventListener('change', readControls);
+ligatures.addEventListener('change', readControls);
+for (const name of editorOptions) editorOption(name).addEventListener('change', readControls);
+button('#smaller').addEventListener('click', () => { settings = { ...settings, size: Math.max(minTextSize, settings.size - 1) }; save(); });
+button('#larger').addEventListener('click', () => { settings = { ...settings, size: Math.min(maxTextSize, settings.size + 1) }; save(); });
+button('#editor-smaller').addEventListener('click', () => { settings = { ...settings, editorSize: Math.max(minEditorSize, editorTextSize(settings) - 1) }; save(); });
+button('#editor-larger').addEventListener('click', () => { settings = { ...settings, editorSize: Math.min(maxEditorSize, editorTextSize(settings) + 1) }; save(); });
+button('#line-smaller').addEventListener('click', () => { settings = { ...settings, lineHeight: stepLineHeight(-0.1) }; save(); });
+button('#line-larger').addEventListener('click', () => { settings = { ...settings, lineHeight: stepLineHeight(0.1) }; save(); });
+button('#font-reset').addEventListener('click', () => { saveFontSettings(defaultFontSettings()); show(); });
 window.addEventListener('storage', show);
 show();
 
@@ -55,7 +87,17 @@ if (host) {
   document.querySelector('#check-update')!.addEventListener('click', () => host.postMessage({ protocolVersion: 1, type: 'settings.checkUpdate' }));
   autoUpdate.addEventListener('change', () => host.postMessage({ protocolVersion: 1, type: 'settings.autoUpdate', value: autoUpdate.checked }));
   startInTray.addEventListener('change', () => host.postMessage({ protocolVersion: 1, type: 'settings.startInTray', value: startInTray.checked }));
+  document.querySelector<HTMLElement>('#body-font-row')!.hidden = false;
   host.addEventListener('message', event => {
+    const fonts = event.data as { type?: unknown; monospace?: unknown; all?: unknown } | null;
+    if (fonts?.type === 'settings.fonts') {
+      const names = (value: unknown) => (Array.isArray(value) ? value : []).filter(isSafeFontName);
+      for (const name of names(fonts.monospace)) addOption(fontSelect, `custom:${name}`, name);
+      for (const name of names(fonts.all)) addOption(bodySelect, name, name);
+      fontSelect.value = settings.font;
+      bodySelect.value = settings.bodyFont;
+      return;
+    }
     const data = event.data as { type?: unknown; message?: unknown; dataFolder?: unknown; pendingFolder?: unknown; startInTray?: unknown; canChangeFolder?: unknown; autoUpdate?: unknown; canUpdate?: unknown; version?: unknown } | null;
     if (data?.type === 'settings.status' && typeof data.message === 'string') {
       status.hidden = false;

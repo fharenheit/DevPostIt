@@ -55,6 +55,7 @@ public partial class MainWindow : Window
     public event Action? SettingsRequested;
     public event Action? SearchRequested;
     internal Func<string, string?> PdfPathPicker { get; set; } = PickPdfPath;
+    internal string? PendingPreferences { get; set; }
     public event Action<string, bool>? AppearanceChanged;
     public string NoteColor { get; private set; } = NoteColors.Default;
     public void ApplyAppearance(string color, bool topmost)
@@ -184,6 +185,11 @@ public partial class MainWindow : Window
                 if (state.Error is not null) Send("note.conflict", new { message = state.Error }, state.Revision);
                 else if (state.HasUnsavedChanges) Send("note.conflict", new { message = "복구 초안을 자동 저장하는 중입니다." }, state.Revision);
                 Send("ui.appearance", new { color = NoteColor, topmost = Topmost }, state.Revision);
+                if (PendingPreferences is { } preferences)
+                {
+                    PendingPreferences = null;
+                    Send("ui.preferences", new { value = preferences }, state.Revision);
+                }
                 Loading.Visibility = Visibility.Collapsed;
             }
             else if (result.Message.Type == "window.collapseRequested") CollapseRequested?.Invoke(this);

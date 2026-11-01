@@ -28,6 +28,7 @@ public sealed class AboutWindow : Window
         Background = new SolidColorBrush(Color.FromRgb(255, 253, 245));
         Foreground = new SolidColorBrush(Color.FromRgb(47, 42, 31));
         FontSize = 14;
+        FontFamily = new System.Windows.Media.FontFamily("Segoe UI, Malgun Gothic");
         SourceInitialized += (_, _) => MainWindow.ApplyTitleBarColors(new WindowInteropHelper(this).Handle);
         var content = new StackPanel { Margin = new Thickness(20) };
         content.Children.Add(new TextBlock { Text = "Post It for Developer", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 2) });

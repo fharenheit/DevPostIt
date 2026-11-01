@@ -46,7 +46,7 @@ public sealed class SettingsWindow : Window
             {
                 var core = await LocalWebView.ConfigureAsync(View, EditorOrigin.IsSettingsPage);
                 core.WebMessageReceived += (_, args) => Receive(core, args.WebMessageAsJson, args.Source);
-                core.NavigationCompleted += (_, _) => SendState(core, null);
+                core.NavigationCompleted += async (_, _) => { SendState(core, null); await SendFontsAsync(core); };
                 core.Navigate(EditorOrigin.SettingsPage);
             }
             catch (Exception error) { Content = new TextBlock { Text = $"설정을 열지 못했습니다.\n{error.Message}", TextWrapping = TextWrapping.Wrap, Margin = new Thickness(16) }; }
@@ -93,7 +93,8 @@ public sealed class SettingsWindow : Window
         SendStatus(core, "백업 중입니다…");
         try
         {
-            var summary = await manager.BackupAsync(path);
+            var saved = await View.ExecuteScriptAsync("localStorage.getItem('devpostit.editor.preferences.v1')");
+            var summary = await manager.BackupAsync(path, JsonSerializer.Deserialize<string?>(saved));
             SendStatus(core, $"메모 {summary.Notes}개를 백업했습니다: {path}");
         }
         catch (Exception error) { SendStatus(core, $"백업하지 못했습니다: {error.Message}"); }
@@ -111,6 +112,11 @@ public sealed class SettingsWindow : Window
     {
         SendStatus(core, "업데이트를 확인하는 중입니다…");
         SendStatus(core, await manager.CheckForUpdateAsync());
+    }
+    private async Task SendFontsAsync(CoreWebView2 core)
+    {
+        var (monospace, all) = await Task.Run(InstalledFonts.Read);
+        if (IsLoaded) core.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "settings.fonts", monospace, all }, Json));
     }
     private void SendStatus(CoreWebView2 core, string message)
     {

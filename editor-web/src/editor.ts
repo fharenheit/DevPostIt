@@ -320,8 +320,8 @@ export class Editor {
     this.draft = { ...this.draft, dirty: false };
     this.notify();
   }
-  setTextSize(size: number): void {
-    this.view.updateOptions({ fontSize: size, lineHeight: Math.round(size * 1.7) });
+  setTextSize(size: number, lineHeight = 1.7): void {
+    this.view.updateOptions({ fontSize: size, lineHeight: Math.round(size * lineHeight) });
     this.view.layout();
   }
   // 원문이 아니라 표시만 바꿉니다. 실패하거나 다른 화면으로 바뀌면 평문 코드 블록을 그대로 둡니다.

@@ -55,6 +55,24 @@ public sealed class BackupAndUpdateTests : IDisposable
     }
 
     [Fact]
+    public async Task BackupCarriesEditorPreferences()
+    {
+        await using (var workspace = await NoteWorkspace.OpenAsync(Root, default))
+        {
+            await workspace.SavePreferencesAsync("""{"font":"jetbrains"}""", default);
+            await workspace.SavePreferencesAsync(new string('x', NoteWorkspace.MaxPreferencesLength + 1), default);
+            await NoteBackup.CreateAsync(Root, Zip, "0.2.0", default);
+        }
+        File.Delete(Path.Combine(Root, ".hunmin", "preferences", "editor.json"));
+        await NoteBackup.PrepareRestoreAsync(Zip, Root, default);
+        NoteBackup.ApplyPending(Root);
+        Assert.Equal("""{"font":"jetbrains"}""", NoteWorkspace.ReadPreferences(Root));
+    }
+
+    [Fact]
+    public void MissingPreferencesReadAsNothing() => Assert.Null(NoteWorkspace.ReadPreferences(Root));
+
+    [Fact]
     public async Task BackupLeavesOutIndexAndLock()
     {
         await CreateBackupAsync();

@@ -1,5 +1,5 @@
 import { Editor } from './editor';
-import { fonts, readFontSettings } from './fonts';
+import { applyTypography, defaultTextSize, editorTextSize, fontStack, maxTextSize, minTextSize, readFontSettings, saveFontSettings } from './fonts';
 import { connectEditor, noteColors, type EditorConnection } from './bridge';
 import { formatToolbarHtml } from './format-toolbar';
 import type { MarkdownAction } from './markdown-format';
@@ -90,16 +90,35 @@ window.addEventListener('keydown', event => {
 });
 
 function applySettings(): void {
-  const { font, ligatures, size, editor: preferences } = readFontSettings();
+  const settings = readFontSettings();
+  const { font, ligatures, size, editor: preferences } = settings;
   editor.setPreferences(preferences);
   document.documentElement.style.fontSize = `${size}px`;
-  editor.setTextSize(size - 2);
-  editor.setFont(fonts[font], ligatures);
-  if (font !== 'system') void document.fonts.load(`16px "${font === 'd2' ? 'D2 Ligature' : 'JetBrains Mono'}"`).then(() => {
+  applyTypography(settings);
+  editor.setTextSize(editorTextSize(settings), settings.lineHeight);
+  editor.setFont(fontStack(font), ligatures);
+  const faces = font === 'd2' ? ['D2 Ligature'] : font === 'jetbrains' ? ['JetBrains Mono', 'D2 Hangul 120'] : font === 'system' ? ['D2 Hangul 110'] : ['D2 Ligature'];
+  void Promise.all(faces.map(face => document.fonts.load(`16px "${face}"`, 'a가'))).then(() => {
     const latest = readFontSettings();
-    editor.setFont(fonts[latest.font], latest.ligatures);
+    editor.setFont(fontStack(latest.font), latest.ligatures);
   });
 }
+function changeTextSize(next: (size: number) => number): void {
+  const settings = readFontSettings();
+  saveFontSettings({ ...settings, size: Math.min(maxTextSize, Math.max(minTextSize, next(settings.size))) });
+  applySettings();
+}
+// 전체 글자 크기 단축키입니다. 저장하면 다른 메모 창과 설정 창도 storage 이벤트로 따라옵니다.
+window.addEventListener('keydown', event => {
+  if (!event.ctrlKey || event.altKey || event.shiftKey && event.key !== '+') return;
+  if (event.key === '=' || event.key === '+') changeTextSize(size => size + 1);
+  else if (event.key === '-') changeTextSize(size => size - 1);
+  else if (event.key === '0') changeTextSize(() => defaultTextSize);
+  else return;
+  event.preventDefault();
+  event.stopPropagation();
+}, true);
+window.addEventListener('devpostit-preferences', applySettings);
 window.addEventListener('storage', applySettings);
 applySettings();
 editor.load('welcome', '# 오늘의 메모\n\n작은 생각도, 잊기 전에 남겨 두세요.\n\n## 오늘 할 일\n\n- [ ] 아이디어 정리하기\n- [x] 첫 메모 시작하기\n\n> 원문은 그대로, 보기만 편하게.\n\n```ts\nconst note = "안녕하세요";\nconst ready = count >= 1;\n```\n', 0);

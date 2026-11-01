@@ -5,8 +5,14 @@
   <main id="settings" aria-label="설정">
     <p>글꼴과 크기는 모든 메모에 바로 적용되며 다음 실행에도 유지됩니다.</p>
     <div class="setting-row"><span>글자 크기</span><div class="text-size" role="group" aria-label="전체 글자 크기"><button id="smaller" aria-label="글자 작게" title="모든 글자를 한 단계 작게">−</button><output id="text-size" aria-label="기준 글자 크기">15</output><button id="larger" aria-label="글자 크게" title="모든 글자를 한 단계 크게">+</button></div></div>
-    <label class="setting-row"><span>편집 글꼴</span><select id="font"><option value="d2">D2 Ligature</option><option value="jetbrains">JetBrains Mono</option><option value="system">시스템 고정폭</option></select></label>
+    <div class="setting-row"><span>편집기 글자 크기</span><div class="text-size" role="group" aria-label="편집기 글자 크기"><button id="editor-smaller" type="button" aria-label="편집기 글자 작게">−</button><output id="editor-size" aria-label="편집기 글자 크기 값">13</output><button id="editor-larger" type="button" aria-label="편집기 글자 크게">+</button></div></div>
+    <div class="setting-row"><span>줄 간격</span><div class="text-size" role="group" aria-label="줄 간격"><button id="line-smaller" type="button" aria-label="줄 간격 좁게">−</button><output id="line-height" aria-label="줄 간격 값">1.7</output><button id="line-larger" type="button" aria-label="줄 간격 넓게">+</button></div></div>
+    <label class="setting-row"><span>편집 글꼴</span><select id="font"><option value="d2">D2 Ligature</option><option value="jetbrains">JetBrains Mono</option><option value="system">Consolas</option></select></label>
     <label class="setting-row"><span>합자 사용</span><input id="ligatures" type="checkbox" checked></label>
+    <label class="setting-row" id="body-font-row" hidden><span>본문 글꼴</span><select id="body-font"><option value="">기본</option></select></label>
+    <pre id="font-sample" aria-label="글꼴 미리보기">가나다라 ABC abc 123
+=&gt; != === -&gt; // 주석</pre>
+    <div id="font-reset-row"><button id="font-reset" type="button" title="글꼴과 편집기 표시 설정을 처음 상태로 되돌립니다">기본값으로</button></div>
     <label class="setting-row"><span>줄 번호</span><input id="opt-lineNumbers" type="checkbox"></label>
     <label class="setting-row"><span>자동 줄바꿈</span><input id="opt-wordWrap" type="checkbox"></label>
     <label class="setting-row"><span>미니맵</span><input id="opt-minimap" type="checkbox"></label>

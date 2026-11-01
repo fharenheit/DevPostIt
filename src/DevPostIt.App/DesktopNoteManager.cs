@@ -24,6 +24,8 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
     private DispatcherTimer? updateTimer;
     internal Action Relauncher { get; set; } = () => { if (Environment.ProcessPath is { } path) Process.Start(new ProcessStartInfo(path) { UseShellExecute = true })?.Dispose(); };
     internal AppUpdate? AvailableUpdate { get; private set; }
+    // 복원한 글꼴 설정입니다. 처음 열리는 메모 창이 WebView 저장소에 적용합니다.
+    internal string? PendingPreferences { get; set; }
     internal string UpdateStatus { get; private set; } = "";
     public event Action<AppUpdate>? UpdateFound;
     internal static Version CurrentVersion => System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version ?? new Version(0, 0);
@@ -38,6 +40,8 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
         {
             window = new MainWindow(workspace, id);
             var state = settingsStore.Note(id);
+            window.PendingPreferences = PendingPreferences;
+            PendingPreferences = null;
             window.ApplyAppearance(NoteColors.IsKnown(state.Color) ? state.Color : NoteColors.Default, state.Topmost);
             ApplyPlacement(window, state);
             windows[id] = window;
@@ -126,8 +130,9 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
         if (search.WindowState == WindowState.Minimized) search.WindowState = WindowState.Normal;
         search.Activate();
     }
-    public async Task<BackupSummary> BackupAsync(string destination)
+    public async Task<BackupSummary> BackupAsync(string destination, string? preferences = null)
     {
+        await workspace.SavePreferencesAsync(preferences, CancellationToken.None);
         await workspace.FlushOpenNotesAsync(CancellationToken.None);
         return await Task.Run(() => NoteBackup.CreateAsync(workspace.Root, destination, CurrentVersion.ToString(3), CancellationToken.None));
     }

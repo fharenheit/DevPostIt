@@ -43,6 +43,10 @@ Windows 제목 표시줄에는 항상 ‘Post It for Developer’를 표시합�
 
 Claude에서도 이어서 개발할 수 있도록 [공통 작업 지침](AGENTS.md), [Claude 진입 문서](CLAUDE.md), [현재 상태 인계](docs/development/HANDOFF.md)를 제공합니다. 시작 방법은 [Claude 작업 안내](docs/development/CLAUDE_SETUP.md)를 참고하세요.
 
+## 글꼴
+
+설정에서 편집 글꼴(D2 Ligature, JetBrains Mono, Consolas, 설치된 고정폭 글꼴), 본문 글꼴, 전체 글자 크기, 편집기 글자 크기, 줄 간격, 합자를 바꾸고 예시로 바로 확인합니다. ‘기본값으로’는 글꼴과 편집기 표시 설정을 처음 상태로 되돌립니다. 메모에서는 Ctrl+=, Ctrl+-, Ctrl+0으로 전체 크기를 바꿉니다. 글꼴 설정은 전체 백업에 함께 들어가고 복원 때 적용됩니다.
+
 ## 편집 기능
 
 Monaco의 편집 기능을 사용합니다. 현재 줄 강조, 찾기(Ctrl+F)와 바꾸기(Ctrl+H), 줄 이동(Ctrl+G), 명령 팔레트(F1), 여러 커서(Ctrl+D, Alt+클릭), 줄 이동·복제(Alt/Shift+Alt+방향키), 주석(Ctrl+/), 구역 접기(Ctrl+Shift+[ ]), 자동 완성(Ctrl+Space), 오른쪽 클릭 메뉴가 있습니다. 설정에서 줄 번호, 자동 줄바꿈, 미니맵, 공백 문자, 괄호 색, 구역 제목 고정을 켜고 끕니다.

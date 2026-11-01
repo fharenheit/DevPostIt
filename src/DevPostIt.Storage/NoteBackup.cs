@@ -13,7 +13,7 @@ public static class NoteBackup
     private const int FormatVersion = 1, MaxFiles = 100_000;
     private const long MaxBytes = 4L * 1024 * 1024 * 1024;
     private const string ManifestName = "devpostit-backup.json", ReadyMarker = ".restore-ready";
-    private static readonly string[] Included = ["notes", ".hunmin/trash", ".hunmin/recovery"];
+    private static readonly string[] Included = ["notes", ".hunmin/trash", ".hunmin/recovery", ".hunmin/preferences"];
     private sealed record ManifestFile(string Path, long Size, string Sha256);
     private sealed record Manifest(int Format, string App, DateTimeOffset Created, List<ManifestFile> Files);
 

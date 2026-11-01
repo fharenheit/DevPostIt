@@ -91,6 +91,27 @@ public sealed class NoteWorkspace : IAsyncDisposable
         await Service.DeleteAsync(id, cancellationToken);
         lock (notesGate) { deleted.Add(id); notes.TryRemove(id, out _); }
     }
+    // 글꼴·편집기 설정은 WebView 저장소에 있어 백업과 복원을 위해 데이터 폴더에 사본을 둡니다.
+    public const int MaxPreferencesLength = 8192;
+    public string PreferencesPath => Path.Combine(Root, ".hunmin", "preferences", "editor.json");
+    public async Task SavePreferencesAsync(string? value, CancellationToken cancellationToken)
+    {
+        if (value is null || value.Length > MaxPreferencesLength) return;
+        Directory.CreateDirectory(Path.GetDirectoryName(PreferencesPath)!);
+        await writer.WriteAsync(PreferencesPath, value, cancellationToken);
+    }
+    public static string? ReadPreferences(string root)
+    {
+        try
+        {
+            var path = Path.Combine(root, ".hunmin", "preferences", "editor.json");
+            if (!File.Exists(path)) return null;
+            var value = File.ReadAllText(path);
+            return value.Length <= MaxPreferencesLength ? value : null;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { return null; }
+    }
+
     // 백업 전에 열린 메모를 파일에 맞춥니다. 저장하지 못한 입력은 복구 기록으로 백업에 들어갑니다.
     public async Task FlushOpenNotesAsync(CancellationToken cancellationToken)
     {

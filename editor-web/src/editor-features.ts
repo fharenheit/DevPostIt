@@ -1,5 +1,6 @@
 // Monaco API만 불러오면 찾기·접기·여러 커서 같은 편집 기능이 없습니다. editor.main.js 대신 기능 모듈만 등록합니다.
 // 언어 서비스는 별도 작업자가 필요하고, 링크 기능은 메모에서 외부 주소를 열 수 있어 넣지 않습니다.
+// 글꼴 확대 명령은 창마다 크기가 어긋나므로 넣지 않습니다. 크기는 설정과 Ctrl+=/-/0으로 바꿉니다.
 import 'monaco-editor/editor/browser/coreCommands';
 import 'monaco-editor/features/find/register';
 import 'monaco-editor/editor/contrib/anchorSelect/browser/anchorSelect';
@@ -18,7 +19,6 @@ import 'monaco-editor/editor/contrib/documentSymbols/browser/documentSymbols';
 import 'monaco-editor/editor/contrib/dropOrPasteInto/browser/dropIntoEditorContribution';
 import 'monaco-editor/editor/contrib/floatingMenu/browser/floatingMenu.contribution';
 import 'monaco-editor/editor/contrib/folding/browser/folding';
-import 'monaco-editor/editor/contrib/fontZoom/browser/fontZoom';
 import 'monaco-editor/editor/contrib/format/browser/formatActions';
 import 'monaco-editor/editor/contrib/gotoError/browser/gotoError';
 import 'monaco-editor/editor/standalone/browser/quickAccess/standaloneGotoLineQuickAccess';

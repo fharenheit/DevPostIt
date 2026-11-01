@@ -1,4 +1,5 @@
 import type { Editor } from './editor';
+import { preferencesKey } from './fonts';
 
 type Message = { protocolVersion: number; type: string; requestId: string; noteId: string; revision: number; payload: Record<string, unknown> };
 type WebView = { postMessage(message: Message): void; addEventListener(type: 'message', handler: (event: { data: unknown }) => void): void };
@@ -84,6 +85,12 @@ export class EditorConnection {
         if (keepPreview) this.editor.setMode('preview');
       } finally { this.loading = false; }
       this.status('앱 연결됨 · 자동 저장 사용');
+    } else if (message.noteId === this.noteId && message.type === 'ui.preferences') {
+      const { value } = message.payload;
+      if (!keys(message.payload, ['value']) || typeof value !== 'string' || value.length > 8192) return;
+      try { JSON.parse(value); localStorage.setItem(preferencesKey, value); }
+      catch { return; }
+      window.dispatchEvent(new Event('devpostit-preferences'));
     } else if (message.noteId === this.noteId && message.type === 'note.pdfFinished' && keys(message.payload, [])) {
       window.dispatchEvent(new Event('devpostit-pdf-finished'));
     } else if (message.noteId === this.noteId && message.type === 'ui.appearance') {
