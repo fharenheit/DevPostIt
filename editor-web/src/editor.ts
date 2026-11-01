@@ -2,7 +2,8 @@ import * as monaco from 'monaco-editor/editor/editor.api';
 import 'monaco-editor/languages/definitions/markdown/register';
 import DOMPurify from 'dompurify';
 import { findLanguageId } from './code-languages';
-import { planFormat, type MarkdownAction } from './markdown-format';
+import { planFormat, planInsertLines, type FormatPlan, type MarkdownAction, type TextDocument, type TextRange } from './markdown-format';
+import { markdownTableLines, tableFromClipboardHtml } from './paste-table';
 import EditorWorker from 'monaco-editor/editor/editor.worker?worker';
 import { renderMarkdown } from './markdown';
 import { formatBlock, CodeBlockError } from './code-format';
@@ -97,6 +98,16 @@ export class Editor {
         this.notify();
       }
     });
+    // Monaco의 붙여넣기보다 먼저 받아 표일 때만 가로챕니다. 나머지는 기본 동작을 그대로 둡니다.
+    source.addEventListener('paste', event => {
+      const selection = this.editableSelection();
+      const html = event.clipboardData?.getData('text/html');
+      const rows = selection && html ? tableFromClipboardHtml(html) : null;
+      if (!selection || !rows) return;
+      event.preventDefault();
+      event.stopPropagation();
+      this.applyPlan(planInsertLines(this.document(), selection, markdownTableLines(rows)));
+    }, true);
     source.addEventListener('compositionstart', () => { this.composing = true; });
     source.addEventListener('compositionend', () => {
       this.composing = false;
@@ -182,19 +193,30 @@ export class Editor {
     } catch (error) { return error instanceof CodeBlockError ? error.message : '정리하지 못했습니다. 블록의 언어·문법과 닫는 울타리를 확인해 주세요.'; }
   }
   applyFormat(action: MarkdownAction): void {
-    const model = this.model, selection = this.view.getSelection();
-    if (!model || !selection || this.mode !== 'source' || this.composing) return;
-    const plan = planFormat(action, {
+    const selection = this.editableSelection();
+    if (selection) this.applyPlan(planFormat(action, this.document(), selection));
+  }
+  private editableSelection(): TextRange | null {
+    const selection = this.view.getSelection();
+    if (!this.model || !selection || this.mode !== 'source' || this.composing) return null;
+    return { startLine: selection.startLineNumber, startColumn: selection.startColumn, endLine: selection.endLineNumber, endColumn: selection.endColumn };
+  }
+  private document(): TextDocument {
+    const model = this.model!;
+    return {
       lineCount: model.getLineCount(),
       line: number => model.getLineContent(number),
       text: range => model.getValueInRange(new monaco.Range(range.startLine, range.startColumn, range.endLine, range.endColumn)),
       eol: model.getEOL(),
-    }, { startLine: selection.startLineNumber, startColumn: selection.startColumn, endLine: selection.endLineNumber, endColumn: selection.endColumn });
+    };
+  }
+  private applyPlan(plan: FormatPlan): void {
+    const selection = new monaco.Range(plan.selection.startLine, plan.selection.startColumn, plan.selection.endLine, plan.selection.endColumn);
     this.view.pushUndoStop();
     this.view.executeEdits('markdown-toolbar', plan.edits.map(({ range, text }) => ({ range: new monaco.Range(range.startLine, range.startColumn, range.endLine, range.endColumn), text, forceMoveMarkers: true })));
-    this.view.setSelection(new monaco.Range(plan.selection.startLine, plan.selection.startColumn, plan.selection.endLine, plan.selection.endColumn));
+    this.view.setSelection(selection);
     this.view.pushUndoStop();
-    this.view.revealRangeInCenterIfOutsideViewport(new monaco.Range(plan.selection.startLine, plan.selection.startColumn, plan.selection.endLine, plan.selection.endColumn));
+    this.view.revealRangeInCenterIfOutsideViewport(selection);
     this.view.focus();
   }
   isComposing(): boolean { return this.composing; }

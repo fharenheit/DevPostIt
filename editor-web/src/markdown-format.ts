@@ -163,3 +163,14 @@ function insertBlock(document: TextDocument, selection: TextRange, lines: string
   const finish = selectLength ? startColumn + selectLength : startColumn;
   return { edits: [{ range, text: before + lines.join(document.eol) + after }], selection: span(target, startColumn, finish) };
 }
+
+// 선택 영역을 줄 묶음으로 바꾸고 앞뒤 글과 빈 줄로 분리합니다. 커서는 마지막 줄 끝에 둡니다.
+export function planInsertLines(document: TextDocument, selection: TextRange, lines: string[]): FormatPlan {
+  const textBefore = document.line(selection.startLine).slice(0, selection.startColumn - 1);
+  const textAfter = document.line(selection.endLine).slice(selection.endColumn - 1);
+  const before = textBefore.trim() ? document.eol + document.eol : selection.startLine > 1 && document.line(selection.startLine - 1).trim() ? document.eol : '';
+  const after = textAfter.trim() ? document.eol + document.eol : selection.endLine < document.lineCount && document.line(selection.endLine + 1).trim() ? document.eol : '';
+  const beforeLines = textBefore.trim() ? 2 : before ? 1 : 0;
+  const last = selection.startLine + beforeLines + lines.length - 1;
+  return { edits: [{ range: selection, text: before + lines.join(document.eol) + after }], selection: point(last, lines[lines.length - 1].length + 1) };
+}
