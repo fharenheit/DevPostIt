@@ -56,7 +56,7 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
         if (exiting) return;
         if (settings is null)
         {
-            settings = new SettingsWindow();
+            settings = new SettingsWindow(workspace.Root);
             settings.Closed += (_, _) => settings = null;
             settings.Show();
         }

@@ -111,13 +111,13 @@ for (const [width, height, size] of [[304, 240, 24], [364, 320, 15]] as const) {
     await openAt(page, 480, 640, size);
     const settings = await openSettings(page);
     await settings.setViewportSize({ width, height });
-    await expect(settings.locator('.setting-row')).toHaveCount(3);
+    await expect(settings.locator('.setting-row:visible')).toHaveCount(3);
     expect(await settings.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
-    for (const row of await settings.locator('.setting-row').all()) {
+    for (const row of await settings.locator('.setting-row:visible').all()) {
       const rect = (await row.boundingBox())!;
       expect(rect.x + rect.width).toBeLessThanOrEqual(width);
     }
-    const ligature = await settings.locator('.setting-row').filter({ hasText: '합자 사용' }).locator('span').first().evaluate(element => element.getBoundingClientRect().height / parseFloat(getComputedStyle(element).lineHeight));
+    const ligature = await settings.locator('.setting-row:visible').filter({ hasText: '합자 사용' }).locator('span').first().evaluate(element => element.getBoundingClientRect().height / parseFloat(getComputedStyle(element).lineHeight));
     expect(ligature).toBeLessThan(1.5);
   });
 }
@@ -175,3 +175,18 @@ for (const size of [10, 15, 24]) {
     expect(await fontSizes(page, '#rename-dialog')).toEqual(['14px']);
   });
 }
+
+test('데이터 폴더 버튼은 앱 안에서만 보이고 경로 없이 열기 요청만 보낸다', async ({ page }) => {
+  await page.goto('/settings.html');
+  await expect(page.getByRole('button', { name: '폴더 열기', exact: true })).toBeHidden();
+
+  await page.addInitScript(() => {
+    const sent: unknown[] = [];
+    Object.assign(window, { sent, chrome: { webview: { postMessage: (message: unknown) => sent.push(message), addEventListener: () => undefined } } });
+  });
+  await page.reload();
+  await expect(page.locator('.setting-row:visible')).toHaveCount(4);
+  await page.getByRole('button', { name: '폴더 열기', exact: true }).click();
+  expect(await page.evaluate(() => (window as unknown as { sent: unknown[] }).sent)).toEqual([{ protocolVersion: 1, type: 'settings.openDataFolder' }]);
+  expect(await fontSizes(page, '#settings')).toEqual(['14px']);
+});

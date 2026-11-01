@@ -55,6 +55,7 @@ public partial class MainWindow : Window
     {
         this.workspace = workspace; this.noteId = noteId;
         InitializeComponent();
+        Icon = NoteIcon.WindowImage;
         SourceInitialized += (_, _) =>
         {
             var handle = new WindowInteropHelper(this).Handle;

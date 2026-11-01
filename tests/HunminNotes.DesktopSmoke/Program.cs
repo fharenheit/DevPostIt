@@ -4,6 +4,8 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using HunminNotes.App;
 using HunminNotes.Core;
 using HunminNotes.Storage;
@@ -49,6 +51,7 @@ internal static class Program
         await ReadyAsync(first);
         Check(first.Width == 480 && first.Height == 640 && first.MinWidth == 320 && first.MinHeight == 360, "포스트잇 기본·최소 창 크기");
         Check(first.Title == "Post It for Developer", "창 제목은 메모 이름 대신 고정 문구");
+        Check(IsPostItYellow(first.Icon), "메모 창 제목 표시줄 아이콘은 노란 포스트잇");
         var editor = (WebView2)first.FindName("EditorView");
         var firstNote = workspace.Notes.Single();
         first.DeleteConfirmation = () => MessageBoxResult.Yes;
@@ -137,6 +140,13 @@ internal static class Program
         await UntilAsync(async () => await editor.ExecuteScriptAsync("getComputedStyle(document.documentElement).fontSize") != baseSize);
         await settings.View.ExecuteScriptAsync("document.querySelector('#smaller').click()");
         await UntilAsync(async () => await editor.ExecuteScriptAsync("getComputedStyle(document.documentElement).fontSize") == baseSize);
+        Check(IsPostItYellow(settings.Icon), "설정 창 아이콘도 노란 포스트잇");
+        string? openedFolder = null;
+        settings.FolderOpener = path => openedFolder = path;
+        await settings.View.ExecuteScriptAsync("document.querySelector('#open-data-folder').click()");
+        await UntilAsync(() => Task.FromResult(openedFolder is not null));
+        Check(openedFolder == Path.GetFullPath(Path.Combine(root, "data")), "설정 버튼은 Markdown·SQLite 데이터 폴더를 염");
+        Check(Directory.Exists(Path.Combine(openedFolder!, "notes")) && File.Exists(Path.Combine(openedFolder!, ".hunmin", "note-index.db")), "데이터 폴더에 notes와 검색 DB가 있음");
         manager.ShowSettings();
         Check(application.Windows.OfType<SettingsWindow>().Single() == settings, "설정 창 중복 방지");
         settings.Close();
@@ -201,6 +211,14 @@ internal static class Program
         Check(quit && application.Windows.Count == 0, "종료 중 생성은 새 창을 열지 않음");
         Check(manager.ShowNote(first.NoteId) is null, "종료된 저장소를 다시 열지 않음");
         using var released = new DataDirectoryLease(System.IO.Path.Combine(root, "data"));
+    }
+    private static bool IsPostItYellow(ImageSource? icon)
+    {
+        if (icon is not BitmapSource source) return false;
+        var pixels = new FormatConvertedBitmap(source, PixelFormats.Bgra32, null, 0);
+        var pixel = new byte[4];
+        pixels.CopyPixels(new Int32Rect(pixels.PixelWidth / 2, pixels.PixelHeight * 13 / 32, 1, 1), pixel, 4, 0);
+        return pixel is [143, 232, 255, 255];
     }
     private const uint LeftDown = 0x0002, LeftUp = 0x0004;
     private struct CursorPoint { public int X, Y; }

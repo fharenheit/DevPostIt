@@ -123,6 +123,24 @@ public class EditorBridgeTests
         await Assert.ThrowsAsync<EditorProtocolException>(() => bridge.HandleAsync(request with { Revision = 6 }, default));
     }
 
+    [Theory]
+    [InlineData("""{"protocolVersion":1,"type":"settings.openDataFolder"}""", EditorOrigin.SettingsPage, true)]
+    [InlineData("""{"protocolVersion":1,"type":"settings.openDataFolder"}""", EditorOrigin.Page, false)]
+    [InlineData("""{"protocolVersion":1,"type":"settings.openDataFolder"}""", "https://example.com/settings.html", false)]
+    [InlineData("""{"protocolVersion":2,"type":"settings.openDataFolder"}""", EditorOrigin.SettingsPage, false)]
+    [InlineData("""{"protocolVersion":1,"type":"note.changed"}""", EditorOrigin.SettingsPage, false)]
+    [InlineData("""{"protocolVersion":1,"type":"settings.openDataFolder","path":"C:\\Windows"}""", EditorOrigin.SettingsPage, false)]
+    [InlineData("""{"protocolVersion":1}""", EditorOrigin.SettingsPage, false)]
+    [InlineData("""{"protocolVersion":"1","type":"settings.openDataFolder"}""", EditorOrigin.SettingsPage, false)]
+    [InlineData("""[]""", EditorOrigin.SettingsPage, false)]
+    [InlineData("""not json""", EditorOrigin.SettingsPage, false)]
+    public void OpenDataFolderRequestAcceptsOnlyExactMessageFromSettingsPage(string json, string source, bool expected) =>
+        Assert.Equal(expected, SettingsMessage.IsOpenDataFolder(json, source));
+
+    [Fact]
+    public void OpenDataFolderRequestRejectsOversizedMessage() =>
+        Assert.False(SettingsMessage.IsOpenDataFolder(new string(' ', 2048) + """{"protocolVersion":1,"type":"settings.openDataFolder"}""", EditorOrigin.SettingsPage));
+
     [Fact]
     public void AssetsStayOnTrustedOrigin()
     {

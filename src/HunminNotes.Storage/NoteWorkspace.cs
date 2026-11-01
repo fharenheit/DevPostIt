@@ -12,10 +12,12 @@ public sealed class NoteWorkspace : IAsyncDisposable
     private readonly HashSet<Guid> deleted = [];
     private readonly SemaphoreSlim creation = new(1, 1);
     public NoteService Service { get; }
+    public string Root { get; }
     public IReadOnlyList<Note> Notes => notes.Values.OrderByDescending(note => note.Updated).ThenBy(note => note.Id).ToArray();
 
     private NoteWorkspace(string root)
     {
+        Root = Path.GetFullPath(root);
         lease = new DataDirectoryLease(root);
         try
         {

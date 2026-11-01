@@ -28,7 +28,7 @@
 
 ## 최근 검증 기록
 
-Markdown 툴바 구현 당시 .NET 131개(Core 18, Bridge 38, Storage 75), 웹 개발·제작 테스트 각 126개가 통과했습니다. WPF 하네스와 별도 실행 파일의 WebView2에서도 확인했습니다. 현재 변경 뒤에는 다시 실행해야 합니다.
+데이터 폴더 버튼 구현 당시 .NET 142개(Core 18, Bridge 49, Storage 75), 웹 개발·제작 테스트 각 127개가 통과했습니다. WPF 하네스와 별도 실행 파일의 WebView2에서도 확인했습니다. 현재 변경 뒤에는 다시 실행해야 합니다.
 
 - `NOTE_WINDOW_REFINEMENTS.md`: 최신 UI·삭제·최소화·취소 보호.
 - `FORMATTING_TRAY.md`: 포맷터·다중 창·트레이 초기 구현과 재실행 명령.

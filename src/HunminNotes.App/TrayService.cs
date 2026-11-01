@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using System.Windows.Threading;
 using HunminNotes.Storage;
 using Forms = System.Windows.Forms;
@@ -11,7 +10,7 @@ public sealed class TrayService : IDisposable
     internal Forms.ContextMenuStrip Menu => menu;
     private readonly Forms.NotifyIcon tray;
     private readonly Forms.ContextMenuStrip menu = new();
-    private readonly Drawing.Icon icon = CreateIcon();
+    private readonly Drawing.Icon icon = NoteIcon.Create();
     public TrayService(DesktopNoteManager manager, NoteWorkspace workspace, Dispatcher dispatcher)
     {
         void Run(Func<Task> action) => dispatcher.BeginInvoke(new Action(() => _ = DesktopNoteManager.RunAsync(action)));
@@ -33,20 +32,5 @@ public sealed class TrayService : IDisposable
             menu.Items.Add("종료", null, (_, _) => Run(manager.ExitAsync));
         };
     }
-    private static Drawing.Icon CreateIcon()
-    {
-        using var bitmap = new Drawing.Bitmap(32, 32);
-        using var graphics = Drawing.Graphics.FromImage(bitmap);
-        graphics.Clear(Drawing.Color.Transparent);
-        using var paper = new Drawing.SolidBrush(Drawing.Color.FromArgb(255, 232, 143));
-        using var pen = new Drawing.Pen(Drawing.Color.FromArgb(91, 78, 34), 2);
-        graphics.FillRectangle(paper, 5, 3, 23, 27);
-        graphics.DrawRectangle(pen, 5, 3, 23, 27);
-        for (var y = 10; y <= 24; y += 6) graphics.DrawLine(pen, 10, y, 23, y);
-        var handle = bitmap.GetHicon();
-        try { using var borrowed = Drawing.Icon.FromHandle(handle); return (Drawing.Icon)borrowed.Clone(); }
-        finally { DestroyIcon(handle); }
-    }
-    [DllImport("user32.dll")] private static extern bool DestroyIcon(IntPtr handle);
     public void Dispose() { tray.Visible = false; tray.Dispose(); menu.Dispose(); icon.Dispose(); }
 }
