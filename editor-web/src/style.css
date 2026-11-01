@@ -66,10 +66,10 @@ h1 { margin: 0; font-size: 1.0625rem; font-weight: 600; letter-spacing: -0.3px; 
 .code-tools select { min-width: 0; max-width: 100%; }
 
 /* 코드 도구와 대화상자의 컨트롤 모양을 통일합니다. */
-.code-tools select, .code-tools button, dialog select, dialog button { border: 1px solid var(--line-strong); border-radius: .3rem; padding: .15rem .55rem; background: var(--paper); color: var(--ink); }
-.code-tools button, dialog button { appearance: none; }
-.code-tools select:hover:enabled, .code-tools button:hover:enabled, dialog select:hover:enabled, dialog button:hover:enabled { background: var(--paper-sunken); }
-.code-tools select:disabled, .code-tools button:disabled, dialog button:disabled { opacity: .5; cursor: default; }
+.code-tools select, .code-tools button, #settings select, #settings button, dialog button { border: 1px solid var(--line-strong); border-radius: .3rem; padding: .15rem .55rem; background: var(--paper); color: var(--ink); }
+.code-tools button, #settings button, dialog button { appearance: none; }
+.code-tools select:hover:enabled, .code-tools button:hover:enabled, #settings select:hover:enabled, #settings button:hover:enabled, dialog button:hover:enabled { background: var(--paper-sunken); }
+.code-tools select:disabled, .code-tools button:disabled, #settings button:disabled, dialog button:disabled { opacity: .5; cursor: default; }
 dialog button.primary, dialog button.primary:hover:enabled { border-color: var(--accent); background: var(--accent); color: #fff; }
 
 dialog { width: min(22rem, calc(100vw - 1rem)); max-width: none; max-height: calc(100vh - 1rem); overflow: auto; border: 1px solid var(--line-strong); border-radius: .6rem; padding: 1rem; color: var(--ink); background: var(--paper); box-shadow: 0 .5rem 1.5rem #2f2a1f33; }
@@ -79,6 +79,8 @@ dialog p { margin: 0 0 .75rem; color: var(--ink-muted); font-size: .875rem; }
 dialog p:empty { display: none; }
 #note-name { display: block; width: 100%; margin: .4rem 0 .75rem; padding: .3rem .5rem; border: 1px solid var(--line-strong); border-radius: .3rem; background: var(--paper); color: var(--ink); }
 #note-name:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+#settings { padding: .75rem 1rem; }
+#settings p { margin: 0 0 .75rem; color: var(--ink-muted); font-size: .875rem; }
 .setting-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .25rem .75rem; padding: .45rem 0; border-top: 1px solid var(--line); line-height: 1.4; }
 .setting-row > span { white-space: nowrap; }
 .setting-row select { min-width: 0; max-width: 100%; }

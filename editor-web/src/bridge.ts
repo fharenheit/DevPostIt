@@ -32,7 +32,7 @@ export class EditorConnection {
     const draft = this.editor.getDraft();
     this.send('note.saveRequested', { markdown: draft.markdown, title: this.editor.getTitle() }, draft.revision);
   }
-  command(type: 'window.collapseRequested' | 'note.newRequested'): void {
+  command(type: 'window.collapseRequested' | 'note.newRequested' | 'window.settingsRequested'): void {
     if (this.noteId === emptyId || this.editor.isComposing()) return;
     this.publish();
     this.send(type, {}, this.editor.getDraft().revision);
@@ -73,8 +73,6 @@ export class EditorConnection {
         this.editor.load(message.noteId, message.payload.markdown, message.revision, message.payload.title as string | undefined);
       } finally { this.loading = false; }
       this.status('앱 연결됨 · 자동 저장 사용');
-    } else if (message.noteId === this.noteId && message.type === 'ui.openSettings' && keys(message.payload, [])) {
-      window.dispatchEvent(new Event('devpostit-settings'));
     } else if (message.noteId === this.noteId && message.revision === current.revision) {
       if (message.type === 'note.saved' && keys(message.payload, [])) {
         this.editor.markSaved(message.revision);

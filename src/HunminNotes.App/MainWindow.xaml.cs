@@ -30,7 +30,6 @@ public partial class MainWindow : Window
     private bool opened;
 
     private TaskCompletionSource<bool>? closeCompletion;
-    private bool settingsRequested;
     private bool preserveOnClose = true;
     internal Func<MessageBoxResult>? DeleteConfirmation { get; set; }
     internal Func<Task>? InitializationDelay { get; set; }
@@ -51,6 +50,7 @@ public partial class MainWindow : Window
     public bool CanCollapse => !closed && !closing;
     public event Action<MainWindow>? CollapseRequested;
     public event Action? NewNoteRequested;
+    public event Action? SettingsRequested;
     public MainWindow(NoteWorkspace workspace, Guid noteId)
     {
         this.workspace = workspace; this.noteId = noteId;
@@ -64,7 +64,7 @@ public partial class MainWindow : Window
         StateChanged += (_, _) => { if (WindowState == WindowState.Minimized && CanCollapse) CollapseRequested?.Invoke(this); };
     }
     // 네이티브 제목 표시줄을 메모지 색에 맞춥니다. 지원하지 않는 Windows 10에서는 호출만 실패하고 기본 색을 유지합니다. 값은 0x00BBGGRR입니다.
-    private static void ApplyTitleBarColors(IntPtr handle)
+    internal static void ApplyTitleBarColors(IntPtr handle)
     {
         foreach (var (attribute, color) in new[] { (34, 0x00BDDFE8), (35, 0x00BFF3FF), (36, 0x001F2A2F) })
         {
@@ -107,11 +107,6 @@ public partial class MainWindow : Window
         deferredMessages.Clear();
         foreach (var message in pending) _ = ProcessMessageAsync(message.Json, message.Source);
     }
-    public void ShowSettings()
-    {
-        if (bridge is null || Loading.Visibility != Visibility.Collapsed) { settingsRequested = true; return; }
-        Send("ui.openSettings", new { }, bridge.Revision);
-    }
 
     private void WindowLoaded(object sender, RoutedEventArgs e) => initialization ??= InitializeEditorAsync();
 
@@ -138,30 +133,7 @@ public partial class MainWindow : Window
                 try { state = await Task.Run(() => service!.FlushAsync(noteId, CancellationToken.None)); }
                 catch (Exception) { state = await service!.GetStateAsync(noteId, CancellationToken.None); }
             }
-            var assets = System.IO.Path.Combine(AppContext.BaseDirectory, "editor-web");
-            if (!System.IO.File.Exists(System.IO.Path.Combine(assets, "index.html")))
-                throw new InvalidOperationException("편집기 파일이 없습니다. 프로젝트를 다시 빌드하세요.");
-            var profile = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DevPostIt", "WebView2");
-            var environment = await CoreWebView2Environment.CreateAsync(userDataFolder: profile);
-            await EditorView.EnsureCoreWebView2Async(environment);
-            var core = EditorView.CoreWebView2;
-            core.Settings.AreHostObjectsAllowed = false;
-            core.Settings.AreDevToolsEnabled = false;
-            core.Settings.IsStatusBarEnabled = false;
-            core.Settings.AreDefaultContextMenusEnabled = false;
-            core.Settings.AreDefaultScriptDialogsEnabled = false;
-            core.Settings.AreBrowserAcceleratorKeysEnabled = false;
-            core.SetVirtualHostNameToFolderMapping("devpostit.local", assets, CoreWebView2HostResourceAccessKind.DenyCors);
-            core.NavigationStarting += (_, args) => args.Cancel = !EditorOrigin.IsTrustedPage(args.Uri);
-            core.FrameNavigationStarting += (_, args) => args.Cancel = true;
-            core.NewWindowRequested += (_, args) => args.Handled = true;
-            core.DownloadStarting += (_, args) => args.Cancel = true;
-            core.PermissionRequested += (_, args) => args.State = CoreWebView2PermissionState.Deny;
-            core.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All);
-            core.WebResourceRequested += (_, args) =>
-            {
-                if (!EditorOrigin.IsLocalResource(args.Request.Uri)) args.Response = environment.CreateWebResourceResponse(null, 403, "Blocked", "");
-            };
+            var core = await LocalWebView.ConfigureAsync(EditorView, EditorOrigin.IsTrustedPage);
             bridge = new EditorBridge(noteId, state.Revision);
             service!.StateChanged += OnNoteStateChanged;
             core.WebMessageReceived += MessageReceived;
@@ -195,10 +167,10 @@ public partial class MainWindow : Window
                 if (state.Error is not null) Send("note.conflict", new { message = state.Error }, state.Revision);
                 else if (state.HasUnsavedChanges) Send("note.conflict", new { message = "복구 초안을 자동 저장하는 중입니다." }, state.Revision);
                 Loading.Visibility = Visibility.Collapsed;
-                if (settingsRequested) { settingsRequested = false; ShowSettings(); }
             }
             else if (result.Message.Type == "window.collapseRequested") CollapseRequested?.Invoke(this);
             else if (result.Message.Type == "note.newRequested") NewNoteRequested?.Invoke();
+            else if (result.Message.Type == "window.settingsRequested") SettingsRequested?.Invoke();
             else if (result.Message.Type == "note.saveRequested")
             {
                 var state = await service.GetStateAsync(noteId, CancellationToken.None);

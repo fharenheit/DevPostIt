@@ -10,19 +10,26 @@ test('제목 더블클릭은 접기 대신 이름 편집을 연다', async ({ pa
   expect((await messages(page)).some(message => message.type === 'window.collapseRequested')).toBe(false);
 });
 
-test('트레이 설정 요청은 대화상자를 열고 글자 크기는 다른 창에도 적용된다', async ({ page, context }) => {
+test('Ctrl+,는 호스트에 설정 창을 요청하고 메모 안에 대화상자를 띄우지 않는다', async ({ page }) => {
   await hosted(page);
   await send(page);
-  const other = await context.newPage();
-  await other.goto('/');
-  await other.waitForFunction(() => Boolean(window.hunminEditor));
+  await page.keyboard.press('Control+,');
+  await expect.poll(async () => (await messages(page)).at(-1)).toMatchObject({ type: 'window.settingsRequested', revision: 7, payload: {} });
+  await expect(page.getByRole('dialog', { name: '설정', exact: true })).toHaveCount(0);
   await send(page, 'ui.openSettings', 7, {});
-  await expect(page.getByRole('dialog', { name: '설정', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: '글자 크게', exact: true }).click();
-  await expect(other.locator('#text-size')).toHaveText('16');
-  await page.getByRole('button', { name: '닫기', exact: true }).click();
-  await expect(page.getByRole('dialog', { name: '설정', exact: true })).not.toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
 });
+
+test('설정 창에서 바꾼 글자 크기가 열린 메모에 적용되고 저장 메시지를 만들지 않는다', async ({ page }) => {
+  await hosted(page);
+  await send(page);
+  const count = (await messages(page)).length;
+  const settings = await openSettings(page);
+  await settings.getByRole('button', { name: '글자 크게', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => document.documentElement.style.fontSize)).toBe('16px');
+  expect((await messages(page)).length).toBe(count);
+});
+
 test('메모 제목 로드·이름 변경·취소와 본문을 같은 리비전으로 전달한다', async ({ page }) => {
   await hosted(page);
   await send(page, 'note.load', 7, { markdown: '원본', title: '첫 이름' });
@@ -94,8 +101,9 @@ test('잘못된 호스트 메시지와 오래된 저장 응답은 현재 본문�
   expect((await draft(page)).markdown).toBe('유지할 변경');
   const count = (await messages(page)).length;
   await mode(page, 'preview');
-  await openSettings(page);
-  await page.getByRole('button', { name: '글자 크게', exact: true }).click();
+  const settings = await openSettings(page);
+  await settings.getByRole('button', { name: '글자 크게', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => document.documentElement.style.fontSize)).toBe('16px');
   expect((await messages(page)).length).toBe(count);
 });
 

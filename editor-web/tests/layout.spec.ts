@@ -106,22 +106,32 @@ test('코드 도구는 앱의 공통 컨트롤 모양을 사용한다', async ({
   }
 });
 
-for (const [width, height, size] of [[304, 320, 24], [480, 640, 15]] as const) {
-  test(`${width}×${height} 창과 글자 ${size}px에서 설정 항목을 한 줄씩 정리해 표시한다`, async ({ page }) => {
-    await openAt(page, width, height, size);
-    await openSettings(page);
-    const dialog = await box(page, 'dialog[aria-label="설정"]');
-    expect(dialog.left).toBeGreaterThanOrEqual(0);
-    expect(dialog.right).toBeLessThanOrEqual(width);
-    expect(dialog.bottom).toBeLessThanOrEqual(height);
-    const rows = page.locator('.setting-row');
-    await expect(rows).toHaveCount(3);
-    const ligature = await rows.filter({ hasText: '합자 사용' }).locator('span').first().evaluate(element => element.getBoundingClientRect().height / parseFloat(getComputedStyle(element).lineHeight));
+for (const [width, height, size] of [[304, 240, 24], [364, 320, 15]] as const) {
+  test(`설정 창 ${width}×${height}과 글자 ${size}px에서 항목을 한 줄씩 정리해 표시한다`, async ({ page }) => {
+    await openAt(page, 480, 640, size);
+    const settings = await openSettings(page);
+    await settings.setViewportSize({ width, height });
+    await expect(settings.locator('.setting-row')).toHaveCount(3);
+    expect(await settings.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+    for (const row of await settings.locator('.setting-row').all()) {
+      const rect = (await row.boundingBox())!;
+      expect(rect.x + rect.width).toBeLessThanOrEqual(width);
+    }
+    const ligature = await settings.locator('.setting-row').filter({ hasText: '합자 사용' }).locator('span').first().evaluate(element => element.getBoundingClientRect().height / parseFloat(getComputedStyle(element).lineHeight));
     expect(ligature).toBeLessThan(1.5);
-    await page.getByRole('dialog', { name: '설정', exact: true }).getByRole('button', { name: '닫기', exact: true }).click();
-    await expect(page.getByRole('dialog', { name: '설정', exact: true })).toBeHidden();
   });
 }
+
+test('설정 창은 메모 편집기를 싣지 않고 공통 컨트롤 모양과 대비를 따른다', async ({ page }) => {
+  await page.goto('/settings.html');
+  await expect(page).toHaveTitle('설정');
+  await expect(page.locator('.monaco-editor, .workspace, dialog')).toHaveCount(0);
+  for (const selector of ['#larger', '#font']) {
+    expect(await contrast(page, selector), selector).toBeGreaterThanOrEqual(4.5);
+    const radius = await page.locator(selector).evaluate(element => parseFloat(getComputedStyle(element).borderTopLeftRadius));
+    expect(radius, selector).toBeGreaterThan(0);
+  }
+});
 
 test('편집기와 미리보기는 메모지 배경을 함께 쓰고 편집기 장식을 줄인다', async ({ page }) => {
   await openAt(page, 480, 640);

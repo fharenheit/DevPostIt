@@ -96,6 +96,33 @@ public class EditorBridgeTests
     [InlineData("javascript:alert(1)", false)]
     public void NavigationIsRestrictedToBundledPage(string uri, bool expected) => Assert.Equal(expected, EditorOrigin.IsTrustedPage(uri));
 
+    [Theory]
+    [InlineData("https://devpostit.local/settings.html", true)]
+    [InlineData("https://devpostit.local/settings.html?x=1", false)]
+    [InlineData("https://devpostit.local/index.html", false)]
+    [InlineData("https://example.com/settings.html", false)]
+    public void SettingsPageIsSeparateFromNoteBridge(string uri, bool expected)
+    {
+        Assert.Equal(expected, EditorOrigin.IsSettingsPage(uri));
+        Assert.False(EditorOrigin.IsTrustedPage(EditorOrigin.SettingsPage));
+    }
+
+    [Fact]
+    public async Task BridgeRejectsMessagesFromSettingsPage()
+    {
+        var bridge = new EditorBridge(Id, 7);
+        await Assert.ThrowsAsync<EditorProtocolException>(() => bridge.ReceiveAsync(Serialize(Change()), EditorOrigin.SettingsPage, default));
+    }
+
+    [Fact]
+    public async Task SettingsRequestCarriesNoChangeAndChecksRevision()
+    {
+        var bridge = new EditorBridge(Id, 7);
+        var request = Change(7) with { Type = "window.settingsRequested", Payload = JsonSerializer.SerializeToElement(new { }) };
+        Assert.Null(await bridge.HandleAsync(request, default));
+        await Assert.ThrowsAsync<EditorProtocolException>(() => bridge.HandleAsync(request with { Revision = 6 }, default));
+    }
+
     [Fact]
     public void AssetsStayOnTrustedOrigin()
     {

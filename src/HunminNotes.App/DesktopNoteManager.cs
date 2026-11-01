@@ -11,6 +11,7 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
     private readonly Dictionary<Guid, MainWindow> windows = [];
     private readonly Dictionary<Guid, CollapsedNoteWindow> icons = [];
     private bool exiting;
+    private SettingsWindow? settings;
     public MainWindow? ShowNote(Guid id)
     {
         if (exiting) return null;
@@ -21,6 +22,7 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
             windows[id] = window;
             window.CollapseRequested += Collapse;
             window.NewNoteRequested += async () => await RunAsync(CreateAsync);
+            window.SettingsRequested += ShowSettings;
             window.Closed += (_, _) => { windows.Remove(id); if (icons.Remove(id, out var old)) old.Close(); };
             window.IsVisibleChanged += (_, e) => { if (e.NewValue is true && icons.Remove(id, out var old)) old.Close(); };
         }
@@ -52,9 +54,14 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
     public void ShowSettings()
     {
         if (exiting) return;
-        if (workspace.Notes.Count == 0) { _ = RunAsync(async () => { await CreateAsync(); ShowSettings(); }); return; }
-        var window = windows.Values.FirstOrDefault(window => window.IsActive) ?? windows.Values.FirstOrDefault();
-        ShowNote(window?.NoteId ?? workspace.Notes[0].Id)?.ShowSettings();
+        if (settings is null)
+        {
+            settings = new SettingsWindow();
+            settings.Closed += (_, _) => settings = null;
+            settings.Show();
+        }
+        if (settings.WindowState == WindowState.Minimized) settings.WindowState = WindowState.Normal;
+        settings.Activate();
     }
     public async Task ExitAsync()
     {
@@ -65,6 +72,7 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
         {
             await operations.StopAsync();
             foreach (var window in windows.Values.ToArray()) if (!await window.RequestCloseAsync()) return;
+            settings?.Close();
             await workspace.DisposeAsync();
             completed = true;
             (shutdown ?? (() => System.Windows.Application.Current.Shutdown()))();

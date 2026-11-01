@@ -8,6 +8,7 @@ test('메모 화면에는 제품명과 생성·이름 변경·글꼴 버튼을 �
   await expect(page.getByRole('button', { name: '이름 변경', exact: true })).toHaveCount(0);
   await expect(page.getByLabel('편집 글꼴')).not.toBeVisible();
   await expect(page.getByRole('button', { name: '글자 크게', exact: true })).not.toBeVisible();
+  await expect(page.locator('#settings, dialog[aria-label="설정"]')).toHaveCount(0);
   await page.locator('h1').dblclick();
   await expect(page.getByLabel('메모 이름', { exact: true })).toBeVisible();
   await page.getByLabel('메모 이름', { exact: true }).fill('두 번 눌러 변경');

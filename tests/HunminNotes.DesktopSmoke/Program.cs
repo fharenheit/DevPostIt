@@ -128,8 +128,22 @@ internal static class Program
         Check(tray.Menu.Items.OfType<Forms.ToolStripMenuItem>().Any(item => item.Text == "메모 목록"), "트레이 메모 목록");
         tray.Menu.Items.OfType<Forms.ToolStripMenuItem>().Single(item => item.Text == "설정").PerformClick();
         tray.Menu.Close();
-        await UntilAsync(async () => await editor.ExecuteScriptAsync("Boolean(document.querySelector('dialog[aria-label=설정]')?.open)") == "true");
-        await editor.ExecuteScriptAsync("document.querySelector('dialog[aria-label=설정]').close()");
+        var settings = application.Windows.OfType<SettingsWindow>().Single();
+        Check(settings.IsVisible && settings.OwnedWindows.Count == 0 && first.OwnedWindows.Count == 0, "트레이 설정은 독립 창으로 열림");
+        Check(await editor.ExecuteScriptAsync("document.querySelector('dialog[aria-label=설정], #settings') === null") == "true", "메모 안에 설정 모달을 띄우지 않음");
+        await UntilAsync(async () => settings.View.CoreWebView2 is not null && await settings.View.ExecuteScriptAsync("Boolean(document.querySelector('#larger'))") == "true");
+        var baseSize = await editor.ExecuteScriptAsync("getComputedStyle(document.documentElement).fontSize");
+        await settings.View.ExecuteScriptAsync("document.querySelector('#larger').click()");
+        await UntilAsync(async () => await editor.ExecuteScriptAsync("getComputedStyle(document.documentElement).fontSize") != baseSize);
+        await settings.View.ExecuteScriptAsync("document.querySelector('#smaller').click()");
+        await UntilAsync(async () => await editor.ExecuteScriptAsync("getComputedStyle(document.documentElement).fontSize") == baseSize);
+        manager.ShowSettings();
+        Check(application.Windows.OfType<SettingsWindow>().Single() == settings, "설정 창 중복 방지");
+        settings.Close();
+        Check(!application.Windows.OfType<SettingsWindow>().Any() && first.IsVisible, "설정 창을 닫아도 메모 유지");
+        await editor.ExecuteScriptAsync("window.dispatchEvent(new KeyboardEvent('keydown', { ctrlKey: true, key: ',' }))");
+        await UntilAsync(() => Task.FromResult(application.Windows.OfType<SettingsWindow>().Count() == 1));
+        application.Windows.OfType<SettingsWindow>().Single().Close();
         tray.Menu.Show(new System.Drawing.Point(120, 120));
         tray.Menu.Items.OfType<Forms.ToolStripMenuItem>().Single(item => item.Text == "새 메모").PerformClick();
         tray.Menu.Close();
@@ -170,6 +184,7 @@ internal static class Program
         Check(workspace.Notes.All(note => note.Id != first.NoteId), "승인 시 목록 제거");
         Check(workspace.Notes.Any(note => note.Id == second.NoteId), "다른 메모 보존");
         using (var attempted = new DataDirectoryLease(System.IO.Path.Combine(root, "other-data"))) { }
+        manager.ShowSettings();
         delaying = true;
         var creating = manager.CreateAsync();
         tray.Menu.Show(new System.Drawing.Point(120, 120));

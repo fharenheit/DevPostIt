@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="ko">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>설정</title></head>
+<body>
+  <main id="settings" aria-label="설정">
+    <p>글꼴과 크기는 모든 메모에 바로 적용되며 다음 실행에도 유지됩니다.</p>
+    <div class="setting-row"><span>글자 크기</span><div class="text-size" role="group" aria-label="전체 글자 크기"><button id="smaller" aria-label="글자 작게" title="모든 글자를 한 단계 작게">−</button><output id="text-size" aria-label="기준 글자 크기">15</output><button id="larger" aria-label="글자 크게" title="모든 글자를 한 단계 크게">+</button></div></div>
+    <label class="setting-row"><span>편집 글꼴</span><select id="font"><option value="d2">D2 Ligature</option><option value="jetbrains">JetBrains Mono</option><option value="system">시스템 고정폭</option></select></label>
+    <label class="setting-row"><span>합자 사용</span><input id="ligatures" type="checkbox" checked></label>
+  </main>
+  <script type="module" src="/src/settings.ts"></script>
+</body>
+</html>
