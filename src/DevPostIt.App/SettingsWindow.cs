@@ -35,7 +35,7 @@ public sealed class SettingsWindow : Window
         this.dataFolder = dataFolder; this.store = store; this.canChangeFolder = canChangeFolder && store is not null;
         Title = "설정";
         Icon = NoteIcon.WindowImage;
-        Width = 420; Height = 560; MinWidth = 320; MinHeight = 240;
+        Width = 420; Height = 720; MinWidth = 320; MinHeight = 240;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         Background = new SolidColorBrush(Color.FromRgb(255, 253, 245));
         Content = View;

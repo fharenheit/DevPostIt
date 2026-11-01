@@ -18,7 +18,7 @@ test('보기 전환 아래, 본문 위에 아이콘 툴바를 표시한다', asy
   await openEditor(page);
   const toolbar = page.getByRole('toolbar', { name: 'Markdown 서식', exact: true });
   const buttons = toolbar.getByRole('button');
-  await expect(buttons).toHaveCount(15);
+  await expect(buttons).toHaveCount(17);
   for (const button of await buttons.all()) {
     await expect(button.locator('svg')).toHaveCount(1);
     await expect(button).toHaveText('');

@@ -159,6 +159,7 @@ internal static class Program
         RestoreFirst(afterIconMove);
         tray.Menu.Show(new System.Drawing.Point(120, 120));
         Check(tray.Menu.Items.OfType<Forms.ToolStripMenuItem>().Any(item => item.Text == "메모 목록"), "트레이 메모 목록");
+        Check(tray.Menu.Items.OfType<Forms.ToolStripMenuItem>().Any(item => item.Text == "정보"), "트레이 정보 메뉴");
         tray.Menu.Items.OfType<Forms.ToolStripMenuItem>().Single(item => item.Text == "설정").PerformClick();
         tray.Menu.Close();
         var settings = application.Windows.OfType<SettingsWindow>().Single();
@@ -228,6 +229,16 @@ internal static class Program
         var restored = application.Windows.OfType<MainWindow>().Single(window => window.NoteId == first.NoteId);
         await ReadyAsync(restored);
         Check(await restored.RequestCloseAsync(), "복원한 메모 창 닫기");
+        manager.ShowAbout();
+        var about = application.Windows.OfType<AboutWindow>().Single();
+        Check(about.IsVisible && about.VersionText.Contains(DesktopNoteManager.CurrentVersion.ToString(3)), "정보 창의 버전");
+        string? openedLink = null;
+        about.LinkOpener = link => openedLink = link;
+        about.OpenRepository();
+        Check(openedLink == AboutWindow.RepositoryUrl, "정보 창의 GitHub 주소");
+        manager.ShowAbout();
+        Check(application.Windows.OfType<AboutWindow>().Single() == about, "정보 창 중복 방지");
+        about.Close();
         manager.ShowSearch();
         var searchWindow = application.Windows.OfType<SearchWindow>().Single();
         // 실제 WebView2의 PDF 저장과 설정 창의 전체 백업을 파일 결과로 확인합니다.

@@ -59,8 +59,9 @@ previewButton.addEventListener('click', () => editor.setMode('preview'));
 // 버튼을 눌러도 편집기의 선택과 포커스를 유지합니다.
 formatToolbar.addEventListener('mousedown', event => event.preventDefault());
 formatToolbar.addEventListener('click', event => {
-  const action = (event.target as Element).closest<HTMLButtonElement>('button')?.dataset.format;
-  if (action) editor.applyFormat(action as MarkdownAction);
+  const button = (event.target as Element).closest<HTMLButtonElement>('button');
+  if (button?.dataset.format) editor.applyFormat(button.dataset.format as MarkdownAction);
+  else if (button?.dataset.editorAction) editor.runEditorAction(button.dataset.editorAction);
 });
 const renameDialog = document.querySelector<HTMLDialogElement>('#rename-dialog')!;
 function openRename(): void {
@@ -89,7 +90,8 @@ window.addEventListener('keydown', event => {
 });
 
 function applySettings(): void {
-  const { font, ligatures, size } = readFontSettings();
+  const { font, ligatures, size, editor: preferences } = readFontSettings();
+  editor.setPreferences(preferences);
   document.documentElement.style.fontSize = `${size}px`;
   editor.setTextSize(size - 2);
   editor.setFont(fonts[font], ligatures);

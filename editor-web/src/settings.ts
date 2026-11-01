@@ -1,4 +1,4 @@
-import { readFontSettings, saveFontSettings, type FontKey } from './fonts';
+import { defaultEditorPreferences, readFontSettings, saveFontSettings, type EditorPreferences, type FontKey } from './fonts';
 import './style.css';
 
 // 설정 창 전용 페이지입니다. 저장하면 같은 프로필의 열린 메모가 storage 이벤트로 반영합니다.
@@ -7,12 +7,15 @@ const ligatures = document.querySelector<HTMLInputElement>('#ligatures')!;
 const smaller = document.querySelector<HTMLButtonElement>('#smaller')!;
 const larger = document.querySelector<HTMLButtonElement>('#larger')!;
 let textSize = 15;
+const editorOptions = Object.keys(defaultEditorPreferences) as (keyof EditorPreferences)[];
+const editorOption = (name: keyof EditorPreferences) => document.querySelector<HTMLInputElement>(`#opt-${name}`)!;
 
 function show(): void {
   const settings = readFontSettings();
   textSize = settings.size;
   fontSelect.value = settings.font;
   ligatures.checked = settings.ligatures;
+  for (const name of editorOptions) editorOption(name).checked = settings.editor[name];
   render();
 }
 function render(): void {
@@ -21,11 +24,13 @@ function render(): void {
   larger.disabled = textSize >= 24;
 }
 function save(): void {
-  saveFontSettings({ font: fontSelect.value as FontKey, ligatures: ligatures.checked, size: textSize });
+  const editor = Object.fromEntries(editorOptions.map(name => [name, editorOption(name).checked])) as EditorPreferences;
+  saveFontSettings({ font: fontSelect.value as FontKey, ligatures: ligatures.checked, size: textSize, editor });
   render();
 }
 fontSelect.addEventListener('change', save);
 ligatures.addEventListener('change', save);
+for (const name of editorOptions) editorOption(name).addEventListener('change', save);
 smaller.addEventListener('click', () => { textSize = Math.max(10, textSize - 1); save(); });
 larger.addEventListener('click', () => { textSize = Math.min(24, textSize + 1); save(); });
 window.addEventListener('storage', show);

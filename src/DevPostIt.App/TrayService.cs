@@ -38,6 +38,7 @@ public sealed class TrayService : IDisposable
             menu.Items.Add(notes);
             menu.Items.Add(TrashMenu(manager, workspace, Run));
             menu.Items.Add("설정", null, (_, _) => manager.ShowSettings());
+            menu.Items.Add("정보", null, (_, _) => manager.ShowAbout());
             if (manager.AvailableUpdate is { } update) menu.Items.Add($"업데이트 설치 ({update.Version})", null, (_, _) =>
             {
                 if (MessageBox.Show($"버전 {update.Version}을 내려받아 설치하고 앱을 다시 시작합니다.\n이 파일은 코드 서명이 없으며 GitHub 릴리즈의 해시로 확인합니다.\n\n계속할까요?", "업데이트", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) == MessageBoxResult.Yes)

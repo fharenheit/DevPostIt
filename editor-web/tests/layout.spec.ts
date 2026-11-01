@@ -111,7 +111,7 @@ for (const [width, height, size] of [[304, 240, 24], [364, 320, 15]] as const) {
     await openAt(page, 480, 640, size);
     const settings = await openSettings(page);
     await settings.setViewportSize({ width, height });
-    await expect(settings.locator('.setting-row:visible')).toHaveCount(3);
+    await expect(settings.locator('.setting-row:visible')).toHaveCount(9);
     expect(await settings.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     for (const row of await settings.locator('.setting-row:visible').all()) {
       const rect = (await row.boundingBox())!;
@@ -138,7 +138,7 @@ test('편집기와 미리보기는 메모지 배경을 함께 쓰고 편집기 �
   const workspace = await page.locator('.workspace').evaluate(element => getComputedStyle(element).backgroundColor);
   await expect(page.locator('#source .monaco-editor-background').first()).toHaveCSS('background-color', workspace);
   await expect(page.locator('#source .decorationsOverviewRuler')).toBeHidden();
-  await expect(page.locator('#source .view-overlays .current-line')).toHaveCount(0);
+  await expect(page.locator('#source .view-overlays .current-line')).toHaveCount(1);
   await mode(page, 'preview');
   await expect(page.locator('#preview')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
 });
@@ -185,7 +185,7 @@ test('데이터 폴더 버튼은 앱 안에서만 보이고 경로 없이 열기
     Object.assign(window, { sent, chrome: { webview: { postMessage: (message: unknown) => sent.push(message), addEventListener: () => undefined } } });
   });
   await page.reload();
-  await expect(page.locator('.setting-row:visible')).toHaveCount(7);
+  await expect(page.locator('.setting-row:visible')).toHaveCount(13);
   await page.getByRole('button', { name: '폴더 열기', exact: true }).click();
   expect(await page.evaluate(() => (window as unknown as { sent: unknown[] }).sent)).toEqual([{ protocolVersion: 1, type: 'settings.openDataFolder' }]);
   expect(await fontSizes(page, '#settings')).toEqual(['14px']);

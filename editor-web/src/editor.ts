@@ -1,7 +1,9 @@
 import * as monaco from 'monaco-editor/editor/editor.api';
 import 'monaco-editor/languages/definitions/markdown/register';
 import DOMPurify from 'dompurify';
+import './editor-features';
 import { findLanguageId } from './code-languages';
+import { defaultEditorPreferences, type EditorPreferences } from './fonts';
 import { planFormat, planInsertLines, type FormatPlan, type MarkdownAction, type TextDocument, type TextRange } from './markdown-format';
 import { markdownTableLines, tableFromClipboardHtml } from './paste-table';
 import EditorWorker from 'monaco-editor/editor/editor.worker?worker';
@@ -46,7 +48,7 @@ monaco.editor.defineTheme('devpostit-paper', {
     'editorLineNumber.activeForeground': '#665E4B',
     'editor.selectionBackground': '#FFE88F',
     'editor.inactiveSelectionBackground': '#F8F2DC',
-    'editor.lineHighlightBackground': '#00000000',
+    'editor.lineHighlightBackground': '#F8F2DC',
     'editor.lineHighlightBorder': '#00000000',
     'scrollbarSlider.background': '#C9BB8866',
     'scrollbarSlider.hoverBackground': '#C9BB88AA',
@@ -70,6 +72,7 @@ export class Editor {
   private generation = 0;
   private mode: EditorMode = 'source';
   private highlightRun = 0;
+  private preferences = defaultEditorPreferences;
   private highlighting: Promise<void> = Promise.resolve();
   imagePasteRequested?: () => void;
 
@@ -82,7 +85,10 @@ export class Editor {
       language: 'markdown', theme: 'devpostit-paper', automaticLayout: true,
       minimap: { enabled: false }, wordWrap: 'on', fontSize: 13, lineHeight: 22,
       padding: { top: 12, bottom: 12 }, scrollBeyondLastLine: false,
-      lineNumbersMinChars: 3, lineDecorationsWidth: 8, renderLineHighlight: 'none',
+      lineNumbersMinChars: 3, lineDecorationsWidth: 8, renderLineHighlight: 'line', renderLineHighlightOnlyWhenFocus: false,
+      folding: true, showFoldingControls: 'mouseover', matchBrackets: 'always', contextmenu: true, smoothScrolling: true, mouseWheelZoom: false,
+      guides: { indentation: true }, wordBasedSuggestions: 'currentDocument',
+      find: { addExtraSpaceOnTop: false, seedSearchStringFromSelection: 'selection', autoFindInSelection: 'multiline' },
       overviewRulerLanes: 0, overviewRulerBorder: false, hideCursorInOverviewRuler: true,
       scrollbar: { verticalScrollbarSize: 8, horizontalScrollbarSize: 8, useShadows: false },
       ariaLabel: 'Markdown 본문', editContext: false,
@@ -154,7 +160,7 @@ export class Editor {
     this.model = monaco.editor.createModel(markdown, 'markdown', monaco.Uri.parse(`inmemory://notes/${encodeURIComponent(noteId)}/${this.generation}.md`));
     const firstNewline = /\r\n|\n/.exec(markdown)?.[0];
     // 괄호 색은 편집기 옵션이 아니라 모델 옵션을 따릅니다.
-    this.model.updateOptions({ bracketColorizationOptions: { enabled: false, independentColorPoolPerBracketType: false } });
+    this.model.updateOptions({ bracketColorizationOptions: { enabled: this.preferences.bracketColors, independentColorPoolPerBracketType: false } });
     this.model.setEOL(firstNewline === '\r\n' ? monaco.editor.EndOfLineSequence.CRLF : monaco.editor.EndOfLineSequence.LF);
     this.modelBaseline = this.model.getValue(monaco.editor.EndOfLinePreference.TextDefined, true);
     this.rawVersions.clear();
@@ -181,6 +187,22 @@ export class Editor {
     this.notify();
   }
 
+  setPreferences(preferences: EditorPreferences): void {
+    this.preferences = preferences;
+    this.view.updateOptions({
+      lineNumbers: preferences.lineNumbers ? 'on' : 'off',
+      wordWrap: preferences.wordWrap ? 'on' : 'off',
+      minimap: { enabled: preferences.minimap },
+      renderWhitespace: preferences.whitespace ? 'all' : 'selection',
+      stickyScroll: { enabled: preferences.stickyScroll },
+    });
+    this.model?.updateOptions({ bracketColorizationOptions: { enabled: preferences.bracketColors, independentColorPoolPerBracketType: false } });
+  }
+  runEditorAction(id: string): void {
+    if (!this.model || this.mode !== 'source' || this.composing) return;
+    this.view.focus();
+    void this.view.getAction(id)?.run();
+  }
   setFont(fontFamily: string, ligatures: boolean): void {
     this.view.updateOptions({ fontFamily, fontLigatures: ligatures });
     monaco.editor.remeasureFonts();

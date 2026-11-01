@@ -32,7 +32,15 @@ const groups: ToolbarItem[][] = [
   ],
 ];
 
+// 찾기·바꾸기는 Markdown 서식이 아니라 Monaco 명령을 실행합니다.
+const editorActions = [
+  { id: 'actions.find', label: '찾기', shortcut: 'Ctrl+F', icon: 'M7 3a4 4 0 1 1 0 8 4 4 0 0 1 0-8zM10 10l4 4' },
+  { id: 'editor.action.startFindReplaceAction', label: '바꾸기', shortcut: 'Ctrl+H', icon: 'M3 5h9l-2.5-2.5M13 11H4l2.5 2.5' },
+];
+const actionButton = ({ id, label, shortcut, icon }: typeof editorActions[number]) =>
+  `<button type="button" data-editor-action="${id}" aria-label="${label}" title="${label} (${shortcut})"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="${icon}"/></svg></button>`;
+
 const button = ({ action, label, icon, bold, shortcut }: ToolbarItem) =>
   `<button type="button" data-format="${action}" aria-label="${label}" title="${shortcut ? `${label} (${shortcut})` : label}"${bold ? ' class="heavy"' : ''}><svg viewBox="0 0 16 16" aria-hidden="true"><path d="${icon}"/></svg></button>`;
 
-export const formatToolbarHtml = `<div class="format-toolbar" role="toolbar" aria-label="Markdown 서식">${groups.map(group => group.map(button).join('')).join('<span class="format-separator" aria-hidden="true"></span>')}</div>`;
+export const formatToolbarHtml = `<div class="format-toolbar" role="toolbar" aria-label="Markdown 서식">${[...groups.map(group => group.map(button).join('')), editorActions.map(actionButton).join('')].join('<span class="format-separator" aria-hidden="true"></span>')}</div>`;
