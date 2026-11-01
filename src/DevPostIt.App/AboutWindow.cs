@@ -14,7 +14,7 @@ public sealed class AboutWindow : Window
     public const string RepositoryUrl = "https://github.com/fharenheit/DevPostIt";
     public const string ReleasesUrl = RepositoryUrl + "/releases";
     private const string Developer = "Edward KIM (fharenheit)";
-    private const string Components = ".NET, WebView2, Monaco Editor, Prettier, markdown-it, DOMPurify, SQLite, D2Coding, JetBrains Mono";
+    private const string Components = ".NET, WebView2, Monaco Editor, Prettier, Mermaid, clang-format, Ruff, gofmt, shfmt, sql-formatter, markdown-it, DOMPurify, SQLite, D2Coding, JetBrains Mono";
     internal string VersionText { get; }
     internal Action<string> LinkOpener { get; set; } = link => Process.Start(new ProcessStartInfo(link) { UseShellExecute = true })?.Dispose();
 

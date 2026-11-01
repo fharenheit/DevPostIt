@@ -2,6 +2,11 @@ import { defineConfig } from 'vite';
 
 export default defineConfig(({ command }) => ({
   base: './',
+  // wasm 도구는 자기 폴더의 wasm 파일을 찾으므로 미리 묶지 않습니다. 나머지는 테스트 중 페이지가 다시 읽히지 않게 미리 묶습니다.
+  optimizeDeps: {
+    exclude: ['@wasm-fmt/clang-format', '@wasm-fmt/gofmt', '@wasm-fmt/ruff_fmt', '@wasm-fmt/shfmt'],
+    include: ['sql-formatter', '@prettier/plugin-xml', '@prettier/plugin-php/standalone', 'mermaid'],
+  },
   build: { rollupOptions: { input: { main: 'index.html', settings: 'settings.html', search: 'search.html', formatter: 'formatter.html' } } },
   plugins: [{
     name: 'local-editor-csp',

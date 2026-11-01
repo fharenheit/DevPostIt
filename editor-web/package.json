@@ -18,12 +18,19 @@
     "test": "playwright test"
   },
   "dependencies": {
+    "@prettier/plugin-php": "0.26.0",
+    "@prettier/plugin-xml": "3.4.2",
+    "@wasm-fmt/clang-format": "23.1.1",
+    "@wasm-fmt/gofmt": "0.7.3",
+    "@wasm-fmt/ruff_fmt": "0.15.20",
+    "@wasm-fmt/shfmt": "0.2.7",
     "dompurify": "3.4.17",
     "markdown-it": "15.0.3",
     "mermaid": "12.2.0",
     "monaco-editor": "0.57.0",
     "prettier": "3.9.10",
     "prettier-plugin-java": "2.11.0",
+    "sql-formatter": "15.9.0",
     "web-tree-sitter": "0.27.0"
   },
   "devDependencies": {

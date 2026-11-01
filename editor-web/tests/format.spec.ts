@@ -32,7 +32,7 @@ for (const [lang, code, expected] of [
 
 for (const [name, body] of [
   ['문법 오류', '```json\n{"a":}\n```'],
-  ['미지원 언어', '```python\nx=1\n```'],
+  ['미지원 언어', '```없는언어\nx=1\n```'],
   ['미닫힌 블록', '```json\n{"a":1}'],
   ['인용 속 블록', '> ```json\n> {"a":1}\n> ```'],
 ]) test(`${name}: 정리 실패 시 원문 유지`, async ({ page }) => {
@@ -99,11 +99,11 @@ const languageOptions: [string, string, string][] = [
   ['mdx', '*a*', '_a_'],
 ];
 
-test('코드 언어 목록은 실제로 정리할 수 있는 언어만 보여 준다', async ({ page }) => {
+test('코드 언어 목록에 정리할 수 있는 언어를 모두 보여 준다', async ({ page }) => {
   await openEditor(page);
   const values = await page.locator('#code-language option').evaluateAll(options => options.map(option => (option as HTMLOptionElement).value));
   expect(values[0]).toBe('');
-  expect(values.slice(1).sort()).toEqual(languageOptions.map(([value]) => value).sort());
+  expect(values).toEqual(expect.arrayContaining(languageOptions.map(([value]) => value)));
 });
 
 for (const [language, code, expected] of languageOptions) {

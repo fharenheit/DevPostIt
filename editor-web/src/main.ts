@@ -2,6 +2,7 @@ import { Editor } from './editor';
 import { applyTypography, defaultTextSize, editorTextSize, fontStack, maxTextSize, minTextSize, readFontSettings, saveFontSettings } from './fonts';
 import { connectEditor, noteColors, type EditorConnection } from './bridge';
 import { formatToolbarHtml } from './format-toolbar';
+import { languageLabel, sourceLanguages } from './code-format';
 import type { MarkdownAction } from './markdown-format';
 import './style.css';
 
@@ -34,7 +35,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
     <div class="editor-area"><div id="source"></div><article id="preview" class="preview" aria-label="Markdown 미리보기" hidden></article></div>
     <footer class="note-bar">
       <div class="note-status"><span id="status" role="status">편집 준비</span><span id="host-status" role="status">변경 내용은 이 창에서만 유지됩니다.</span><span id="format-status" role="status"></span></div>
-      <div class="code-tools"><label><span class="visually-hidden">코드 언어</span><select id="code-language" title="코드 언어"><option value="">블록 언어 자동</option><option value="angular">Angular</option><option value="css">CSS</option><option value="flow">Flow</option><option value="graphql">GraphQL</option><option value="handlebars">Handlebars</option><option value="html">HTML</option><option value="java">Java</option><option value="js">JavaScript</option><option value="json">JSON</option><option value="json5">JSON5</option><option value="jsx">JSX</option><option value="less">Less</option><option value="markdown">Markdown</option><option value="mdx">MDX</option><option value="scss">SCSS</option><option value="tsx">TSX</option><option value="ts">TypeScript</option><option value="vue">Vue</option><option value="yaml">YAML</option></select></label><button id="format-code" title="커서가 있는 코드 블록 정리 (Ctrl+Alt+F)">코드 정리</button></div>
+      <div class="code-tools"><label><span class="visually-hidden">코드 언어</span><select id="code-language" title="코드 언어"><option value="">블록 언어 자동</option></select></label><button id="format-code" title="커서가 있는 코드 블록 정리 (Ctrl+Alt+F)">코드 정리</button></div>
     </footer>
   </section>`;
 
@@ -43,6 +44,8 @@ const previewButton = document.querySelector<HTMLButtonElement>('#preview-mode')
 const status = document.querySelector<HTMLElement>('#status')!;
 const formatButton = document.querySelector<HTMLButtonElement>('#format-code')!;
 const languageSelect = document.querySelector<HTMLSelectElement>('#code-language')!;
+for (const language of [...sourceLanguages, { value: 'markdown', label: 'Markdown' }, { value: 'mdx', label: 'MDX' }].sort((a, b) => a.label.localeCompare(b.label, 'en', { sensitivity: 'base' })))
+  languageSelect.append(new Option(languageLabel(language), language.value));
 const formatToolbar = document.querySelector<HTMLElement>('.format-toolbar')!;
 const toolbarButtons = formatToolbar.querySelectorAll('button');
 let formatting = false;

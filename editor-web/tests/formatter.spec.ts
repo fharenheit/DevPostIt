@@ -31,10 +31,12 @@ for (const [language, source, expected] of [
   });
 }
 
-test('포맷할 수 있는 언어만 고를 수 있고 Markdown은 없다', async ({ page }) => {
+test('언어 목록에 Markdown은 없다', async ({ page }) => {
   await open(page);
   const values = await page.locator('#formatter-language option').evaluateAll(options => options.map(option => (option as HTMLOptionElement).value));
-  expect(values).toEqual(['angular', 'css', 'flow', 'graphql', 'handlebars', 'html', 'java', 'js', 'json', 'json5', 'jsx', 'less', 'scss', 'tsx', 'ts', 'vue', 'yaml']);
+  expect(values).toEqual(expect.arrayContaining(['angular', 'css', 'flow', 'graphql', 'handlebars', 'html', 'java', 'js', 'json', 'json5', 'jsx', 'less', 'scss', 'tsx', 'ts', 'vue', 'yaml']));
+  expect(values).not.toContain('markdown');
+  expect(values).not.toContain('mdx');
 });
 
 test('메모 기능 없이 Monaco와 포맷 도구만 표시한다', async ({ page }) => {

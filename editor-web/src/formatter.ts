@@ -1,7 +1,7 @@
 import * as monaco from 'monaco-editor/editor/editor.api';
 import { preferenceOptions, sharedEditorOptions } from './monaco-setup';
 import './code-languages';
-import { formatSource, sourceLanguages } from './code-format';
+import { CodeBlockError, formatSource, languageLabel, sourceLanguages } from './code-format';
 import { applyTypography, editorTextSize, fontStack, readFontSettings } from './fonts';
 import './style.css';
 
@@ -11,7 +11,7 @@ const select = document.querySelector<HTMLSelectElement>('#formatter-language')!
 const button = document.querySelector<HTMLButtonElement>('#formatter-format')!;
 const status = document.querySelector<HTMLElement>('#formatter-status')!;
 const container = document.querySelector<HTMLElement>('#formatter-code')!;
-for (const language of sourceLanguages) select.append(new Option(language.label, language.value));
+for (const language of sourceLanguages) select.append(new Option(languageLabel(language), language.value));
 function savedLanguage(): string {
   try { return localStorage.getItem(languageKey) ?? 'json'; }
   catch { return 'json'; }
@@ -51,7 +51,7 @@ async function formatCode(): Promise<void> {
     view.pushUndoStop();
     status.textContent = '포맷했습니다.';
   } catch (error) {
-    status.textContent = `포맷하지 못했습니다. 언어와 문법을 확인해 주세요. ${String((error as Error)?.message ?? error).split('\n')[0].slice(0, 200)}`;
+    status.textContent = error instanceof CodeBlockError ? error.message : `포맷하지 못했습니다. 언어와 문법을 확인해 주세요. ${String((error as Error)?.message ?? error).split('\n')[0].slice(0, 200)}`;
   } finally {
     formatting = button.disabled = false;
     view.focus();

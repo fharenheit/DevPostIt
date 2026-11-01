@@ -259,6 +259,12 @@ internal static class Program
         await UntilAsync(async () => (await formatter.View.ExecuteScriptAsync("window.hunminFormatter.getValue()")).Contains("class Main {"));
         Check(await formatter.View.ExecuteScriptAsync("window.hunminFormatter.getLanguage()") == "\"java\"", "포맷터의 언어 선택");
         Check(workspace.Notes.Count == notesBeforeFormatter, "포맷터는 메모를 만들지 않음");
+        foreach (var (language, source, expected) in new[] { ("python", "a=1", "a = 1"), ("go", "package a\\nvar b=1", "var b = 1"), ("cpp", "int main(){}", "int main() {"), ("sql", "select 1", "select"), ("xml", "<a><b>1</b></a>", "<b>1</b>"), ("shell", "a=1;b=2", "a=1") })
+        {
+            await formatter.View.ExecuteScriptAsync($"(() => {{ const select = document.querySelector('#formatter-language'); select.value = '{language}'; select.dispatchEvent(new Event('change')); window.hunminFormatter.setValue('{source}'); document.querySelector('#formatter-format').click(); }})()");
+            await UntilAsync(async () => (await formatter.View.ExecuteScriptAsync("document.querySelector('#formatter-status').textContent")).Contains("포맷했습니다"));
+            Check(JsonSerializer.Deserialize<string>(await formatter.View.ExecuteScriptAsync("window.hunminFormatter.getValue()"))!.Contains(expected), $"포맷터의 {language} 정리");
+        }
         manager.ShowFormatter();
         Check(application.Windows.OfType<FormatterWindow>().Single() == formatter, "포맷터 창 중복 방지");
         formatter.Close();
