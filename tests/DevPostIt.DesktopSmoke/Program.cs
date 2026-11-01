@@ -254,6 +254,18 @@ internal static class Program
         await ReadyAsync(pdfWindow);
         // 사용자 클립보드를 건드리지 않도록 읽는 부분만 바꾸고, 붙여넣기부터 미리보기 표시까지 실제 WebView2로 확인합니다.
         var samplePng = SamplePng();
+        // 클립보드 스크린샷은 알파값이 모두 0으로 올 수 있습니다. 그대로 저장하면 투명한 그림이 됩니다.
+        byte[] Pixel(byte[] png)
+        {
+            using var input = new MemoryStream(png);
+            var frame = new FormatConvertedBitmap(BitmapDecoder.Create(input, BitmapCreateOptions.None, BitmapCacheOption.OnLoad).Frames[0], PixelFormats.Bgra32, null, 0);
+            var values = new byte[4];
+            frame.CopyPixels(new Int32Rect(0, 0, 1, 1), values, 4, 0);
+            return values;
+        }
+        BitmapSource Solid(byte alpha) { var values = new byte[16]; for (var index = 0; index < 16; index += 4) { values[index] = 10; values[index + 1] = 120; values[index + 2] = 230; values[index + 3] = alpha; } return BitmapSource.Create(2, 2, 96, 96, PixelFormats.Bgra32, null, values, 8); }
+        Check(Pixel(MainWindow.EncodeClipboardImage(Solid(0))) is [10, 120, 230, 255], "알파값이 모두 0인 클립보드 이미지를 불투명하게 저장");
+        Check(Pixel(MainWindow.EncodeClipboardImage(Solid(128)))[3] == 128, "실제 투명도가 있는 이미지는 유지");
         var imageFile = Path.Combine(root, "복사한 이미지.png");
         File.WriteAllBytes(imageFile, samplePng);
         Check(MainWindow.ImageFileToPng(imageFile) is { Length: > 0 }, "복사한 이미지 파일 읽기");

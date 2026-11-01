@@ -253,10 +253,34 @@ public partial class MainWindow : Window
     }
     private static byte[]? ClipboardPng()
     {
-        if (System.Windows.Clipboard.ContainsImage() && System.Windows.Clipboard.GetImage() is { } image) return EncodePng(image);
+        // PNG 형식이 있으면 앱이 넣은 원본을 그대로 씁니다.
+        if (System.Windows.Clipboard.GetData("PNG") is System.IO.MemoryStream png && IsDecodable(png)) return png.ToArray();
+        if (System.Windows.Clipboard.ContainsImage() && System.Windows.Clipboard.GetImage() is { } image) return EncodeClipboardImage(image);
         // 탐색기에서 이미지 파일을 복사한 경우입니다.
         if (System.Windows.Clipboard.ContainsFileDropList() && System.Windows.Clipboard.GetFileDropList() is { Count: 1 } files) return ImageFileToPng(files[0]!);
         return null;
+    }
+    private static bool IsDecodable(System.IO.MemoryStream png)
+    {
+        try
+        {
+            png.Position = 0;
+            return BitmapDecoder.Create(png, BitmapCreateOptions.None, BitmapCacheOption.OnLoad).Frames.Count > 0;
+        }
+        catch (Exception error) when (error is NotSupportedException or ArgumentException or System.IO.IOException) { return false; }
+    }
+    // Windows 클립보드의 비트맵은 알파값이 모두 0인 경우가 많습니다. 그대로 저장하면 투명해지므로 그때만 불투명으로 바꿉니다.
+    internal static byte[] EncodeClipboardImage(BitmapSource image)
+    {
+        var converted = new FormatConvertedBitmap(image, System.Windows.Media.PixelFormats.Bgra32, null, 0);
+        var stride = converted.PixelWidth * 4;
+        var pixels = new byte[stride * converted.PixelHeight];
+        converted.CopyPixels(pixels, stride, 0);
+        var allTransparent = true;
+        for (var index = 3; index < pixels.Length && allTransparent; index += 4) allTransparent = pixels[index] == 0;
+        if (!allTransparent) return EncodePng(image);
+        for (var index = 3; index < pixels.Length; index += 4) pixels[index] = 255;
+        return EncodePng(BitmapSource.Create(converted.PixelWidth, converted.PixelHeight, image.DpiX, image.DpiY, System.Windows.Media.PixelFormats.Bgra32, null, pixels, stride));
     }
     private static byte[] EncodePng(BitmapSource image)
     {
