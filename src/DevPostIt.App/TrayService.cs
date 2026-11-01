@@ -27,6 +27,11 @@ public sealed class TrayService : IDisposable
             menu.Items.Clear();
             menu.Items.Add("새 메모", null, (_, _) => Run(manager.CreateAsync));
             menu.Items.Add("메모 검색", null, (_, _) => manager.ShowSearch());
+            menu.Items.Add("개체 캡처 (시험)", null, (_, _) =>
+            {
+                tray.ShowBalloonTip(3000, "개체 캡처", "요소를 클릭하면 메모에 넣습니다. 휠: 상위·하위 요소, Esc나 우클릭: 취소", Forms.ToolTipIcon.Info);
+                Run(manager.StartObjectCaptureAsync);
+            });
             var notes = new Forms.ToolStripMenuItem("메모 목록");
             var all = workspace.Notes;
             foreach (var note in all.Take(MaxListedNotes)) notes.DropDownItems.Add(Label(note.Title), null, (_, _) => manager.ShowNote(note.Id));

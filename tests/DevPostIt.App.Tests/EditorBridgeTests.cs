@@ -241,6 +241,27 @@ public class EditorBridgeTests
             Assert.Contains(topic, text);
     }
 
+    [Theory]
+    [InlineData(10.2, 20.7, 100.5, 50.5, 10, 20, 101, 52)]
+    [InlineData(-50, -50, 100, 100, 0, 0, 50, 50)]
+    [InlineData(1900, 1000, 500, 500, 1900, 1000, 20, 80)]
+    public void CaptureRectIsClampedToScreen(double x, double y, double width, double height, int ex, int ey, int ew, int eh) =>
+        Assert.Equal(new ScreenRect(ex, ey, ew, eh), CaptureGeometry.ClampToScreen(x, y, width, height, new ScreenRect(0, 0, 1920, 1080)));
+
+    [Fact]
+    public void CaptureRectWorksOnMonitorsLeftOfPrimary() =>
+        Assert.Equal(new ScreenRect(-1920, 0, 100, 100), CaptureGeometry.ClampToScreen(-1920, 0, 100, 100, new ScreenRect(-1920, 0, 3840, 1080)));
+
+    [Theory]
+    [InlineData(0, 0, 0, 10)]
+    [InlineData(0, 0, 3, 3)]
+    [InlineData(5000, 5000, 100, 100)]
+    [InlineData(double.NaN, 0, 10, 10)]
+    [InlineData(0, 0, double.PositiveInfinity, 10)]
+    [InlineData(0, 0, -10, 10)]
+    public void InvalidCaptureRectIsRejected(double x, double y, double width, double height) =>
+        Assert.Null(CaptureGeometry.ClampToScreen(x, y, width, height, new ScreenRect(0, 0, 1920, 1080)));
+
     [Fact]
     public void AssetsStayOnTrustedOrigin()
     {

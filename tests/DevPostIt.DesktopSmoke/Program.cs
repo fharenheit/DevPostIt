@@ -297,6 +297,29 @@ internal static class Program
             Check(colored > 10000, $"붙여넣은 이미지가 미리보기 화면에 실제로 표시 ({colored}픽셀)");
         }
         await imageEditor.ExecuteScriptAsync("window.hunminEditor.setMode('source')");
+        // 개체 캡처: 입력을 보내지 않고 숨기기·복원, 화면 복사, 메모 삽입만 확인합니다. 후크는 설치하지 않습니다.
+        manager.ObjectCaptureHooks = false;
+        var visibleBefore = pdfWindow.IsVisible;
+        await manager.StartObjectCaptureAsync();
+        Check(manager.IsObjectCapturing && !pdfWindow.IsVisible, "개체 캡처 중 메모 창 숨김");
+        await Task.Delay(300);
+        manager.CancelObjectCapture();
+        Check(!manager.IsObjectCapturing && pdfWindow.IsVisible == visibleBefore, "개체 캡처 취소 시 메모 창 복원");
+        await application.Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.ContextIdle);
+        Check(application.Windows.OfType<Window>().All(window => window.Width > 1 || window is CollapsedNoteWindow), "개체 캡처 강조 창 정리");
+        var hit = await Task.Run(() => ObjectCaptureSession.HitTest((int)pdfWindow.Left + 100, (int)pdfWindow.Top + 100, 0));
+        Check(hit is null || hit.Value.Width >= 4, "요소 검색 호출");
+        var capturedPng = ObjectCaptureSession.CapturePng(new DevPostIt.EditorHost.ScreenRect((int)pdfWindow.Left, (int)pdfWindow.Top, 30, 20));
+        using (var capturedStream = new MemoryStream(capturedPng))
+        {
+            var capturedFrame = BitmapDecoder.Create(capturedStream, BitmapCreateOptions.None, BitmapCacheOption.OnLoad).Frames[0];
+            Check(capturedFrame.PixelWidth == 30 && capturedFrame.PixelHeight == 20, "화면 영역 PNG 생성");
+        }
+        var beforeInsert = await imageEditor.ExecuteScriptAsync("window.hunminEditor.getDraft().markdown");
+        await imageEditor.ExecuteScriptAsync("window.hunminEditor.setMode('preview')");
+        await pdfWindow.InsertImageAsync(samplePng);
+        await UntilAsync(async () => await imageEditor.ExecuteScriptAsync("window.hunminEditor.getDraft().markdown") != beforeInsert);
+        Check(await imageEditor.ExecuteScriptAsync("window.hunminEditor.getMode()") == "\"source\"", "캡처 삽입 시 소스 편집으로 전환");
         var pdfPath = Path.Combine(root, "note.pdf");
         pdfWindow.PdfPathPicker = _ => pdfPath;
         var pdfEditor = (WebView2)pdfWindow.FindName("EditorView");

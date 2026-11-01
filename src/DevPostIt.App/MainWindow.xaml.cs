@@ -228,6 +228,15 @@ public partial class MainWindow : Window
         finally { messages.Release(); }
     }
 
+    internal bool IsEditorReady => bridge is not null && !closed && !closing && Loading.Visibility == Visibility.Collapsed;
+    // 캡처한 이미지를 커서 위치에 넣습니다. 미리보기 중이면 소스 편집으로 돌아옵니다.
+    internal async Task InsertImageAsync(byte[] png)
+    {
+        if (!IsEditorReady) throw new InvalidOperationException("메모가 아직 준비되지 않았습니다.");
+        var markdown = await Task.Run(() => workspace.SaveImageAsync(noteId, png, CancellationToken.None));
+        await EditorView.ExecuteScriptAsync("window.hunminEditor.setMode('source')");
+        Send("note.imageSaved", new { markdown }, bridge!.Revision);
+    }
     private static string? PickPdfPath(string title)
     {
         var name = string.Concat(title.Select(character => System.IO.Path.GetInvalidFileNameChars().Contains(character) ? '_' : character)).Trim();

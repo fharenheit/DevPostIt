@@ -20,6 +20,10 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
     private SearchWindow? search;
     private AboutWindow? about;
     private HelpWindow? help;
+    private MainWindow? lastActive;
+    private ObjectCaptureSession? capture;
+    internal bool ObjectCaptureHooks { get; set; } = true;
+    internal bool IsObjectCapturing => capture is not null;
     private Action? afterExit;
     private AppUpdater? updater;
     private DispatcherTimer? updateTimer;
@@ -49,6 +53,7 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
             window.CollapseRequested += Collapse;
             window.NewNoteRequested += async () => await RunAsync(CreateAsync);
             window.SettingsRequested += ShowSettings;
+            window.Activated += (_, _) => lastActive = window;
             window.SearchRequested += ShowSearch;
             window.AppearanceChanged += (color, topmost) => { state.Color = color; state.Topmost = topmost; RememberSoon(); };
             window.LocationChanged += (_, _) => RememberPlacement(window, state);
@@ -56,6 +61,7 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
             window.Closed += (_, _) =>
             {
                 windows.Remove(id);
+                if (lastActive == window) lastActive = null;
                 if (icons.Remove(id, out var old)) old.Close();
                 if (!exiting) RememberSoon();
             };
@@ -118,6 +124,36 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
             about.Show();
         }
         about.Activate();
+    }
+    // 시험 구현: 메모 창을 숨기고 개체를 고르면 최근 메모에 넣습니다.
+    public async Task StartObjectCaptureAsync()
+    {
+        if (exiting || capture is not null) return;
+        var target = lastActive ?? windows.Values.FirstOrDefault(window => window.IsVisible) ?? windows.Values.FirstOrDefault() ?? ShowNote(workspace.Notes[0].Id);
+        if (target is null) return;
+        var hidden = windows.Values.Where(window => window.IsVisible).ToArray();
+        void Restore()
+        {
+            capture = null;
+            if (exiting) return;
+            foreach (var window in hidden) if (!window.IsVisible && windows.ContainsValue(window)) window.Show();
+        }
+        capture = new ObjectCaptureSession(
+            png => { Restore(); _ = RunAsync(() => InsertCaptureAsync(target, png)); },
+            Restore,
+            ObjectCaptureHooks);
+        foreach (var window in hidden) window.Hide();
+        // 숨기는 효과가 끝난 뒤 시작해 메모 창이 검색에 잡히지 않게 합니다.
+        await Task.Delay(200);
+        capture?.Start();
+    }
+    internal void CancelObjectCapture() => capture?.Cancel();
+    private async Task InsertCaptureAsync(MainWindow target, byte[] png)
+    {
+        if (ShowNote(target.NoteId) is not { } window) return;
+        for (var attempt = 0; attempt < 100 && !window.IsEditorReady; attempt++) await Task.Delay(100);
+        await window.InsertImageAsync(png);
+        window.Activate();
     }
     public void ShowHelp()
     {
@@ -213,6 +249,7 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
         try
         {
             await operations.StopAsync();
+            capture?.Cancel();
             RememberNow();
             foreach (var window in windows.Values.ToArray()) if (!await window.RequestCloseAsync()) return;
             settings?.Close();
