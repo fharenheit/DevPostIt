@@ -5,10 +5,8 @@ Monaco Markdown 소스 편집과 읽기 전용 미리보기입니다. D2 Ligatur
 Node.js 24.22.1, npm 11.19.1을 사용합니다. 저장소 루트의 PowerShell에서:
 
 ```powershell
-$env:PATH = "$PWD\.tools\node\node-v24.22.1-win-x64;$env:PATH"
-cd editor-web
-npm.cmd ci
-npm.cmd run dev
+
+
 ```
 
 표시된 로컬 주소를 브라우저에서 열면 됩니다. WPF에서 편집기를 여는 기능은 작업 4에서 연결합니다.
