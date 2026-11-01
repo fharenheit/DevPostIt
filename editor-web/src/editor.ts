@@ -6,6 +6,35 @@ import { formatBlock, CodeBlockError } from './code-format';
 
 globalThis.MonacoEnvironment = { getWorker: () => new EditorWorker() };
 
+// style.css의 메모지 색 토큰과 같은 값을 사용합니다.
+monaco.editor.defineTheme('devpostit-paper', {
+  base: 'vs', inherit: true,
+  rules: [
+    { token: '', foreground: '2F2A1F' },
+    { token: 'keyword', foreground: '7A5C00', fontStyle: 'bold' },
+    { token: 'string', foreground: '8A4B08' },
+    { token: 'string.link', foreground: '7A5C00' },
+    { token: 'variable', foreground: '665E4B' },
+    { token: 'comment', foreground: '665E4B', fontStyle: 'italic' },
+    { token: 'strong', fontStyle: 'bold' },
+    { token: 'emphasis', fontStyle: 'italic' },
+  ],
+  colors: {
+    'editor.background': '#FFFDF5',
+    'editor.foreground': '#2F2A1F',
+    'editorCursor.foreground': '#7A5C00',
+    'editorLineNumber.foreground': '#A89E80',
+    'editorLineNumber.activeForeground': '#665E4B',
+    'editor.selectionBackground': '#FFE88F',
+    'editor.inactiveSelectionBackground': '#F8F2DC',
+    'editor.lineHighlightBackground': '#00000000',
+    'editor.lineHighlightBorder': '#00000000',
+    'scrollbarSlider.background': '#C9BB8866',
+    'scrollbarSlider.hoverBackground': '#C9BB88AA',
+    'scrollbarSlider.activeBackground': '#C9BB88',
+  },
+});
+
 export type EditorMode = 'source' | 'preview';
 export type Draft = { markdown: string; revision: number; dirty: boolean };
 export class Editor {
@@ -28,9 +57,12 @@ export class Editor {
     private readonly changed: (mode: EditorMode, draft: Draft) => void,
   ) {
     this.view = monaco.editor.create(source, {
-      language: 'markdown', theme: 'vs', automaticLayout: true,
+      language: 'markdown', theme: 'devpostit-paper', automaticLayout: true,
       minimap: { enabled: false }, wordWrap: 'on', fontSize: 13, lineHeight: 22,
-      padding: { top: 24, bottom: 24 }, scrollBeyondLastLine: false,
+      padding: { top: 12, bottom: 12 }, scrollBeyondLastLine: false,
+      lineNumbersMinChars: 3, lineDecorationsWidth: 8, renderLineHighlight: 'none',
+      overviewRulerLanes: 0, overviewRulerBorder: false, hideCursorInOverviewRuler: true,
+      scrollbar: { verticalScrollbarSize: 8, horizontalScrollbarSize: 8, useShadows: false },
       ariaLabel: 'Markdown 본문', editContext: false,
       links: false,
       renderWhitespace: 'selection', tabSize: 2, quickSuggestions: false,

@@ -122,3 +122,25 @@ for (const [width, height, size] of [[304, 320, 24], [480, 640, 15]] as const) {
     await expect(page.getByRole('dialog', { name: '설정', exact: true })).toBeHidden();
   });
 }
+
+test('편집기와 미리보기는 메모지 배경을 함께 쓰고 편집기 장식을 줄인다', async ({ page }) => {
+  await openAt(page, 480, 640);
+  const workspace = await page.locator('.workspace').evaluate(element => getComputedStyle(element).backgroundColor);
+  await expect(page.locator('#source .monaco-editor-background').first()).toHaveCSS('background-color', workspace);
+  await expect(page.locator('#source .decorationsOverviewRuler')).toBeHidden();
+  await expect(page.locator('#source .view-overlays .current-line')).toHaveCount(0);
+  await mode(page, 'preview');
+  await expect(page.locator('#preview')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+});
+
+test('넓은 창의 미리보기는 읽기 좋은 폭으로 가운데에 놓고 좁은 창에서는 넘치지 않는다', async ({ page }) => {
+  await openAt(page, 1200, 850);
+  await mode(page, 'preview');
+  const wide = await box(page, '#preview h1');
+  expect(wide.width).toBeLessThanOrEqual(760);
+  expect(wide.left).toBeGreaterThan(100);
+  await page.setViewportSize({ width: 304, height: 320 });
+  const narrow = await box(page, '#preview h1');
+  expect(narrow.right).toBeLessThanOrEqual(304);
+  expect(narrow.left).toBeLessThanOrEqual(24);
+});
