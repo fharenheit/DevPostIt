@@ -115,6 +115,18 @@ public class EditorBridgeTests
     }
 
     [Fact]
+    public async Task TitleTravelsWithBodyAndClosingSnapshot()
+    {
+        var message = Change() with { Payload = JsonSerializer.SerializeToElement(new { markdown = "본문", title = "새 이름" }) };
+        var result = await new EditorBridge(Id, 7).ReceiveAsync(Serialize(message), EditorOrigin.Page, default);
+        Assert.Equal("새 이름", result.Change!.Title);
+        var snapshot = EditorDraftSnapshot.Parse(JsonSerializer.Serialize(new { markdown = "본문", title = "새 이름", revision = 8, dirty = true }));
+        Assert.Equal("새 이름", snapshot.Title);
+        foreach (var title in new[] { " ", new string('가', 201) })
+            await Assert.ThrowsAsync<EditorProtocolException>(() => new EditorBridge(Id, 7).ReceiveAsync(Serialize(message with { Payload = JsonSerializer.SerializeToElement(new { markdown = "본문", title }) }), EditorOrigin.Page, default));
+    }
+
+    [Fact]
     public async Task CancelledMessageDoesNotChangeRevision()
     {
         using var source = new CancellationTokenSource();

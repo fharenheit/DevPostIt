@@ -32,6 +32,7 @@ public partial class MainWindow : Window
             var state = await startup;
             if (closing || closed) return;
             opened = true;
+            Title = $"{state.Note.Title} — DevPostIt";
             if (state.RecoveryPending)
             {
                 var choice = MessageBox.Show(this, "저장되지 않은 복구 초안이 있습니다.\n예: 초안을 복원합니다.\n아니요: 현재 파일을 유지하고 초안을 버립니다.\n취소: 복구 기록을 보존하고 닫습니다.", "DevPostIt 복구", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
@@ -110,7 +111,7 @@ public partial class MainWindow : Window
             else if (result.Message.Type == "editor.ready")
             {
                 var state = await service.GetStateAsync(FirstNoteId, CancellationToken.None);
-                Send("note.load", new { markdown = state.Note.Markdown }, state.Revision);
+                Send("note.load", new { markdown = state.Note.Markdown, title = state.Note.Title }, state.Revision);
                 if (state.Error is not null) Send("note.conflict", new { message = state.Error }, state.Revision);
                 else if (state.HasUnsavedChanges) Send("note.conflict", new { message = "복구 초안을 자동 저장하는 중입니다." }, state.Revision);
                 Loading.Visibility = Visibility.Collapsed;
@@ -118,7 +119,7 @@ public partial class MainWindow : Window
             else if (result.Message.Type == "note.saveRequested")
             {
                 var state = await service.GetStateAsync(FirstNoteId, CancellationToken.None);
-                if (state.Note.Markdown != result.Message.Payload.GetProperty("markdown").GetString())
+                if (state.Note.Markdown != result.Message.Payload.GetProperty("markdown").GetString() || (EditorBridge.ReadTitle(result.Message.Payload) is { } requestedTitle && requestedTitle != state.Note.Title))
                     throw new EditorProtocolException("저장 요청 본문이 현재 초안과 일치하지 않습니다.");
                 state = await Task.Run(() => service.FlushAsync(FirstNoteId, CancellationToken.None));
                 Send("note.saved", new { }, state.SavedRevision);
@@ -138,6 +139,7 @@ public partial class MainWindow : Window
         Dispatcher.BeginInvoke(new Action(() =>
         {
             if (closed || closing || bridge is null) return;
+            Title = $"{state.Note.Title} — DevPostIt";
             if (!state.HasUnsavedChanges && !state.RecoveryPending) Send("note.saved", new { }, state.SavedRevision);
             if (state.Error is not null) Send("note.conflict", new { message = state.Error }, state.Revision);
         }));
@@ -168,14 +170,14 @@ public partial class MainWindow : Window
                 if (bridge is not null && EditorView.CoreWebView2 is not null && Loading.Visibility == Visibility.Collapsed)
                 {
                     snapshotCaptured = false;
-                    var json = await EditorView.ExecuteScriptAsync("window.hunminEditor ? window.hunminEditor.getDraft() : null");
+                    var json = await EditorView.ExecuteScriptAsync("window.hunminEditor ? ({ ...window.hunminEditor.getDraft(), title: window.hunminEditor.getTitle() }) : null");
                     var draft = EditorDraftSnapshot.Parse(json);
                     var state = await service!.GetStateAsync(FirstNoteId, CancellationToken.None);
-                    if (draft.Revision < state.Revision || draft.Revision == state.Revision && draft.Markdown != state.Note.Markdown)
+                    if (draft.Revision < state.Revision || draft.Revision == state.Revision && (draft.Markdown != state.Note.Markdown || draft.Title is not null && draft.Title != state.Note.Title))
                         throw new EditorProtocolException("화면과 저장 초안이 일치하지 않습니다.");
                     if (draft.Revision > state.Revision)
                     {
-                        var message = new EditorMessage(1, "note.changed", Guid.NewGuid().ToString(), FirstNoteId, draft.Revision, JsonSerializer.SerializeToElement(new { markdown = draft.Markdown }));
+                        var message = new EditorMessage(1, "note.changed", Guid.NewGuid().ToString(), FirstNoteId, draft.Revision, JsonSerializer.SerializeToElement(new { markdown = draft.Markdown, title = draft.Title }));
                         var change = await bridge.HandleAsync(message, CancellationToken.None);
                         if (change is not null) await Task.Run(() => service!.ApplyChangeAsync(change, CancellationToken.None));
                     }

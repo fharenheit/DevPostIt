@@ -2,6 +2,26 @@ import { test, expect, type Page } from '@playwright/test';
 import { replaceText, mode, draft } from './helpers';
 
 const id = '018f5df0-7e6c-7ad0-a8c1-9b67490da11b';
+test('메모 제목 로드·이름 변경·취소와 본문을 같은 리비전으로 전달한다', async ({ page }) => {
+  await hosted(page);
+  await send(page, 'note.load', 7, { markdown: '원본', title: '첫 이름' });
+  await expect(page.locator('h1')).toHaveText('첫 이름');
+  await page.getByRole('button', { name: '이름 변경', exact: true }).click();
+  await page.getByLabel('메모 이름', { exact: true }).fill('  회의 기록  ');
+  await page.getByRole('button', { name: '확인', exact: true }).click();
+  await expect(page.locator('h1')).toHaveText('회의 기록');
+  await expect.poll(async () => (await messages(page)).at(-1)?.payload.title).toBe('회의 기록');
+  const change = (await messages(page)).at(-1);
+  expect(change.payload.markdown).toBe('원본');
+  expect(change.revision).toBe(8);
+  await send(page, 'note.saved', 8, {});
+  expect((await draft(page)).dirty).toBe(false);
+  await page.getByRole('button', { name: '이름 변경', exact: true }).click();
+  await page.getByLabel('메모 이름', { exact: true }).fill('취소 이름');
+  await page.getByRole('button', { name: '취소', exact: true }).click();
+  await expect(page.locator('h1')).toHaveText('회의 기록');
+  expect((await draft(page)).revision).toBe(8);
+});
 async function hosted(page: Page) {
   await page.addInitScript(() => {
     const messages: unknown[] = [];

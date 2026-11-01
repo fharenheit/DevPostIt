@@ -12,6 +12,8 @@ export class Editor {
   private readonly view: monaco.editor.IStandaloneCodeEditor;
   private model: monaco.editor.ITextModel | null = null;
   private original = '';
+  private title = '나의 첫 메모';
+  private originalTitle = this.title;
   private modelBaseline = '';
   private draft: Draft = { markdown: '', revision: 0, dirty: false };
   private composing = false;
@@ -39,7 +41,7 @@ export class Editor {
       // Undo로 모델의 최초 값에 복귀하면 BOM·혼합 줄바꿈을 포함한 원문을 돌려줍니다.
       const markdown = value === this.modelBaseline ? this.original : value;
       if (markdown !== this.draft.markdown) {
-        this.draft = { markdown, revision: this.draft.revision + 1, dirty: markdown !== this.original };
+        this.draft = { markdown, revision: this.draft.revision + 1, dirty: markdown !== this.original || this.title !== this.originalTitle };
         this.notify();
       }
     });
@@ -57,12 +59,13 @@ export class Editor {
     });
   }
 
-  load(noteId: string, markdown: string, revision: number): void {
+  load(noteId: string, markdown: string, revision: number, title = '나의 첫 메모'): void {
     const previous = this.model;
     this.generation++;
     this.composing = false;
     this.pendingMode = null;
     this.original = markdown;
+    this.title = this.originalTitle = title;
     this.model = monaco.editor.createModel(markdown, 'markdown', monaco.Uri.parse(`inmemory://notes/${encodeURIComponent(noteId)}/${this.generation}.md`));
     const firstNewline = /\r\n|\n/.exec(markdown)?.[0];
     this.model.setEOL(firstNewline === '\r\n' ? monaco.editor.EndOfLineSequence.CRLF : monaco.editor.EndOfLineSequence.LF);
@@ -90,6 +93,15 @@ export class Editor {
   }
 
   getDraft(): Draft { return { ...this.draft }; }
+  getTitle(): string { return this.title; }
+  rename(title: string): void {
+    const value = title.trim();
+    if (!value || value.length > 200 || /[\u0000-\u001f\u007f-\u009f]/.test(value)) throw new Error('메모 이름은 줄바꿈 없이 1~200자로 입력하세요.');
+    if (value === this.title) return;
+    this.title = value;
+    this.draft = { ...this.draft, revision: this.draft.revision + 1, dirty: this.title !== this.originalTitle || this.draft.markdown !== this.original };
+    this.notify();
+  }
   async formatCodeBlock(language?: string): Promise<string> {
     if (!this.model || this.mode !== 'source' || this.composing) return '소스 편집에서 조합을 마친 뒤 실행해 주세요.';
     const model = this.model;
@@ -108,6 +120,7 @@ export class Editor {
   markSaved(revision: number): void {
     if (revision !== this.draft.revision || !this.model || this.composing) return;
     this.original = this.draft.markdown;
+    this.originalTitle = this.title;
     this.modelBaseline = this.model.getValue(monaco.editor.EndOfLinePreference.TextDefined, true);
     this.draft = { ...this.draft, dirty: false };
     this.notify();

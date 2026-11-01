@@ -30,14 +30,14 @@ export class EditorConnection {
     if (this.noteId === emptyId || this.editor.isComposing()) return;
     this.publish();
     const draft = this.editor.getDraft();
-    this.send('note.saveRequested', { markdown: draft.markdown }, draft.revision);
+    this.send('note.saveRequested', { markdown: draft.markdown, title: this.editor.getTitle() }, draft.revision);
   }
 
   private publish(): void {
     if (this.loading || this.noteId === emptyId || this.editor.isComposing()) return;
     const draft = this.editor.getDraft();
     if (draft.revision <= this.sentRevision) return;
-    if (this.send('note.changed', { markdown: draft.markdown }, draft.revision)) {
+    if (this.send('note.changed', { markdown: draft.markdown, title: this.editor.getTitle() }, draft.revision)) {
       this.sentRevision = draft.revision;
       this.status('자동 저장 대기 중…');
     }
@@ -59,13 +59,13 @@ export class EditorConnection {
         !message.payload || typeof message.payload !== 'object' || Array.isArray(message.payload) || bytes(message) > maxBytes) return;
     const current = this.editor.getDraft();
     if (message.type === 'note.load') {
-      if (!keys(message.payload, ['markdown']) || typeof message.payload.markdown !== 'string') return;
+      if (!(keys(message.payload, ['markdown']) || keys(message.payload, ['markdown', 'title'])) || typeof message.payload.markdown !== 'string' || (Object.hasOwn(message.payload, 'title') && typeof message.payload.title !== 'string')) return;
       if (message.noteId === this.noteId && (message.revision < current.revision || current.dirty)) return;
       this.loading = true;
       try {
         this.noteId = message.noteId;
         this.sentRevision = message.revision;
-        this.editor.load(message.noteId, message.payload.markdown, message.revision);
+        this.editor.load(message.noteId, message.payload.markdown, message.revision, message.payload.title as string | undefined);
       } finally { this.loading = false; }
       this.status('앱 연결됨 · 자동 저장 사용');
     } else if (message.noteId === this.noteId && message.revision === current.revision) {

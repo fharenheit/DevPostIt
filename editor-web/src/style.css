@@ -54,3 +54,8 @@ footer { font-size: .8rem; }
  .code-tools { display: flex; align-items: center; flex-wrap: wrap; gap: .6rem; padding: .5rem 1.5rem; border-bottom: 1px solid #e0e7e4; }
  .code-tools label { display: flex; align-items: center; gap: .4rem; }
  #format-status { font-size: .8rem; color: #53675f; }
+dialog { border: 1px solid #cbd9d0; border-radius: .8rem; padding: 1.5rem; color: #264b40; max-width: 90vw; }
+dialog::backdrop { background: #183d3455; }
+dialog input { display: block; width: 100%; margin: .7rem 0; padding: .5rem; font: inherit; box-sizing: border-box; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1rem; }
+#rename { margin-left: auto; flex-shrink: 0; }

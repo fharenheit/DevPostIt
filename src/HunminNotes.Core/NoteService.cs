@@ -50,10 +50,11 @@ public sealed class NoteService(INoteRepository repository, IDraftJournal journa
             if (session.State.RecoveryPending) throw new InvalidOperationException("복구 내용을 먼저 선택하세요.");
             if (change.Revision <= session.State.Revision || change.Revision > 9_007_199_254_740_991)
                 throw new InvalidOperationException("오래되거나 유효하지 않은 리비전입니다.");
+            var title = change.Title is null ? session.State.Note.Title : NoteTitle.Normalize(change.Title);
             StopTimer(session);
             session.State = session.State with
             {
-                Note = session.State.Note with { Markdown = change.Markdown, Updated = time.GetUtcNow() },
+                Note = session.State.Note with { Markdown = change.Markdown, Title = title, Updated = time.GetUtcNow() },
                 Revision = change.Revision, Status = NoteSaveStatus.Pending, Error = null
             };
             try

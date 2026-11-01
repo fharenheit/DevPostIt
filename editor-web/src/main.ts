@@ -11,7 +11,8 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
       <div class="modes" role="group" aria-label="보기 방식"><button id="source-mode" aria-pressed="true">소스 편집</button><button id="preview-mode" aria-pressed="false">미리보기</button></div>
       <div class="font-controls"><div class="text-size" role="group" aria-label="전체 글자 크기"><button id="smaller" aria-label="글자 작게" title="모든 글자를 한 단계 작게">−</button><output id="text-size" aria-label="기준 글자 크기">14</output><button id="larger" aria-label="글자 크게" title="모든 글자를 한 단계 크게">+</button></div><label>편집 글꼴 <select id="font"><option value="d2">D2 Ligature</option><option value="jetbrains">JetBrains Mono</option><option value="system">시스템 고정폭</option></select></label><label class="ligatures"><input id="ligatures" type="checkbox" checked> 합자 사용</label></div>
     </div>
-    <div class="document-heading"><span class="document-icon">MD</span><div><h1>나의 첫 메모</h1><p>Markdown으로 작성하고 미리보기로 확인하세요.</p></div></div>
+    <div class="document-heading"><span class="document-icon">MD</span><div><h1 title="더블클릭하면 작은 아이콘으로 접습니다">나의 첫 메모</h1><p>Markdown으로 작성하고 미리보기로 확인하세요.</p></div><button id="rename" aria-label="이름 변경">이름 변경</button></div>
+    <dialog id="rename-dialog"><form id="rename-form"><h2>이름 변경</h2><label for="note-name">메모 이름</label><input id="note-name" maxlength="200" required><p id="rename-error" role="status"></p><div class="dialog-actions"><button type="button" id="rename-cancel">취소</button><button type="submit">확인</button></div></form></dialog>
     <div class="code-tools"><label>코드 언어 <select id="code-language"><option value="">블록 언어 자동</option><option value="json">JSON</option><option value="yaml">YAML</option><option value="java">Java</option><option value="js">JavaScript</option><option value="ts">TypeScript</option><option value="html">HTML</option><option value="css">CSS</option></select></label><button id="format-code" title="커서가 있는 코드 블록 정리 (Ctrl+Alt+F)">코드 정리</button><span id="format-status" role="status"></span></div>
     <div class="editor-area"><div id="source"></div><article id="preview" class="preview" aria-label="Markdown 미리보기" hidden></article></div>
     <footer><span id="status" role="status">편집 준비</span><span id="host-status" role="status">변경 내용은 이 창에서만 유지됩니다.</span></footer>
@@ -25,10 +26,23 @@ const editor = new Editor(document.querySelector('#source')!, document.querySele
   sourceButton.setAttribute('aria-pressed', String(mode === 'source'));
   previewButton.setAttribute('aria-pressed', String(mode === 'preview'));
   status.textContent = `${draft.dirty ? '편집됨' : '원문 유지'} · ${draft.markdown.length.toLocaleString('ko-KR')}자`;
+  document.querySelector('h1')!.textContent = editor.getTitle();
   connection?.changed();
 });
 sourceButton.addEventListener('click', () => editor.setMode('source'));
 previewButton.addEventListener('click', () => editor.setMode('preview'));
+const renameDialog = document.querySelector<HTMLDialogElement>('#rename-dialog')!;
+document.querySelector('#rename')!.addEventListener('click', () => {
+  document.querySelector<HTMLInputElement>('#note-name')!.value = editor.getTitle();
+  document.querySelector('#rename-error')!.textContent = '';
+  renameDialog.showModal();
+});
+document.querySelector('#rename-cancel')!.addEventListener('click', () => renameDialog.close());
+document.querySelector('#rename-form')!.addEventListener('submit', event => {
+  event.preventDefault();
+  try { editor.rename(document.querySelector<HTMLInputElement>('#note-name')!.value); renameDialog.close(); }
+  catch (error) { document.querySelector('#rename-error')!.textContent = (error as Error).message; }
+});
 async function formatCode(): Promise<void> {
   const button = document.querySelector<HTMLButtonElement>('#format-code')!;
   button.disabled = true;

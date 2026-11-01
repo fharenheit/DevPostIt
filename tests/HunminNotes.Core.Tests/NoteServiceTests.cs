@@ -218,6 +218,35 @@ public sealed class NoteServiceTests
         Assert.Equal("로컬 초안", journal.Draft!.Note.Markdown);
     }
 
+    [Fact]
+    public async Task TitleAndBodyShareJournalSaveAndIndexRevision()
+    {
+        var repository = new Repository(Original);
+        var journal = new Journal();
+        var index = new Index { Check = note => Assert.Equal("새 이름", note.Title) };
+        await using var service = new NoteService(repository, journal, index);
+        await service.OpenAsync(Original.Id, default);
+        await service.ApplyChangeAsync(new(Original.Id, 1, "새 본문", "  새 이름  "), default);
+        Assert.Equal("새 이름", journal.Draft!.Note.Title);
+        await service.FlushAsync(Original.Id, default);
+        Assert.Equal("새 이름", repository.Current!.Title);
+        Assert.Equal("새 본문", repository.Current.Markdown);
+        Assert.Equal(Original.RelativePath, repository.Current.RelativePath);
+        Assert.Equal(Original.Id, repository.Current.Id);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("줄\n바꿈")]
+    public async Task InvalidTitleDoesNotChangeDraft(string title)
+    {
+        await using var service = new NoteService(new Repository(Original), new Journal(), new Index());
+        await service.OpenAsync(Original.Id, default);
+        await Assert.ThrowsAsync<ArgumentException>(() => service.ApplyChangeAsync(new(Original.Id, 1, "수정", title), default));
+        Assert.Equal(Original, (await service.GetStateAsync(Original.Id, default)).Note);
+    }
+
     private static Task NextSaved(NoteService service)
     {
         var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);

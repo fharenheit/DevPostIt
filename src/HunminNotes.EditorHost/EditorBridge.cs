@@ -26,7 +26,9 @@ public sealed class EditorBridge(Guid noteId, long revision)
         }
         if (message.Type is not ("note.changed" or "note.saveRequested") || message.NoteId != noteId || noteId == Guid.Empty)
             throw new EditorProtocolException("허용하지 않는 메시지 또는 메모 ID입니다.");
-        Fields(message.Payload, "markdown");
+        if (message.Payload.TryGetProperty("title", out _)) Fields(message.Payload, "markdown", "title");
+        else Fields(message.Payload, "markdown");
+        var title = ReadTitle(message.Payload);
         if (message.Payload.GetProperty("markdown").ValueKind != JsonValueKind.String)
             throw new EditorProtocolException("본문은 문자열이어야 합니다.");
         if (message.Type == "note.saveRequested")
@@ -35,7 +37,7 @@ public sealed class EditorBridge(Guid noteId, long revision)
             return Task.FromResult<NoteChange?>(null);
         }
         if (message.Revision <= Revision) throw new EditorProtocolException("오래된 리비전입니다.");
-        var change = new NoteChange(noteId, message.Revision, message.Payload.GetProperty("markdown").GetString()!);
+        var change = new NoteChange(noteId, message.Revision, message.Payload.GetProperty("markdown").GetString()!, title);
         Revision = message.Revision;
         return Task.FromResult<NoteChange?>(change);
     }
@@ -60,6 +62,14 @@ public sealed class EditorBridge(Guid noteId, long revision)
             throw new EditorProtocolException("메시지 JSON 형식이 잘못되었습니다.");
         }
         return new BridgeResult(message, await HandleAsync(message, cancellationToken));
+    }
+
+    public static string? ReadTitle(JsonElement element)
+    {
+        if (!element.TryGetProperty("title", out var title)) return null;
+        if (title.ValueKind != JsonValueKind.String) throw new EditorProtocolException("메모 이름은 문자열이어야 합니다.");
+        try { return NoteTitle.Normalize(title.GetString()!); }
+        catch (ArgumentException error) { throw new EditorProtocolException(error.Message); }
     }
 
     private static void Fields(JsonElement element, params string[] expected)
