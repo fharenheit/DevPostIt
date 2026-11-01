@@ -23,10 +23,10 @@
 
 | 위치 | 책임 |
 | --- | --- |
-| `src/HunminNotes.Core` | 메모 계약, 리비전, 자동 저장·복구·삭제 직렬화 |
-| `src/HunminNotes.Storage` | Markdown/frontmatter, 원자적 파일 IO, 저널, SQLite 파생 인덱스, 공유 저장 세션 |
-| `src/HunminNotes.EditorHost` | 신뢰 출처·브리지 메시지 검증, 종료 초안, 비동기 작업 수명 |
-| `src/HunminNotes.App` | WPF·WebView2, 트레이, 다중 창·작은 아이콘·닫기 동작 |
+| `src/DevPostIt.Core` | 메모 계약, 리비전, 자동 저장·복구·삭제 직렬화 |
+| `src/DevPostIt.Storage` | Markdown/frontmatter, 원자적 파일 IO, 저널, SQLite 파생 인덱스, 공유 저장 세션 |
+| `src/DevPostIt.EditorHost` | 신뢰 출처·브리지 메시지 검증, 종료 초안, 비동기 작업 수명 |
+| `src/DevPostIt.App` | WPF·WebView2, 트레이, 다중 창·작은 아이콘·닫기 동작 |
 | `editor-web/src` | Monaco, 미리보기, 코드 정리, 글꼴 설정, 웹 브리지 |
 | `tests` / `editor-web/tests` | .NET 테스트·WPF 하네스 / Playwright |
 
@@ -52,10 +52,10 @@ Windows와 PowerShell 기준입니다. SDK는 `global.json`의 .NET 10.0.403, No
 $env:DOTNET_ROOT = "$PWD/.tools/dotnet"
 $env:DOTNET_CLI_HOME = "$PWD/.tools/cli"
 $env:PATH = "$PWD/.tools/dotnet;$PWD/.tools/node/node-v24.22.1-win-x64;$env:PATH"
-dotnet restore HunminNotes.sln --locked-mode
-dotnet test HunminNotes.sln --no-restore
-dotnet build src/HunminNotes.App --no-restore
-dotnet run --project src/HunminNotes.App --no-restore
+dotnet restore DevPostIt.sln --locked-mode
+dotnet test DevPostIt.sln --no-restore
+dotnet build src/DevPostIt.App --no-restore
+dotnet run --project src/DevPostIt.App --no-restore
 ```
 
 WPF 빌드가 웹 제작 빌드와 실행 폴더 복사를 수행합니다. C# 경고도 빌드 실패로 처리하므로 잠금 파일과 버전 고정을 유지합니다.
@@ -80,7 +80,7 @@ WPF 수명·트레이·삭제 변경은 저장소 루트에서 별도 하네스�
 
 ```powershell
 $env:DEVPOSTIT_DESKTOP_SMOKE_ROOT = "$PWD/.tools/desktop-check-$([Guid]::NewGuid().ToString('N'))"
-dotnet run --project tests/HunminNotes.DesktopSmoke --no-restore
+dotnet run --project tests/DevPostIt.DesktopSmoke --no-restore
 ```
 
 ## 데이터와 검증 주의점

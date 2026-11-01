@@ -21,7 +21,7 @@
 
 ## 2. 작업 4 WebView2 연결
 
-파일: `src/HunminNotes.EditorHost/{EditorMessage,EditorBridge,EditorOrigin}.cs`, `tests/HunminNotes.App.Tests/EditorBridgeTests.cs`, `editor-web/src/bridge.ts`, WPF MainWindow 및 프로젝트 빌드 설정.
+파일: `src/DevPostIt.EditorHost/{EditorMessage,EditorBridge,EditorOrigin}.cs`, `tests/DevPostIt.App.Tests/EditorBridgeTests.cs`, `editor-web/src/bridge.ts`, WPF MainWindow 및 프로젝트 빌드 설정.
 
 - [x] C# 계약 테스트부터 작성하고 미구현 실패를 확인합니다. 정상 메시지 typed 변경, 오염된 필드·버전·ID·리비전·출처·크기·타입·탐색 거부를 검증합니다.
 - [x] 브라우저 호스트 모사 테스트부터 작성하고 실패를 확인합니다. ready→load, changed, 저장 요청/응답, 잘못된 호스트 메시지 거부, 조합 중 이벤트 억제를 검증합니다.

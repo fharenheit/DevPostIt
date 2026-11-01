@@ -39,12 +39,12 @@ SDK는 `global.json`, Node는 `.node-version`, 테스트 패키지와 전이 의
 
 명령은 `.tools/dotnet/dotnet.exe`로 실행했습니다.
 
-1. 테스트를 먼저 작성하고 `dotnet test HunminNotes.sln --no-restore --filter FullyQualifiedName~NoteTests` 실행: `Note` 미정의 컴파일 실패 확인.
+1. 테스트를 먼저 작성하고 `dotnet test DevPostIt.sln --no-restore --filter FullyQualifiedName~NoteTests` 실행: `Note` 미정의 컴파일 실패 확인.
 2. 계약과 미구현 생성 함수만 추가 후 재실행: 총 3개 중 2개 실패, 1개 통과. 두 실패 모두 생성 함수의 `NotImplementedException`.
 3. 생성 함수 구현 후 동일 명령: 총 3개 모두 통과, 실패 0.
-4. `dotnet build HunminNotes.sln --no-restore`: WPF 포함 성공, 경고 0, 오류 0.
-5. `dotnet test HunminNotes.sln --no-restore`: 전체 3개 통과, 실패 0, 건너뜀 0.
-6. `dotnet restore HunminNotes.sln --locked-mode --packages .tools/nuget` 및 빌드·전체 테스트 재실행: 잠금 복원 성공, 빌드 경고·오류 0, 테스트 3개 통과.
+4. `dotnet build DevPostIt.sln --no-restore`: WPF 포함 성공, 경고 0, 오류 0.
+5. `dotnet test DevPostIt.sln --no-restore`: 전체 3개 통과, 실패 0, 건너뜀 0.
+6. `dotnet restore DevPostIt.sln --locked-mode --packages .tools/nuget` 및 빌드·전체 테스트 재실행: 잠금 복원 성공, 빌드 경고·오류 0, 테스트 3개 통과.
 
 별도 검토 에이전트가 계획과 변경 파일을 읽기 전용으로 검토했으며 중요한 문제를 발견하지 못했습니다.
 

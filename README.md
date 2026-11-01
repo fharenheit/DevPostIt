@@ -8,7 +8,7 @@ Windows용 WPF + WebView2 Markdown 메모 앱입니다. Monaco 소스 편집기�
 cd D:\Projects\DevPostIt
 $env:DOTNET_ROOT = "$PWD/.tools/dotnet"
 $env:DOTNET_CLI_HOME = "$PWD/.tools/cli"
-& "$env:DOTNET_ROOT/dotnet.exe" run --project src/HunminNotes.App
+& "$env:DOTNET_ROOT/dotnet.exe" run --project src/DevPostIt.App
 ```
 
 이 환경에서는 SDK를 `.tools/dotnet`에 설치했습니다. 해당 도구를 사용하려면 다음과 같이 준비합니다.

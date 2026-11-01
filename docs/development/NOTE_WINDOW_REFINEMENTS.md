@@ -116,3 +116,11 @@ Windows의 사용자 닫기 명령과 앱의 보존 닫기를 구분합니다. �
 - 웹 **164개**(개발·제작), .NET **152개**(Core 18, Bridge 49, Storage 85), WPF 하네스 통과.
 - 실제 OneDrive 문서 폴더의 메모를 임시 폴더로 복사하는 드라이런을 앱 없이 실행했습니다. 파일이 일치했고 원본 해시·수정 시각은 그대로였으며, 복사본은 지웠습니다. PowerShell에서는 OneDrive 항목이 재분석 지점으로 보이지만 .NET 프로세스에서는 일반 파일로 보입니다.
 - 사용자 프로필에서 실제 앱을 시작해 이전하는 경로는 실행하지 않았습니다. 실제 Excel 복사와 WebView2 안의 붙여넣기도 확인하지 않았고, Excel 형식을 본뜬 HTML과 Chromium 클립보드로 검증했습니다.
+
+## 프로젝트 이름 변경
+
+2026-11-01 사용자 지시로 `HunminNotes*` 솔루션·프로젝트·네임스페이스와 `Hunmin_Notes_*` 문서를 `DevPostIt*`로 바꿨습니다. 실행 파일 이름은 원래 `DevPostIt`입니다.
+
+다음은 의도적으로 유지합니다. `.hunmin` 데이터 폴더는 바꾸면 사용자 데이터 이전이 다시 필요합니다. `hunmin.editor.fonts.v1`은 이전 설정을 읽는 호환 키입니다. `window.hunminEditor`, npm 패키지 이름 `hunmin-notes-editor`, `docs/superpowers`의 날짜로 시작하는 파일 이름, 설계 문서 본문의 ‘Hunmin Notes’도 이번 범위에 넣지 않았습니다.
+
+검증: 잠금 파일 복원(`--locked-mode`), .NET 152개, 웹 164개(개발·제작), WPF 하네스 통과. 별도 데이터 폴더로 실행 파일을 띄워 메모 창과 설정 창을 확인했습니다.

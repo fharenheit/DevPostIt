@@ -1,0 +1,45 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\DevPostIt.Core\DevPostIt.Core.csproj" />
+    <ProjectReference Include="..\DevPostIt.EditorHost\DevPostIt.EditorHost.csproj" />
+    <ProjectReference Include="..\DevPostIt.Storage\DevPostIt.Storage.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4314.35" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>DevPostIt</AssemblyName>
+    <RootNamespace>DevPostIt.App</RootNamespace>
+    <Product>메모장</Product>
+    <Title>메모</Title>
+    <EditorWebRoot>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)/../../editor-web'))</EditorWebRoot>
+    <BundledNode>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)/../../.tools/node/node-v24.22.1-win-x64'))</BundledNode>
+    <EditorNpm Condition="Exists('$(BundledNode)/npm.cmd')">$(BundledNode)/npm.cmd</EditorNpm>
+    <EditorNpm Condition="'$(EditorNpm)' == ''">npm.cmd</EditorNpm>
+  </PropertyGroup>
+
+  <Target Name="BuildEditorWeb" BeforeTargets="PrepareForBuild" Condition="'$(DesignTimeBuild)' != 'true'">
+    <Exec WorkingDirectory="$(EditorWebRoot)" Command="&quot;$(EditorNpm)&quot; ci" EnvironmentVariables="PATH=$([MSBuild]::Escape('$(BundledNode);$(PATH)'))" Condition="!Exists('$(EditorWebRoot)/node_modules/.package-lock.json')" />
+    <Exec WorkingDirectory="$(EditorWebRoot)" Command="&quot;$(EditorNpm)&quot; run build" EnvironmentVariables="PATH=$([MSBuild]::Escape('$(BundledNode);$(PATH)'))" />
+  </Target>
+
+  <Target Name="CopyEditorWeb" AfterTargets="Build">
+    <ItemGroup><_DevPostItEditorAsset Include="$(EditorWebRoot)/dist/**/*" /></ItemGroup>
+    <Copy SourceFiles="@(_DevPostItEditorAsset)" DestinationFiles="@(_DevPostItEditorAsset->'$(TargetDir)editor-web/%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="PublishEditorWeb" AfterTargets="Publish">
+    <ItemGroup><_DevPostItPublishedAsset Include="$(EditorWebRoot)/dist/**/*" /></ItemGroup>
+    <Copy SourceFiles="@(_DevPostItPublishedAsset)" DestinationFiles="@(_DevPostItPublishedAsset->'$(PublishDir)editor-web/%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
+
+</Project>

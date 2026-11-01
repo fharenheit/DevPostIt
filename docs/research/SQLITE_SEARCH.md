@@ -16,7 +16,7 @@
 
 3개 테이블 구축에는 약 90.3ms가 걸렸습니다. 이는 짧고 반복적인 데이터의 메모리 DB 토크나이저 비교이며, 디스크 검색 인덱스 전체의 성능이나 실제 사용자 문서 지연을 보장하지 않습니다. 시간 자체는 테스트 통과 조건으로 사용하지 않습니다.
 
-재현: `dotnet test tests/HunminNotes.Storage.Tests --filter FullyQualifiedName~SqliteTokenizerBenchmarkTests --logger "console;verbosity=detailed"`.
+재현: `dotnet test tests/DevPostIt.Storage.Tests --filter FullyQualifiedName~SqliteTokenizerBenchmarkTests --logger "console;verbosity=detailed"`.
 
 ## 선택한 정책
 

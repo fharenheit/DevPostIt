@@ -65,7 +65,7 @@ Markdown 문서를 원본으로 취급한다. 편집기 내부 모델은 렌더�
 ### 4.1 권장 디렉터리
 
 ```text
-HunminNotes/
+DevPostIt/
   notes/
     Inbox/
       2026-11-01-meeting.md
@@ -169,12 +169,12 @@ flowchart TD
 
 | 모듈 | 책임 |
 |---|---|
-| `HunminNotes.App` | WPF 호스트, 메인·포스트잇 창, 트레이, 단축키 |
-| `HunminNotes.Core` | Note 도메인, 명령, 저장 상태, 충돌 정책 |
-| `HunminNotes.Storage` | Markdown/Frontmatter, 자산, SQLite, FTS, 감시 |
-| `HunminNotes.EditorHost` | WebView2 초기화, 브리지, CSP/보안 |
+| `DevPostIt.App` | WPF 호스트, 메인·포스트잇 창, 트레이, 단축키 |
+| `DevPostIt.Core` | Note 도메인, 명령, 저장 상태, 충돌 정책 |
+| `DevPostIt.Storage` | Markdown/Frontmatter, 자산, SQLite, FTS, 감시 |
+| `DevPostIt.EditorHost` | WebView2 초기화, 브리지, CSP/보안 |
 | `editor-web` | TypeScript 기반 WYSIWYG·소스 편집기 |
-| `HunminNotes.Tests` | 단위/통합/회귀 및 계약 테스트 |
+| `DevPostIt.Tests` | 단위/통합/회귀 및 계약 테스트 |
 
 ### 5.2 WPF ↔ WebView2 브리지
 

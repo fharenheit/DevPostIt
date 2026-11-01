@@ -8,7 +8,7 @@
 
 **Tech Stack:** C#, .NET, WPF, WebView2, TypeScript, Vite, SQLite/FTS5, xUnit, Playwright (editor tests).
 
-**Spec:** `docs/superpowers/specs/2026-11-01-hunmin-notes-design.md` (approved design; copy from `Hunmin_Notes_Detailed_Design_v0.1.md` before beginning).
+**Spec:** `docs/superpowers/specs/2026-11-01-hunmin-notes-design.md` (approved design; copy from `DevPostIt_Detailed_Design_v0.1.md` before beginning).
 
 ## Global Constraints
 
@@ -37,16 +37,16 @@
 docs/superpowers/specs/2026-11-01-hunmin-notes-design.md
 docs/superpowers/plans/2026-11-01-hunmin-notes.md
 docs/research/REA_INVESTIGATION.md
-HunminNotes.sln
-src/HunminNotes.App/{App.xaml,App.xaml.cs,MainWindow.xaml,MainWindow.xaml.cs}
-src/HunminNotes.App/Windows/{StickyWindow.xaml,StickyWindow.xaml.cs,WindowPlacement.cs}
-src/HunminNotes.Core/{Note.cs,NoteService.cs,INoteRepository.cs,NoteChange.cs}
-src/HunminNotes.Storage/{MarkdownNoteRepository.cs,FrontmatterCodec.cs,SqliteNoteIndex.cs,FileReconciler.cs,AtomicFileWriter.cs}
-src/HunminNotes.EditorHost/{EditorBridge.cs,EditorMessage.cs}
+DevPostIt.sln
+src/DevPostIt.App/{App.xaml,App.xaml.cs,MainWindow.xaml,MainWindow.xaml.cs}
+src/DevPostIt.App/Windows/{StickyWindow.xaml,StickyWindow.xaml.cs,WindowPlacement.cs}
+src/DevPostIt.Core/{Note.cs,NoteService.cs,INoteRepository.cs,NoteChange.cs}
+src/DevPostIt.Storage/{MarkdownNoteRepository.cs,FrontmatterCodec.cs,SqliteNoteIndex.cs,FileReconciler.cs,AtomicFileWriter.cs}
+src/DevPostIt.EditorHost/{EditorBridge.cs,EditorMessage.cs}
 editor-web/src/{main.ts,editor.ts,bridge.ts,markdown.ts}
-tests/HunminNotes.Core.Tests/
-tests/HunminNotes.Storage.Tests/
-tests/HunminNotes.App.Tests/
+tests/DevPostIt.Core.Tests/
+tests/DevPostIt.Storage.Tests/
+tests/DevPostIt.App.Tests/
 editor-web/tests/
 ```
 
@@ -65,19 +65,19 @@ editor-web/tests/
 
 ## Task 1: Windows solution and headless domain
 
-**Files:** Create solution, `src/HunminNotes.Core/Note.cs`, `NoteChange.cs`, `INoteRepository.cs`, `tests/HunminNotes.Core.Tests/NoteTests.cs`; include project config and minimal WPF startup.
+**Files:** Create solution, `src/DevPostIt.Core/Note.cs`, `NoteChange.cs`, `INoteRepository.cs`, `tests/DevPostIt.Core.Tests/NoteTests.cs`; include project config and minimal WPF startup.
 
 **Interfaces:** `record Note(Guid Id, string RelativePath, string Title, string Markdown, IReadOnlyList<string> Tags, DateTimeOffset Created, DateTimeOffset Updated)`; `record NoteChange(Guid NoteId, long Revision, string Markdown)`; `INoteRepository.GetAsync(Guid,CancellationToken)`, `SaveAsync(Note,CancellationToken)`.
 
 - [ ] Write failing `NoteTests`: new note gets distinct stable ID; title and tags round-trip in domain; empty body allowed.
-- [ ] Run `dotnet test HunminNotes.sln --filter FullyQualifiedName~NoteTests`; expect FAIL.
+- [ ] Run `dotnet test DevPostIt.sln --filter FullyQualifiedName~NoteTests`; expect FAIL.
 - [ ] Implement domain records/interfaces and solution projects; no persistence in Core.
-- [ ] Run same test; expect PASS. Build WPF `dotnet build HunminNotes.sln` on Windows; expect success.
+- [ ] Run same test; expect PASS. Build WPF `dotnet build DevPostIt.sln` on Windows; expect success.
 - [ ] Commit `feat: establish WPF solution and note domain`.
 
 ## Task 2: Markdown/frontmatter codec
 
-**Files:** Create `src/HunminNotes.Storage/FrontmatterCodec.cs`, `MarkdownNoteRepository.cs`; test `tests/HunminNotes.Storage.Tests/FrontmatterCodecTests.cs`.
+**Files:** Create `src/DevPostIt.Storage/FrontmatterCodec.cs`, `MarkdownNoteRepository.cs`; test `tests/DevPostIt.Storage.Tests/FrontmatterCodecTests.cs`.
 
 **Interfaces:** `FrontmatterCodec.Parse(string raw, string relativePath) -> Note`; `FrontmatterCodec.Serialize(Note note) -> string`; `MarkdownNoteRepository : INoteRepository`.
 
@@ -102,7 +102,7 @@ editor-web/tests/
 
 ## Task 4: Versioned WebView2 message bridge
 
-**Files:** Create `src/HunminNotes.EditorHost/EditorMessage.cs`, `EditorBridge.cs`, `editor-web/src/bridge.ts`, `tests/HunminNotes.App.Tests/EditorBridgeTests.cs`.
+**Files:** Create `src/DevPostIt.EditorHost/EditorMessage.cs`, `EditorBridge.cs`, `editor-web/src/bridge.ts`, `tests/DevPostIt.App.Tests/EditorBridgeTests.cs`.
 
 **Interfaces:** `EditorMessage(int ProtocolVersion, string Type, string RequestId, Guid NoteId, long Revision, JsonElement Payload)`; `EditorBridge.HandleAsync(EditorMessage,CancellationToken)`; protocol v1 `editor.ready`, `note.load`, `note.changed`, `note.saveRequested`, `note.saved`, `note.conflict`.
 
@@ -114,7 +114,7 @@ editor-web/tests/
 
 ## Task 5: SQLite metadata, index and rebuild
 
-**Files:** Create `src/HunminNotes.Storage/SqliteNoteIndex.cs`, `tests/HunminNotes.Storage.Tests/SqliteNoteIndexTests.cs`.
+**Files:** Create `src/DevPostIt.Storage/SqliteNoteIndex.cs`, `tests/DevPostIt.Storage.Tests/SqliteNoteIndexTests.cs`.
 
 **Interfaces:** `UpsertAsync(Note,CancellationToken)`, `RemoveAsync(Guid,CancellationToken)`, `SearchAsync(string,int,CancellationToken) -> IReadOnlyList<Guid>`, `RebuildAsync(IAsyncEnumerable<Note>,CancellationToken)`.
 
@@ -126,7 +126,7 @@ editor-web/tests/
 
 ## Task 6: Autosave, atomic writer and crash recovery
 
-**Files:** Create `src/HunminNotes.Storage/AtomicFileWriter.cs`, `src/HunminNotes.Core/NoteService.cs`, tests `AtomicFileWriterTests.cs`, `NoteServiceTests.cs`.
+**Files:** Create `src/DevPostIt.Storage/AtomicFileWriter.cs`, `src/DevPostIt.Core/NoteService.cs`, tests `AtomicFileWriterTests.cs`, `NoteServiceTests.cs`.
 
 **Interfaces:** `AtomicFileWriter.WriteAsync(string path,string content,CancellationToken)`; `NoteService.OpenAsync(Guid,CancellationToken)`, `ApplyChangeAsync(NoteChange,CancellationToken)`, `FlushAsync(Guid,CancellationToken)`.
 
@@ -138,7 +138,7 @@ editor-web/tests/
 
 ## Task 7: External file watcher and conflict resolution
 
-**Files:** Create `src/HunminNotes.Storage/FileReconciler.cs`, tests `FileReconcilerTests.cs`.
+**Files:** Create `src/DevPostIt.Storage/FileReconciler.cs`, tests `FileReconcilerTests.cs`.
 
 **Interfaces:** `FileReconciler.ReconcileAsync(CancellationToken) -> IReadOnlyList<ExternalFileChange>`; `NoteService.ResolveConflictAsync(Guid,string strategy,CancellationToken)` where strategy is `keep-local-copy` or `reload-disk` (never silent overwrite).
 
@@ -150,7 +150,7 @@ editor-web/tests/
 
 ## Task 8: Central manager window
 
-**Files:** Modify `src/HunminNotes.App/MainWindow.xaml{,.cs}`; create `ViewModels/MainViewModel.cs`; test `MainViewModelTests.cs`.
+**Files:** Modify `src/DevPostIt.App/MainWindow.xaml{,.cs}`; create `ViewModels/MainViewModel.cs`; test `MainViewModelTests.cs`.
 
 **Interfaces:** `MainViewModel.CreateNoteAsync()`, `SearchAsync(string query)`, `OpenNoteAsync(Guid)`, `MoveNoteAsync(Guid,string targetFolder)`, `DeleteNoteAsync(Guid)` and `RestoreNoteAsync(Guid)`.
 
@@ -174,7 +174,7 @@ editor-web/tests/
 
 ## Task 10: Assets, export, packaging and release gate
 
-**Files:** Create `src/HunminNotes.Storage/AssetStore.cs`, `docs/RELEASE_CHECKLIST.md`, `tests/HunminNotes.Storage.Tests/AssetStoreTests.cs`, packaging configuration.
+**Files:** Create `src/DevPostIt.Storage/AssetStore.cs`, `docs/RELEASE_CHECKLIST.md`, `tests/DevPostIt.Storage.Tests/AssetStoreTests.cs`, packaging configuration.
 
 **Interfaces:** `AssetStore.ImportAsync(Guid noteId, Stream source, string originalName,CancellationToken) -> string` returns safe relative Markdown link; export preserves note and its referenced local assets.
 

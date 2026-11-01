@@ -34,7 +34,7 @@
 - Playwright **36개**: 개발 서버와 제작 빌드 모두 통과.
 - 잠금 복원과 WPF·검증 하네스 빌드 성공.
 - 실제 WPF/WebView2에서 Java·JSON 정리와 두 메모의 제목·본문 저장을 CDP로 확인했습니다.
-- `HunminNotes.DesktopSmoke`는 실제 WPF·WinForms 컨트롤로 설정·새 메모·목록 재열기·전체 접기/표시·종료 메뉴와 작은 아이콘의 클릭 이벤트, 독립 창 닫기, 종료 경합·임대 해제, 접힌 미보존 초안의 종료 차단을 검증합니다. 메뉴의 `PerformClick`과 버튼 라우팅 이벤트를 사용하며 셸 알림 영역의 물리 마우스 조작과 구분합니다.
+- `DevPostIt.DesktopSmoke`는 실제 WPF·WinForms 컨트롤로 설정·새 메모·목록 재열기·전체 접기/표시·종료 메뉴와 작은 아이콘의 클릭 이벤트, 독립 창 닫기, 종료 경합·임대 해제, 접힌 미보존 초안의 종료 차단을 검증합니다. 메뉴의 `PerformClick`과 버튼 라우팅 이벤트를 사용하며 셸 알림 영역의 물리 마우스 조작과 구분합니다.
 - 기존 Monaco 청크 경고와 Java 런타임의 사용하지 않는 일반 `eval` 분기에 대한 번들 경고는 남습니다. 제작 빌드·실제 WebView2의 Java 정리에는 일반 `unsafe-eval`이 필요하지 않았습니다.
 
 ## 재실행
@@ -43,10 +43,10 @@
 $env:DOTNET_ROOT = "$PWD/.tools/dotnet"
 $env:DOTNET_CLI_HOME = "$PWD/.tools/cli"
 $env:PATH = "$PWD/.tools/node/node-v24.22.1-win-x64;$env:PATH"
-& "$env:DOTNET_ROOT/dotnet.exe" restore HunminNotes.sln --locked-mode
-& "$env:DOTNET_ROOT/dotnet.exe" test HunminNotes.sln --no-restore
+& "$env:DOTNET_ROOT/dotnet.exe" restore DevPostIt.sln --locked-mode
+& "$env:DOTNET_ROOT/dotnet.exe" test DevPostIt.sln --no-restore
 $env:DEVPOSTIT_DESKTOP_SMOKE_ROOT = "$PWD/.tools/desktop-check-$([Guid]::NewGuid().ToString('N'))"
-& "$env:DOTNET_ROOT/dotnet.exe" run --project tests/HunminNotes.DesktopSmoke --no-restore
+& "$env:DOTNET_ROOT/dotnet.exe" run --project tests/DevPostIt.DesktopSmoke --no-restore
 ```
 
 웹 검증은 editor-web에서 `npm test`를 사용합니다. 제작 빌드는 `npm run build` 후 `EDITOR_PRODUCTION=1`을 지정합니다. 기존 개발 서버와 겹치면 `EDITOR_TEST_PORT`를 변경합니다. Playwright 브라우저를 로컬 도구 폴더에 설치한 환경에서는 `PLAYWRIGHT_BROWSERS_PATH`도 지정합니다.
