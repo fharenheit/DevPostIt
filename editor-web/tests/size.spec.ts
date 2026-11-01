@@ -11,7 +11,7 @@ test('제품 표시 없이 작은 기본 크기를 유지하고 설정에서 전
   await expect(page.locator('.brand')).toHaveCount(0);
   await expect(page.getByLabel('기준 글자 크기')).toHaveText('15');
   await expect(page.locator('.monaco-editor .view-lines')).toHaveCSS('font-size', '13px');
-  await expect(page.locator('#source-mode')).toHaveCSS('font-size', '15px');
+  await expect(page.locator('#source-mode')).toHaveCSS('font-size', '13.125px');
   await expect(page.locator('#font')).toHaveCSS('font-size', '15px');
   await mode(page, 'preview');
   const before = await sizes(page);

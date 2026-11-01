@@ -31,7 +31,7 @@ button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); o
 .workspace { min-height: 0; flex: 1; background: var(--paper); display: flex; flex-direction: column; overflow: hidden; }
 .note-header { flex-shrink: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .25rem .75rem; padding: .3rem var(--spacing-x); border-bottom: 1px solid var(--line); background: var(--paper-header); }
 .modes { display: flex; gap: 2px; border-radius: 7px; padding: 2px; background: var(--paper-sunken); }
-.modes button { border: none; background: transparent; border-radius: 5px; color: var(--ink-muted); padding: .15rem .6rem; font-size: 1rem; }
+.modes button { border: none; background: transparent; border-radius: 5px; color: var(--ink-muted); padding: .15rem .6rem; font-size: .875rem; }
 .modes button:hover { color: var(--ink); }
 .modes button[aria-pressed=true] { background: var(--paper); color: var(--ink); font-weight: 600; box-shadow: 0 1px 3px #4a3f1a26; }
 .document-heading { flex: 1 1 6rem; min-width: 0; }

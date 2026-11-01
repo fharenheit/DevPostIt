@@ -124,7 +124,6 @@ public partial class MainWindow : Window
             var state = await startup;
             if (closing || closed) return;
             opened = true;
-            Title = state.Note.Title;
             if (state.RecoveryPending)
             {
                 var choice = MessageBox.Show(this, "저장되지 않은 복구 초안이 있습니다.\n예: 초안을 복원합니다.\n아니요: 현재 파일을 유지하고 초안을 버립니다.\n취소: 복구 기록을 보존하고 닫습니다.", "메모 복구", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
@@ -223,7 +222,6 @@ public partial class MainWindow : Window
         Dispatcher.BeginInvoke(new Action(() =>
         {
             if (closed || closing || bridge is null) return;
-            Title = state.Note.Title;
             if (!state.HasUnsavedChanges && !state.RecoveryPending) Send("note.saved", new { }, state.SavedRevision);
             if (state.Error is not null) Send("note.conflict", new { message = state.Error }, state.Revision);
         }));

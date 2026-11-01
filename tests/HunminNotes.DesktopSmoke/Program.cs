@@ -48,6 +48,7 @@ internal static class Program
         var first = manager.ShowNote(workspace.Notes.Single().Id)!;
         await ReadyAsync(first);
         Check(first.Width == 480 && first.Height == 640 && first.MinWidth == 320 && first.MinHeight == 360, "포스트잇 기본·최소 창 크기");
+        Check(first.Title == "Post It for Developer", "창 제목은 메모 이름 대신 고정 문구");
         var editor = (WebView2)first.FindName("EditorView");
         var firstNote = workspace.Notes.Single();
         first.DeleteConfirmation = () => MessageBoxResult.Yes;
@@ -78,6 +79,7 @@ internal static class Program
         first.CloseFailurePrompt = null;
         await editor.ExecuteScriptAsync("window.hunminEditor.rename('접기 복원 검증')");
         await UntilAsync(async () => (await workspace.Service.GetStateAsync(first.NoteId, default)).Note.Title == "접기 복원 검증");
+        Check(first.Title == "Post It for Developer", "이름을 바꿔도 창 제목 유지");
         first.WindowState = WindowState.Minimized;
         await UntilAsync(() => Task.FromResult(application.Windows.OfType<CollapsedNoteWindow>().Count() == 1));
         var icon = application.Windows.OfType<CollapsedNoteWindow>().Single();
