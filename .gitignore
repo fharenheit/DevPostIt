@@ -3,3 +3,7 @@
 **/bin/
 **/obj/
 TestResults/
+**/node_modules/
+editor-web/dist/
+editor-web/test-results/
+editor-web/playwright-report/

@@ -19,3 +19,5 @@ $env:PATH = "$PWD/.tools/dotnet;$PWD/.tools/node/node-v24.22.1-win-x64;$env:PATH
 ```
 
 검증 결과는 `docs/development/TASK_1.md`, `docs/development/TASK_2.md`에, 원본 조사 상태는 작업 1 기록에 남겼습니다.
+
+작업 3의 Monaco 편집기는 `editor-web`에서 별도로 실행할 수 있습니다. 소스 편집·읽기 전용 미리보기, D2 Ligature·JetBrains Mono 선택과 합자 설정을 제공합니다. 실행 방법은 [편집기 안내](editor-web/README.md)를 참고하세요. WPF 연결은 다음 단계입니다.

@@ -1,0 +1,27 @@
+{
+  "name": "hunmin-notes-editor",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": { "node": "24.22.1", "npm": "11.19.1" },
+  "packageManager": "npm@11.19.1",
+  "overrides": { "dompurify": "$dompurify" },
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 4173 --strictPort",
+    "test": "playwright test"
+  },
+  "dependencies": {
+    "dompurify": "3.4.17",
+    "markdown-it": "15.0.3",
+    "monaco-editor": "0.57.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "@types/markdown-it": "14.2.0",
+    "@types/node": "26.6.6",
+    "typescript": "7.0.2",
+    "vite": "8.3.5"
+  }
+}
