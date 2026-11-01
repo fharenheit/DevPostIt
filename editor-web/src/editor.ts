@@ -2,6 +2,7 @@ import * as monaco from 'monaco-editor/editor/editor.api';
 import 'monaco-editor/languages/definitions/markdown/register';
 import DOMPurify from 'dompurify';
 import { findLanguageId } from './code-languages';
+import { planFormat, type MarkdownAction } from './markdown-format';
 import EditorWorker from 'monaco-editor/editor/editor.worker?worker';
 import { renderMarkdown } from './markdown';
 import { formatBlock, CodeBlockError } from './code-format';
@@ -179,6 +180,22 @@ export class Editor {
       this.notify();
       return '코드를 정리했습니다.';
     } catch (error) { return error instanceof CodeBlockError ? error.message : '정리하지 못했습니다. 블록의 언어·문법과 닫는 울타리를 확인해 주세요.'; }
+  }
+  applyFormat(action: MarkdownAction): void {
+    const model = this.model, selection = this.view.getSelection();
+    if (!model || !selection || this.mode !== 'source' || this.composing) return;
+    const plan = planFormat(action, {
+      lineCount: model.getLineCount(),
+      line: number => model.getLineContent(number),
+      text: range => model.getValueInRange(new monaco.Range(range.startLine, range.startColumn, range.endLine, range.endColumn)),
+      eol: model.getEOL(),
+    }, { startLine: selection.startLineNumber, startColumn: selection.startColumn, endLine: selection.endLineNumber, endColumn: selection.endColumn });
+    this.view.pushUndoStop();
+    this.view.executeEdits('markdown-toolbar', plan.edits.map(({ range, text }) => ({ range: new monaco.Range(range.startLine, range.startColumn, range.endLine, range.endColumn), text, forceMoveMarkers: true })));
+    this.view.setSelection(new monaco.Range(plan.selection.startLine, plan.selection.startColumn, plan.selection.endLine, plan.selection.endColumn));
+    this.view.pushUndoStop();
+    this.view.revealRangeInCenterIfOutsideViewport(new monaco.Range(plan.selection.startLine, plan.selection.startColumn, plan.selection.endLine, plan.selection.endColumn));
+    this.view.focus();
   }
   isComposing(): boolean { return this.composing; }
   markSaved(revision: number): void {

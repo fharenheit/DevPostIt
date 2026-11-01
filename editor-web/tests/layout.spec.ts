@@ -154,3 +154,24 @@ test('넓은 창의 미리보기는 읽기 좋은 폭으로 가운데에 놓고 
   expect(narrow.right).toBeLessThanOrEqual(304);
   expect(narrow.left).toBeLessThanOrEqual(24);
 });
+
+async function fontSizes(page: Page, selector: string) {
+  return page.locator(selector).evaluate(root => {
+    const sizes = new Set<string>();
+    for (const element of [root, ...root.querySelectorAll('*')]) if (element.tagName !== 'OPTION') sizes.add(getComputedStyle(element).fontSize);
+    return [...sizes];
+  });
+}
+
+for (const size of [10, 15, 24]) {
+  test(`메모 글자 ${size}px에서도 설정과 이름 변경 화면은 모두 14px이다`, async ({ page }) => {
+    await openAt(page, 480, 640, size);
+    const settings = await openSettings(page);
+    expect(await fontSizes(settings, '#settings')).toEqual(['14px']);
+    await settings.close();
+    await page.locator('h1').first().dblclick();
+    await expect(page.locator('#rename-dialog')).toBeVisible();
+    await page.locator('#rename-error').evaluate(element => { element.textContent = '오류'; });
+    expect(await fontSizes(page, '#rename-dialog')).toEqual(['14px']);
+  });
+}

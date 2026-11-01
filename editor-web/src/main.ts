@@ -1,6 +1,8 @@
 import { Editor } from './editor';
 import { fonts, readFontSettings } from './fonts';
 import { connectEditor, type EditorConnection } from './bridge';
+import { formatToolbarHtml } from './format-toolbar';
+import type { MarkdownAction } from './markdown-format';
 import './style.css';
 
 declare global { interface Window { hunminEditor: Editor } }
@@ -10,6 +12,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
       <div class="document-heading"><h1 title="더블클릭하면 이름을 변경합니다">나의 첫 메모</h1></div>
       <div class="modes" role="group" aria-label="보기 방식"><button id="source-mode" aria-pressed="true">소스 편집</button><button id="preview-mode" aria-pressed="false">미리보기</button></div>
     </header>
+    ${formatToolbarHtml}
     <dialog id="rename-dialog"><form id="rename-form"><h2>이름 변경</h2><label for="note-name">메모 이름</label><input id="note-name" maxlength="200" required><p id="rename-error" role="status"></p><div class="dialog-actions"><button type="button" id="rename-cancel">취소</button><button type="submit" class="primary">확인</button></div></form></dialog>
     <div class="editor-area"><div id="source"></div><article id="preview" class="preview" aria-label="Markdown 미리보기" hidden></article></div>
     <footer class="note-bar">
@@ -23,11 +26,14 @@ const previewButton = document.querySelector<HTMLButtonElement>('#preview-mode')
 const status = document.querySelector<HTMLElement>('#status')!;
 const formatButton = document.querySelector<HTMLButtonElement>('#format-code')!;
 const languageSelect = document.querySelector<HTMLSelectElement>('#code-language')!;
+const formatToolbar = document.querySelector<HTMLElement>('.format-toolbar')!;
+const toolbarButtons = formatToolbar.querySelectorAll('button');
 let formatting = false;
 function syncCodeTools(): void {
   const previewing = previewButton.getAttribute('aria-pressed') === 'true';
   formatButton.disabled = formatting || previewing;
   languageSelect.disabled = previewing;
+  toolbarButtons.forEach(button => { button.disabled = previewing; });
 }
 let connection: EditorConnection | undefined;
 const editor = new Editor(document.querySelector('#source')!, document.querySelector('#preview')!, (mode, draft) => {
@@ -41,6 +47,12 @@ const editor = new Editor(document.querySelector('#source')!, document.querySele
 });
 sourceButton.addEventListener('click', () => editor.setMode('source'));
 previewButton.addEventListener('click', () => editor.setMode('preview'));
+// 버튼을 눌러도 편집기의 선택과 포커스를 유지합니다.
+formatToolbar.addEventListener('mousedown', event => event.preventDefault());
+formatToolbar.addEventListener('click', event => {
+  const action = (event.target as Element).closest<HTMLButtonElement>('button')?.dataset.format;
+  if (action) editor.applyFormat(action as MarkdownAction);
+});
 const renameDialog = document.querySelector<HTMLDialogElement>('#rename-dialog')!;
 function openRename(): void {
   if (renameDialog.open) return;

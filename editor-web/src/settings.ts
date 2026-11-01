@@ -16,7 +16,6 @@ function show(): void {
   render();
 }
 function render(): void {
-  document.documentElement.style.fontSize = `${textSize}px`;
   document.querySelector('#text-size')!.textContent = String(textSize);
   smaller.disabled = textSize <= 10;
   larger.disabled = textSize >= 24;

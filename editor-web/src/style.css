@@ -36,6 +36,16 @@ button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); o
 .modes button[aria-pressed=true] { background: var(--paper); color: var(--ink); font-weight: 600; box-shadow: 0 1px 3px #4a3f1a26; }
 .document-heading { flex: 1 1 6rem; min-width: 0; }
 h1 { margin: 0; font-size: 1.0625rem; font-weight: 600; letter-spacing: -0.3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: default; }
+/* 아이콘은 글자가 아니므로 크기를 고정합니다. 낮은 창에서는 본문 높이를 위해 줄바꿈 대신 가로로 스크롤합니다. */
+.format-toolbar { flex-shrink: 0; display: flex; align-items: center; padding: 2px .5rem; overflow-x: auto; scrollbar-width: thin; border-bottom: 1px solid var(--line); background: var(--paper); }
+.format-toolbar button { flex: none; display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: none; border-radius: 4px; background: transparent; color: var(--ink); }
+.format-toolbar button:hover:enabled { background: var(--paper-sunken); }
+.format-toolbar button:disabled { opacity: .4; cursor: default; }
+.format-toolbar button:focus-visible { outline-offset: -2px; }
+.format-toolbar svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+.format-toolbar .heavy svg { stroke-width: 2; }
+.format-separator { flex: none; width: 1px; height: 14px; margin: 0 4px; background: var(--line-strong); }
+@media (min-height: 480px) { .format-toolbar { flex-wrap: wrap; overflow-x: visible; } }
 .editor-area { position: relative; flex: 1; min-height: 0; }
 #source, #preview { height: 100%; width: 100%; }
 
@@ -74,16 +84,19 @@ dialog button.primary, dialog button.primary:hover:enabled { border-color: var(-
 
 dialog { width: min(22rem, calc(100vw - 1rem)); max-width: none; max-height: calc(100vh - 1rem); overflow: auto; border: 1px solid var(--line-strong); border-radius: .6rem; padding: 1rem; color: var(--ink); background: var(--paper); box-shadow: 0 .5rem 1.5rem #2f2a1f33; }
 dialog::backdrop { background: #2f2a1f40; }
-dialog h2 { margin: 0 0 .5rem; font-size: 1.0625rem; font-weight: 600; }
-dialog p { margin: 0 0 .75rem; color: var(--ink-muted); font-size: .875rem; }
+dialog h2 { margin: 0 0 .5rem; font-weight: 600; }
+dialog p { margin: 0 0 .75rem; color: var(--ink-muted); }
 dialog p:empty { display: none; }
 #note-name { display: block; width: 100%; margin: .4rem 0 .75rem; padding: .3rem .5rem; border: 1px solid var(--line-strong); border-radius: .3rem; background: var(--paper); color: var(--ink); }
 #note-name:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 #settings { padding: .75rem 1rem; }
-#settings p { margin: 0 0 .75rem; color: var(--ink-muted); font-size: .875rem; }
+#settings p { margin: 0 0 .75rem; color: var(--ink-muted); }
 .setting-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .25rem .75rem; padding: .45rem 0; border-top: 1px solid var(--line); line-height: 1.4; }
 .setting-row > span { white-space: nowrap; }
 .setting-row select { min-width: 0; max-width: 100%; }
 .text-size { display: flex; align-items: center; gap: .4rem; }
 .text-size output { min-width: 2ch; text-align: center; font-variant-numeric: tabular-nums; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: .75rem; }
+
+/* 설정과 이름 변경 화면은 메모의 전체 글자 크기와 관계없이 14px로 통일합니다. */
+#settings, #settings *, dialog, dialog * { font-size: 14px; }

@@ -15,10 +15,10 @@ test('제품 표시 없이 작은 기본 크기를 유지하고 설정 창에서
   const before = await sizes(page);
   const settings = await openSettings(page);
   await expect(settings.getByLabel('기준 글자 크기')).toHaveText('15');
-  await expect(settings.locator('#font')).toHaveCSS('font-size', '15px');
+  await expect(settings.locator('#font')).toHaveCSS('font-size', '14px');
   await settings.getByRole('button', { name: '글자 크게', exact: true }).click();
   await expect(settings.getByLabel('기준 글자 크기')).toHaveText('16');
-  await expect(settings.locator('#font')).toHaveCSS('font-size', '16px');
+  await expect(settings.locator('#font')).toHaveCSS('font-size', '14px');
   await expect.poll(() => page.evaluate(() => document.documentElement.style.fontSize)).toBe('16px');
   const after = await sizes(page);
   for (const selector of Object.keys(before)) expect(after[selector] / before[selector]).toBeCloseTo(selector.includes('view-lines') ? 14 / 13 : 16 / 15, 2);
