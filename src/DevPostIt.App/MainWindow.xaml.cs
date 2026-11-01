@@ -56,6 +56,7 @@ public partial class MainWindow : Window
     public event Action? SearchRequested;
     internal Func<string, string?> PdfPathPicker { get; set; } = PickPdfPath;
     internal string? PendingPreferences { get; set; }
+    internal Func<byte[]?> ClipboardImageReader { get; set; } = ClipboardPng;
     public event Action<string, bool>? AppearanceChanged;
     public string NoteColor { get; private set; } = NoteColors.Default;
     public void ApplyAppearance(string color, bool topmost)
@@ -206,7 +207,7 @@ public partial class MainWindow : Window
             }
             else if (result.Message.Type == "note.imagePasteRequested")
             {
-                var png = ClipboardPng() ?? throw new InvalidOperationException("클립보드에서 이미지를 찾지 못했습니다.");
+                var png = ClipboardImageReader() ?? throw new InvalidOperationException("클립보드에서 이미지를 찾지 못했습니다.");
                 var markdown = await Task.Run(() => workspace.SaveImageAsync(noteId, png, CancellationToken.None));
                 Send("note.imageSaved", new { markdown }, bridge.Revision);
             }
@@ -252,12 +253,30 @@ public partial class MainWindow : Window
     }
     private static byte[]? ClipboardPng()
     {
-        if (!System.Windows.Clipboard.ContainsImage() || System.Windows.Clipboard.GetImage() is not { } image) return null;
+        if (System.Windows.Clipboard.ContainsImage() && System.Windows.Clipboard.GetImage() is { } image) return EncodePng(image);
+        // 탐색기에서 이미지 파일을 복사한 경우입니다.
+        if (System.Windows.Clipboard.ContainsFileDropList() && System.Windows.Clipboard.GetFileDropList() is { Count: 1 } files) return ImageFileToPng(files[0]!);
+        return null;
+    }
+    private static byte[] EncodePng(BitmapSource image)
+    {
         var encoder = new PngBitmapEncoder();
         encoder.Frames.Add(BitmapFrame.Create(image));
         using var stream = new System.IO.MemoryStream();
         encoder.Save(stream);
         return stream.ToArray();
+    }
+    internal static byte[]? ImageFileToPng(string path)
+    {
+        const long maxBytes = 20 * 1024 * 1024;
+        if (System.IO.Path.GetExtension(path).ToLowerInvariant() is not (".png" or ".jpg" or ".jpeg" or ".gif" or ".bmp" or ".tif" or ".tiff" or ".webp")) return null;
+        try
+        {
+            if (new System.IO.FileInfo(path).Length > maxBytes) throw new InvalidOperationException("이미지는 20MB까지 붙여넣을 수 있습니다.");
+            using var stream = System.IO.File.OpenRead(path);
+            return EncodePng(BitmapDecoder.Create(stream, BitmapCreateOptions.None, BitmapCacheOption.OnLoad).Frames[0]);
+        }
+        catch (Exception error) when (error is System.IO.IOException or UnauthorizedAccessException or NotSupportedException or ArgumentException) { return null; }
     }
     private void OnExternalChanged(ExternalChange change)
     {

@@ -252,6 +252,24 @@ internal static class Program
         // 실제 WebView2의 PDF 저장과 설정 창의 전체 백업을 파일 결과로 확인합니다.
         var pdfWindow = manager.ShowNote(second.NoteId)!;
         await ReadyAsync(pdfWindow);
+        // 사용자 클립보드를 건드리지 않도록 읽는 부분만 바꾸고, 붙여넣기부터 미리보기 표시까지 실제 WebView2로 확인합니다.
+        var samplePng = SamplePng();
+        var imageFile = Path.Combine(root, "복사한 이미지.png");
+        File.WriteAllBytes(imageFile, samplePng);
+        Check(MainWindow.ImageFileToPng(imageFile) is { Length: > 0 }, "복사한 이미지 파일 읽기");
+        var fakeImage = Path.Combine(root, "가짜.png");
+        File.WriteAllText(fakeImage, "이미지 아님");
+        Check(MainWindow.ImageFileToPng(fakeImage) is null, "이미지가 아닌 파일 거부");
+        var textFile = Path.Combine(root, "글.txt");
+        File.WriteAllText(textFile, "글");
+        Check(MainWindow.ImageFileToPng(textFile) is null, "이미지 확장자가 아닌 파일 거부");
+        pdfWindow.ClipboardImageReader = () => samplePng;
+        var imageEditor = (WebView2)pdfWindow.FindName("EditorView");
+        await imageEditor.ExecuteScriptAsync("(() => { const data = new DataTransfer(); data.items.add(new File([new Uint8Array([1])], 'a.png', { type: 'image/png' })); document.querySelector('#source textarea').dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true })); })()");
+        await UntilAsync(async () => (await imageEditor.ExecuteScriptAsync("window.hunminEditor.getDraft().markdown")).Contains("assets/"));
+        await imageEditor.ExecuteScriptAsync("window.hunminEditor.setMode('preview')");
+        await UntilAsync(async () => await imageEditor.ExecuteScriptAsync("document.querySelector('#preview img')?.naturalWidth ?? 0") == "2");
+        await imageEditor.ExecuteScriptAsync("window.hunminEditor.setMode('source')");
         var pdfPath = Path.Combine(root, "note.pdf");
         pdfWindow.PdfPathPicker = _ => pdfPath;
         var pdfEditor = (WebView2)pdfWindow.FindName("EditorView");
@@ -301,6 +319,16 @@ internal static class Program
         Check(quit && application.Windows.Count == 0, "종료 중 생성은 새 창을 열지 않음");
         Check(manager.ShowNote(first.NoteId) is null, "종료된 저장소를 다시 열지 않음");
         using var released = new DataDirectoryLease(System.IO.Path.Combine(root, "data"));
+    }
+    private static byte[] SamplePng()
+    {
+        var pixels = new byte[16];
+        Array.Fill<byte>(pixels, 200);
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(BitmapSource.Create(2, 2, 96, 96, PixelFormats.Bgra32, null, pixels, 8)));
+        using var stream = new MemoryStream();
+        encoder.Save(stream);
+        return stream.ToArray();
     }
     private static bool IsPostItYellow(ImageSource? icon)
     {

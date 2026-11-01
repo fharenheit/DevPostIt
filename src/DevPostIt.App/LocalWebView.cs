@@ -26,7 +26,8 @@ internal static class LocalWebView
         if (noteAssets is not null)
         {
             System.IO.Directory.CreateDirectory(noteAssets);
-            core.SetVirtualHostNameToFolderMapping(EditorOrigin.AssetHost, noteAssets, CoreWebView2HostResourceAccessKind.Deny);
+            // Deny는 다른 출처의 이미지 표시까지 막습니다. DenyCors는 img 표시만 허용하고 스크립트로 내용을 읽지 못하게 합니다.
+            core.SetVirtualHostNameToFolderMapping(EditorOrigin.AssetHost, noteAssets, CoreWebView2HostResourceAccessKind.DenyCors);
         }
         core.NavigationStarting += (_, args) => args.Cancel = !isAllowedPage(args.Uri);
         core.FrameNavigationStarting += (_, args) => args.Cancel = true;
