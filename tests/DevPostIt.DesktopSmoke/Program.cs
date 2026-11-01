@@ -341,6 +341,25 @@ internal static class Program
         await imageEditor.ExecuteScriptAsync("window.hunminEditor.linkRequested('https://example.com/ok')");
         await UntilAsync(async () => { await Task.Yield(); return openedLinks.Count == 1; });
         Check(openedLinks[0] == "https://example.com/ok", "확인한 웹 링크만 염");
+        // 가져오기와 이미지 정리: 파일 대화상자, 확인 창, Windows 휴지통 없이 분리한 데이터 폴더에서만 확인합니다.
+        var importFile = Path.Combine(root, "가져올 메모.md");
+        File.WriteAllText(importFile, "# 가져온 본문");
+        var importReports = new List<string>();
+        manager.ImportReporter = importReports.Add;
+        manager.ImportPathPicker = () => [importFile, Path.Combine(root, "없는 파일.md")];
+        await manager.ImportMarkdownAsync();
+        var importedNote = workspace.Notes.Single(note => note.Title == "가져올 메모");
+        Check(importedNote.Markdown == "# 가져온 본문" && File.ReadAllText(importFile) == "# 가져온 본문", "외부 Markdown을 새 메모로 가져오고 원본 유지");
+        Check(importReports.Single().Contains("없는 파일.md"), "가져오지 못한 파일 보고");
+        await application.Windows.OfType<MainWindow>().Single(window => window.NoteId == importedNote.Id).RequestCloseAsync();
+        var cleanFolder = workspace.EnsureImageFolder(importedNote.Id);
+        var cleanFile = Path.Combine(cleanFolder, new string('d', 32) + ".png");
+        File.WriteAllBytes(cleanFile, [1, 2, 3]);
+        var deletedImages = new List<string>();
+        manager.ImageDeleter = deletedImages.Add;
+        var cleanCandidates = await manager.FindUnusedImagesAsync();
+        Check(cleanCandidates.Any(image => image.Path == cleanFile), "쓰지 않는 이미지 찾기");
+        Check(await manager.DeleteUnusedImagesAsync(cleanCandidates) == cleanCandidates.Count && deletedImages.Contains(cleanFile), "쓰지 않는 이미지 정리");
         var pdfPath = Path.Combine(root, "note.pdf");
         pdfWindow.PdfPathPicker = _ => pdfPath;
         var pdfEditor = (WebView2)pdfWindow.FindName("EditorView");

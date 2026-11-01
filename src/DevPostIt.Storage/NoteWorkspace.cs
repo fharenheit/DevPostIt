@@ -5,6 +5,7 @@ namespace DevPostIt.Storage;
 
 public record TrashedNote(Guid Id, string Title, string RelativePath, DateTimeOffset TrashedAt);
 public record NoteSearchResult(Note Note, string Excerpt);
+public record UnusedImage(string Path, long Size);
 
 public sealed class NoteWorkspace : IAsyncDisposable
 {
@@ -224,6 +225,89 @@ public sealed class NoteWorkspace : IAsyncDisposable
         File.Move(temporary, Path.Combine(directory, name));
         var depth = note.RelativePath.Replace('\\', '/').Count(character => character == '/');
         return $"![이미지]({string.Concat(Enumerable.Repeat("../", depth))}assets/{id:N}/{name})";
+    }
+
+    // 앱이 저장한 이미지 중 어떤 메모, 휴지통 메모, 복구 기록도 파일 이름을 적지 않은 것만 찾습니다. 사용자가 폴더에 넣은 파일은 건드리지 않습니다.
+    public async Task<IReadOnlyList<UnusedImage>> FindUnusedImagesAsync(CancellationToken cancellationToken)
+    {
+        await FlushOpenNotesAsync(cancellationToken);
+        var texts = notes.Values.Select(note => note.Markdown).ToList();
+        foreach (var directory in new[] { trashRoot, Path.Combine(Root, ".hunmin", "recovery") })
+            if (Directory.Exists(directory))
+                foreach (var file in Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories)) texts.Add(await File.ReadAllTextAsync(file, cancellationToken));
+        var result = new List<UnusedImage>();
+        if (!Directory.Exists(assetsRoot)) return result;
+        foreach (var directory in Directory.EnumerateDirectories(assetsRoot))
+        {
+            if (!NoteAssetFolder.IsMatch(Path.GetFileName(directory)) || (File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0) continue;
+            foreach (var file in Directory.EnumerateFiles(directory))
+            {
+                var name = Path.GetFileName(file);
+                if (!AppImage.IsMatch(name) || (File.GetAttributes(file) & FileAttributes.ReparsePoint) != 0) continue;
+                if (!texts.Any(text => text.Contains(name, StringComparison.OrdinalIgnoreCase))) result.Add(new(file, new FileInfo(file).Length));
+            }
+        }
+        return result;
+    }
+    // 확인 창을 보는 사이 다시 쓰게 된 이미지는 지우지 않습니다.
+    public async Task<int> DeleteUnusedImagesAsync(IEnumerable<UnusedImage> chosen, Action<string> delete, CancellationToken cancellationToken)
+    {
+        var current = (await FindUnusedImagesAsync(cancellationToken)).Select(image => image.Path).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var count = 0;
+        foreach (var image in chosen)
+        {
+            if (!current.Contains(image.Path)) continue;
+            try { delete(image.Path); count++; }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException) { /* 지우지 못한 파일은 다음 정리 때 다시 찾습니다. */ }
+        }
+        return count;
+    }
+    private static readonly System.Text.RegularExpressions.Regex NoteAssetFolder = new("^[0-9a-f]{32}$");
+    private static readonly System.Text.RegularExpressions.Regex AppImage = new(@"^[0-9a-f]{32}\.(png|drawio\.svg)$");
+
+    // 외부 Markdown 파일을 새 메모로 복사합니다. 원본은 바꾸지 않습니다. 보존할 수 없는 앞머리는 지우지 않고 본문에 그대로 둡니다.
+    public async Task<Note> ImportMarkdownAsync(string path, CancellationToken cancellationToken)
+    {
+        const int maxFileBytes = 4 * 1024 * 1024, maxMessageBytes = 1_000_000;
+        if (new FileInfo(path).Length > maxFileBytes) throw new InvalidDataException("파일이 너무 커서 메모로 열 수 없습니다.");
+        var text = DecodeMarkdown(await File.ReadAllBytesAsync(path, cancellationToken));
+        if (text.Contains('\0')) throw new InvalidDataException("텍스트 파일이 아닙니다.");
+        var encoded = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(text, new System.Text.Json.JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
+        if (encoded.Length > maxMessageBytes) throw new InvalidDataException("파일이 너무 커서 메모로 열 수 없습니다.");
+        var id = Guid.NewGuid();
+        var relative = $"Inbox/{id:N}.md";
+        var name = Path.GetFileNameWithoutExtension(path);
+        var fallback = NoteTitle.Normalize(name.Length > 200 ? name[..200] : name);
+        var now = DateTimeOffset.UtcNow;
+        Note note;
+        try
+        {
+            var read = codec.Import(text, fallback + ".md");
+            note = read with { Id = id, RelativePath = relative, Title = NoteTitle.Normalize(read.Title) };
+        }
+        catch (Exception error) when (error is FormatException or ArgumentException) { note = new(id, relative, fallback, text, [], now, now); }
+        await creation.WaitAsync(cancellationToken);
+        try
+        {
+            await repository.SaveAsync(note, cancellationToken);
+            notes[id] = note;
+        }
+        finally { creation.Release(); }
+        try { await index.UpsertAsync(note, cancellationToken); }
+        catch (Exception error) when (error is not OperationCanceledException) { /* 다음 시작 때 다시 맞춥니다. */ }
+        return note;
+    }
+    private static string DecodeMarkdown(byte[] bytes)
+    {
+        if (bytes is [0xFF, 0xFE, ..]) return System.Text.Encoding.Unicode.GetString(bytes, 2, bytes.Length - 2);
+        if (bytes is [0xFE, 0xFF, ..]) return System.Text.Encoding.BigEndianUnicode.GetString(bytes, 2, bytes.Length - 2);
+        try { return new System.Text.UTF8Encoding(false, true).GetString(bytes).TrimStart('\uFEFF'); }
+        catch (System.Text.DecoderFallbackException)
+        {
+            // UTF-8이 아니면 한글 Windows의 옛 메모장 형식으로 읽습니다.
+            System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+            return System.Text.Encoding.GetEncoding(949).GetString(bytes);
+        }
     }
 
     public void StartWatching()

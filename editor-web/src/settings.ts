@@ -89,7 +89,8 @@ if (host) {
   const status = document.querySelector<HTMLElement>('#settings-status')!;
   const captureDelay = document.querySelector<HTMLSelectElement>('#capture-delay')!;
   captureDelay.addEventListener('change', () => host.postMessage({ protocolVersion: 1, type: 'settings.captureDelay', value: Number(captureDelay.value) }));
-  for (const row of ['#backup-row', '#update-row', '#capture-delay-row']) document.querySelector<HTMLElement>(row)!.hidden = false;
+  for (const row of ['#backup-row', '#update-row', '#capture-delay-row', '#clean-images-row']) document.querySelector<HTMLElement>(row)!.hidden = false;
+  document.querySelector('#clean-images')!.addEventListener('click', () => host.postMessage({ protocolVersion: 1, type: 'settings.cleanImages' }));
   document.querySelector('#backup')!.addEventListener('click', () => host.postMessage({ protocolVersion: 1, type: 'settings.backup' }));
   document.querySelector('#restore')!.addEventListener('click', () => host.postMessage({ protocolVersion: 1, type: 'settings.restore' }));
   document.querySelector('#check-update')!.addEventListener('click', () => host.postMessage({ protocolVersion: 1, type: 'settings.checkUpdate' }));

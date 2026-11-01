@@ -324,3 +324,18 @@ test('브라우저 단독 실행의 이미지 폴더 버튼은 앱이 필요하�
   await page.locator('#note-images').click();
   await expect(page.locator('#host-status')).toContainText('이미지 폴더는 앱에서');
 });
+
+test('설정 페이지의 이미지 정리 버튼은 경로 없이 앱에 요청만 보낸다', async ({ page }) => {
+  await page.addInitScript(() => {
+    const messages: unknown[] = [];
+    let receive: ((event: { data: unknown }) => void) | undefined;
+    Object.assign(window, {
+      chrome: { webview: { postMessage: (message: unknown) => messages.push(message), addEventListener: (_type: string, handler: typeof receive) => { receive = handler; } } },
+      hostMessages: messages,
+      fromHost: (message: unknown) => receive?.({ data: message }),
+    });
+  });
+  await page.goto('/settings.html');
+  await page.getByRole('button', { name: '정리', exact: true }).click();
+  expect((await sent(page)).at(-1)).toEqual({ protocolVersion: 1, type: 'settings.cleanImages' });
+});

@@ -301,6 +301,15 @@ public class EditorBridgeTests
     }
 
     [Fact]
+    public void CleanImagesAcceptsOnlyThePlainRequestFromSettings()
+    {
+        const string plain = """{"protocolVersion":1,"type":"settings.cleanImages"}""";
+        Assert.True(SettingsMessage.IsCleanImages(plain, EditorOrigin.SettingsPage));
+        Assert.False(SettingsMessage.IsCleanImages(plain, EditorOrigin.Page));
+        Assert.False(SettingsMessage.IsCleanImages("""{"protocolVersion":1,"type":"settings.cleanImages","path":"C:\\a"}""", EditorOrigin.SettingsPage));
+    }
+
+    [Fact]
     public async Task OpenImagesRequestCarriesNothingAndChecksRevision()
     {
         var bridge = new EditorBridge(Id, 7);

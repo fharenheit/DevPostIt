@@ -29,6 +29,9 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
     private DispatcherTimer? updateTimer;
     internal Action Relauncher { get; set; } = () => { if (Environment.ProcessPath is { } path) Process.Start(new ProcessStartInfo(path) { UseShellExecute = true })?.Dispose(); };
     internal AppUpdate? AvailableUpdate { get; private set; }
+    internal Action<string> ImageDeleter { get; set; } = path => Microsoft.VisualBasic.FileIO.FileSystem.DeleteFile(path, Microsoft.VisualBasic.FileIO.UIOption.OnlyErrorDialogs, Microsoft.VisualBasic.FileIO.RecycleOption.SendToRecycleBin);
+    internal Func<string[]> ImportPathPicker { get; set; } = PickMarkdownFiles;
+    internal Action<string> ImportReporter { get; set; } = message => System.Windows.MessageBox.Show(message, "Markdown 가져오기", MessageBoxButton.OK, MessageBoxImage.Information);
     // 복원한 글꼴 설정입니다. 처음 열리는 메모 창이 WebView 저장소에 적용합니다.
     internal string? PendingPreferences { get; set; }
     internal string UpdateStatus { get; private set; } = "";
@@ -226,6 +229,31 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
         await updater.DownloadAsync(update, CancellationToken.None);
         afterExit = () => { updater.Install(); Relauncher(); };
         await ExitAsync();
+    }
+    internal Task<IReadOnlyList<UnusedImage>> FindUnusedImagesAsync() => Task.Run(() => workspace.FindUnusedImagesAsync(CancellationToken.None));
+    internal Task<int> DeleteUnusedImagesAsync(IReadOnlyList<UnusedImage> images) => Task.Run(() => workspace.DeleteUnusedImagesAsync(images, ImageDeleter, CancellationToken.None));
+    private static string[] PickMarkdownFiles()
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog { Title = "가져올 Markdown 파일 선택", Filter = "Markdown 파일 (*.md;*.markdown)|*.md;*.markdown|모든 파일 (*.*)|*.*", Multiselect = true };
+        return dialog.ShowDialog() == true ? dialog.FileNames : [];
+    }
+    // 파일을 복사해 새 메모로 만듭니다. 한 파일이 실패해도 나머지는 가져옵니다.
+    public async Task ImportMarkdownAsync()
+    {
+        var paths = ImportPathPicker();
+        if (paths.Length == 0) return;
+        using var operation = operations.TryBegin();
+        if (operation is null) return;
+        var imported = new List<Note>();
+        var failed = new List<string>();
+        foreach (var path in paths)
+        {
+            try { imported.Add(await Task.Run(() => workspace.ImportMarkdownAsync(path, CancellationToken.None))); }
+            catch (Exception error) when (error is System.IO.IOException or System.IO.InvalidDataException or UnauthorizedAccessException or ArgumentException) { failed.Add($"{System.IO.Path.GetFileName(path)}: {error.Message}"); }
+        }
+        if (!exiting && imported.Count > 0) ShowNote(imported[0].Id);
+        if (imported.Count > 1 || failed.Count > 0)
+            ImportReporter($"메모 {imported.Count}개를 가져왔습니다." + (imported.Count > 1 ? " 나머지는 트레이의 ‘메모 목록’에서 엽니다." : "") + (failed.Count > 0 ? $"\n\n가져오지 못한 파일:\n{string.Join("\n", failed)}" : ""));
     }
     public async Task RestoreFromTrashAsync(Guid id)
     {

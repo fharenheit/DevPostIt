@@ -12,6 +12,7 @@ public static class SettingsMessage
     public static bool IsBackup(string json, string source) => Read(json, source, "settings.backup", 2, _ => true);
     public static bool IsRestore(string json, string source) => Read(json, source, "settings.restore", 2, _ => true);
     public static bool IsCheckUpdate(string json, string source) => Read(json, source, "settings.checkUpdate", 2, _ => true);
+    public static bool IsCleanImages(string json, string source) => Read(json, source, "settings.cleanImages", 2, _ => true);
     public static bool TryReadCaptureDelay(string json, string source, out int seconds)
     {
         var read = 0;

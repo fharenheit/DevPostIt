@@ -26,12 +26,14 @@ public sealed class SettingsWindow : Window
     internal WebView2 View { get; } = new() { DefaultBackgroundColor = System.Drawing.Color.FromArgb(255, 253, 245) };
     internal Func<string?> BackupPathPicker { get; set; }
     internal Func<string?> RestorePathPicker { get; set; }
+    internal Func<int, long, bool> ImageCleanupConfirmation { get; set; }
     internal Action<string> FolderOpener { get; set; } = path => Process.Start(new ProcessStartInfo(path) { UseShellExecute = true })?.Dispose();
     public SettingsWindow(DesktopNoteManager manager, string dataFolder, AppSettingsStore? store = null, bool canChangeFolder = false)
     {
         this.manager = manager;
         BackupPathPicker = PickBackupPath;
         RestorePathPicker = PickRestorePath;
+        ImageCleanupConfirmation = (count, size) => MessageBox.Show(this, $"어느 메모도 쓰지 않는 이미지 {count}개({size / 1024.0 / 1024.0:0.#}MB)를 Windows 휴지통으로 옮깁니다.\n본문에서 방금 지운 이미지를 실행 취소로 되살릴 생각이라면 ‘아니요’를 누르세요.\n\n계속할까요?", "이미지 정리", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) == MessageBoxResult.Yes;
         this.dataFolder = dataFolder; this.store = store; this.canChangeFolder = canChangeFolder && store is not null;
         Title = "설정";
         Icon = NoteIcon.WindowImage;
@@ -77,6 +79,7 @@ public sealed class SettingsWindow : Window
             store.Save();
         }
         else if (SettingsMessage.IsChangeDataFolder(json, source) && canChangeFolder) ChangeDataFolder(core);
+        else if (SettingsMessage.IsCleanImages(json, source)) _ = CleanImagesAsync(core);
         else if (SettingsMessage.IsBackup(json, source)) _ = BackupAsync(core);
         else if (SettingsMessage.IsRestore(json, source)) _ = RestoreAsync(core);
         else if (SettingsMessage.IsCheckUpdate(json, source)) _ = CheckUpdateAsync(core);
@@ -112,6 +115,18 @@ public sealed class SettingsWindow : Window
         SendStatus(core, "백업을 확인하는 중입니다…");
         try { await manager.RestoreBackupAsync(path); }
         catch (Exception error) { SendStatus(core, $"복원하지 못했습니다. 현재 메모는 그대로입니다: {error.Message}"); }
+    }
+    internal async Task CleanImagesAsync(CoreWebView2 core)
+    {
+        SendStatus(core, "쓰지 않는 이미지를 찾는 중입니다…");
+        try
+        {
+            var unused = await manager.FindUnusedImagesAsync();
+            if (unused.Count == 0) { SendStatus(core, "쓰지 않는 이미지가 없습니다."); return; }
+            if (!ImageCleanupConfirmation(unused.Count, unused.Sum(image => image.Size))) { SendStatus(core, "이미지를 정리하지 않았습니다."); return; }
+            SendStatus(core, $"이미지 {await manager.DeleteUnusedImagesAsync(unused)}개를 Windows 휴지통으로 옮겼습니다.");
+        }
+        catch (Exception error) { SendStatus(core, $"이미지를 정리하지 못했습니다: {error.Message}"); }
     }
     private async Task CheckUpdateAsync(CoreWebView2 core)
     {
