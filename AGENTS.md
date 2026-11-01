@@ -9,15 +9,14 @@
 - 승인된 작업을 계속 진행하되, 승인받은 요구를 반복 확인하지 않습니다. 새 요구나 실제로 필요한 정보가 없으면 질문을 늘리지 않습니다.
 - 커밋은 작업 범위별로 작성합니다. 푸시·병합은 현재 사용자의 지시와 기존 승인 범위를 확인하고 수행합니다.
 - 다른 에이전트와 같은 파일·브랜치를 동시에 수정하지 않습니다. 별도 작업이 필요하면 범위를 나누고 사용자 변경을 보존합니다.
-- 과거 계획의 체크박스만 보고 완료한 작업을 다시 구현하지 않습니다. `git log`와 `docs/development/`의 검증 기록을 함께 확인합니다.
+- 완료한 작업을 다시 구현하지 않습니다. `git log`와 `docs/development/HANDOFF.md`를 함께 확인합니다.
 
 ## 문서 읽기 순서
 
-1. `docs/development/HANDOFF.md`: 현재 구현·최근 검증·다음 후보 작업.
-2. `docs/development/NOTE_WINDOW_REFINEMENTS.md`: 최신 사용자 UI 요구.
-3. `docs/superpowers/specs/2026-11-01-hunmin-notes-design.md`: 원래 승인 설계.
-4. `docs/superpowers/specs/2026-11-01-monaco-editor-addendum.md`: WYSIWYG를 대체한 Monaco 소스·미리보기 결정.
-5. 작업 관련 계획과 검증 문서. 오래된 제목 더블클릭·X 동작은 최신 요구로 대체되었습니다.
+1. `docs/development/HANDOFF.md`: 현재 상태, 최근 검증, 확인하지 못한 항목, 다음 후보.
+2. `docs/development/DESIGN.md`: 설계 결정과 이유.
+
+예전 계획과 작업별 기록은 Git 기록에 있습니다.
 
 ## 구조
 
