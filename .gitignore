@@ -1,0 +1,5 @@
+.tools/
+.superpowers/
+**/bin/
+**/obj/
+TestResults/
