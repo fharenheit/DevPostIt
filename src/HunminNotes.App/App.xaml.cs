@@ -15,7 +15,13 @@ public partial class App : System.Windows.Application
         base.OnStartup(e);
         try
         {
-            var root = Environment.GetEnvironmentVariable("DEVPOSTIT_DATA_DIR") ?? System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "DevPostIt");
+            var root = Environment.GetEnvironmentVariable("DEVPOSTIT_DATA_DIR");
+            if (root is null)
+            {
+                root = NoteDataLocation.DefaultRoot(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
+                var legacy = NoteDataLocation.LegacyRoot(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments));
+                await Task.Run(() => NoteDataLocation.MigrateLegacy(legacy, root));
+            }
             workspace = await Task.Run(() => NoteWorkspace.OpenAsync(root, CancellationToken.None));
             var manager = new DesktopNoteManager(workspace);
             tray = new TrayService(manager, workspace, Dispatcher);
