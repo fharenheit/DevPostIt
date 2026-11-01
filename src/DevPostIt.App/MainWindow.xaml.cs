@@ -59,6 +59,9 @@ public partial class MainWindow : Window
     internal Action<string> ImageFolderOpener { get; set; } = path => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(path) { UseShellExecute = true })?.Dispose();
     internal Func<string, bool> LinkConfirmation { get; set; }
     internal Action<string> LinkOpener { get; set; } = url => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true })?.Dispose();
+    internal Func<string?> DiagramAppFinder { get; set; } = DiagramApp.Find;
+    internal Action<string, string> DiagramAppOpener { get; set; } = DiagramApp.Open;
+    internal Action DiagramAppMissing { get; set; }
     internal string? PendingPreferences { get; set; }
     internal Func<byte[]?> ClipboardImageReader { get; set; } = ClipboardPng;
     public event Action<string, bool>? AppearanceChanged;
@@ -72,6 +75,9 @@ public partial class MainWindow : Window
     public MainWindow(NoteWorkspace workspace, Guid noteId)
     {
         this.workspace = workspace; this.noteId = noteId;
+        DiagramAppMissing = () => DiagramApp.OfferDownload(this);
+        // draw.io에서 저장하고 돌아오면 그림을 다시 읽습니다.
+        Activated += (_, _) => { if (IsEditorReady) Send("note.assetsChanged", new { }, bridge!.Revision); };
         LinkConfirmation = url => MessageBox.Show(this, $"이 링크를 기본 브라우저로 열까요?\n\n{url}", "링크 열기", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) == MessageBoxResult.Yes;
         InitializeComponent();
         Icon = NoteIcon.WindowImage;
@@ -204,6 +210,23 @@ public partial class MainWindow : Window
             else if (result.Message.Type == "window.searchRequested") SearchRequested?.Invoke();
             else if (result.Message.Type == "window.captureRequested") CaptureRequested?.Invoke();
             else if (result.Message.Type == "note.exportPdfRequested") await ExportPdfAsync();
+            else if (result.Message.Type == "note.newDiagramRequested")
+            {
+                if (DiagramAppFinder() is not { } application) DiagramAppMissing();
+                else
+                {
+                    var (markdown, path) = await Task.Run(() => workspace.CreateDiagramAsync(noteId, CancellationToken.None));
+                    await EditorView.ExecuteScriptAsync("window.hunminEditor.setMode('source')");
+                    Send("note.imageSaved", new { markdown }, bridge.Revision);
+                    DiagramAppOpener(application, path);
+                }
+            }
+            else if (result.Message.Type == "note.editDiagramRequested")
+            {
+                var path = workspace.DiagramPath(result.Message.Payload.GetProperty("file").GetString()!);
+                if (DiagramAppFinder() is { } application) DiagramAppOpener(application, path);
+                else DiagramAppMissing();
+            }
             else if (result.Message.Type == "note.openLinkRequested")
             {
                 var url = result.Message.Payload.GetProperty("url").GetString()!;

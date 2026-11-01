@@ -33,9 +33,17 @@ public sealed class EditorBridge(Guid noteId, long revision)
             return Task.FromResult<NoteChange?>(null);
         }
         if (message.NoteId != noteId || noteId == Guid.Empty) throw new EditorProtocolException("잘못된 메모 ID입니다.");
-        if (message.Type is "window.collapseRequested" or "note.newRequested" or "window.settingsRequested" or "window.searchRequested" or "note.imagePasteRequested" or "note.exportPdfRequested" or "window.captureRequested" or "note.openImagesRequested")
+        if (message.Type is "window.collapseRequested" or "note.newRequested" or "window.settingsRequested" or "window.searchRequested" or "note.imagePasteRequested" or "note.exportPdfRequested" or "window.captureRequested" or "note.openImagesRequested" or "note.newDiagramRequested")
         {
             Fields(message.Payload);
+            if (message.Revision != Revision) throw new EditorProtocolException("창 요청 리비전이 일치하지 않습니다.");
+            return Task.FromResult<NoteChange?>(null);
+        }
+        if (message.Type == "note.editDiagramRequested")
+        {
+            Fields(message.Payload, "file");
+            var file = message.Payload.GetProperty("file");
+            if (file.ValueKind != JsonValueKind.String || !EditorOrigin.IsDiagramFile(file.GetString())) throw new EditorProtocolException("편집할 수 없는 파일입니다.");
             if (message.Revision != Revision) throw new EditorProtocolException("창 요청 리비전이 일치하지 않습니다.");
             return Task.FromResult<NoteChange?>(null);
         }

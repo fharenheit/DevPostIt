@@ -20,6 +20,7 @@
   "dependencies": {
     "dompurify": "3.4.17",
     "markdown-it": "15.0.3",
+    "mermaid": "12.2.0",
     "monaco-editor": "0.57.0",
     "prettier": "3.9.10",
     "prettier-plugin-java": "2.11.0",

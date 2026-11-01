@@ -9,6 +9,7 @@ import { markdownTableLines, tableFromClipboardHtml } from './paste-table';
 import EditorWorker from 'monaco-editor/editor/editor.worker?worker';
 import { renderMarkdown } from './markdown';
 import { imageAltEdit } from './image-size';
+import { renderDiagrams } from './diagrams';
 import { formatBlock, CodeBlockError } from './code-format';
 
 globalThis.MonacoEnvironment = { getWorker: () => new EditorWorker() };
@@ -77,6 +78,9 @@ export class Editor {
   private highlighting: Promise<void> = Promise.resolve();
   imagePasteRequested?: () => void;
   linkRequested?: (url: string) => void;
+  diagramEditRequested?: (file: string) => void;
+  private readonly imageEditButton = document.createElement('button');
+  private assetVersion = Date.now();
   private readonly imageMenu = document.createElement('div');
   private imageMenuTarget: HTMLImageElement | null = null;
 
@@ -203,8 +207,10 @@ export class Editor {
     this.highlightRun++;
     if (mode === 'preview') {
       this.preview.innerHTML = renderMarkdown(this.draft.markdown);
+      this.showDiagramVersion();
       this.addCopyButtons();
-      this.highlighting = this.highlightPreview(this.highlightRun);
+      const run = this.highlightRun;
+      this.highlighting = this.highlightPreview(run).then(() => renderDiagrams(this.preview, () => run === this.highlightRun && this.mode === 'preview'));
     }
     this.source.hidden = mode !== 'source';
     this.preview.hidden = mode !== 'preview';
@@ -310,15 +316,33 @@ export class Editor {
       });
       menu.append(button);
     }
+    const edit = this.imageEditButton;
+    edit.type = 'button';
+    edit.textContent = 'draw.io로 편집';
+    edit.addEventListener('click', () => {
+      const image = this.imageMenuTarget;
+      this.closeImageMenu();
+      if (image) this.diagramEditRequested?.(new URL(image.src).pathname.slice(1));
+    });
+    menu.append(edit);
     document.body.append(menu);
   }
   private openImageMenu(image: HTMLImageElement): void {
     this.imageMenuTarget = image;
+    this.imageEditButton.hidden = !new URL(image.src).pathname.endsWith('.drawio.svg');
     this.imageMenu.hidden = false;
     const box = image.getBoundingClientRect();
     const size = this.imageMenu.getBoundingClientRect();
     this.imageMenu.style.left = `${Math.max(4, Math.min(box.left, window.innerWidth - size.width - 4))}px`;
     this.imageMenu.style.top = `${Math.max(4, Math.min(box.top + 4, window.innerHeight - size.height - 4))}px`;
+  }
+  // draw.io에서 저장해도 주소가 같으면 이전 그림이 보이므로 버전을 붙여 다시 읽습니다.
+  refreshDiagrams(): void {
+    this.assetVersion = Date.now();
+    if (this.mode === 'preview') this.showDiagramVersion();
+  }
+  private showDiagramVersion(): void {
+    for (const image of this.preview.querySelectorAll<HTMLImageElement>('img[src*=".drawio.svg"]')) image.src = `${image.src.split('?')[0]}?v=${this.assetVersion}`;
   }
   private closeImageMenu(): void {
     this.imageMenu.hidden = true;

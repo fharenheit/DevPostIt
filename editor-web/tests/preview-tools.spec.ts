@@ -101,3 +101,100 @@ test('원문이 바뀌어 이미지를 찾지 못하면 크기 변경을 하지 
   await page.evaluate(() => (window as any).hunminEditor.resizeImage(0, 1, 0, 'x.png', '25%'));
   expect((await draft(page)).markdown).toBe(text);
 });
+
+const diagram = (name = b) => `![다이어그램](../assets/${a}/${name}.drawio.svg)`;
+
+test('Mermaid 코드 블록을 미리보기에서 그림으로 그리고 원문은 그대로 둔다', async ({ page }) => {
+  const text = '앞\n\n```mermaid\nflowchart TD\n  가[시작] --> 나[끝]\n```\n';
+  await openEditor(page, text);
+  await mode(page, 'preview');
+  const figure = page.locator('#preview figure.mermaid-diagram svg');
+  await expect(figure).toBeVisible();
+  await expect(figure).toContainText('시작');
+  await expect(figure).toContainText('끝');
+  await expect(page.locator('#preview pre')).toHaveCount(0);
+  expect((await draft(page)).markdown).toBe(text);
+  await mode(page, 'source');
+  await mode(page, 'preview');
+  await expect(figure).toContainText('시작');
+});
+
+test('Mermaid 문법 오류는 원문과 오류를 함께 보여 준다', async ({ page }) => {
+  await openEditor(page, '```mermaid\nflowchart TD\n  가[[[ --> \n```\n');
+  await mode(page, 'preview');
+  await expect(page.locator('#preview .diagram-error')).toContainText('다이어그램을 그리지 못했습니다');
+  await expect(page.locator('#preview pre code')).toContainText('flowchart TD');
+  await expect(page.locator('body > [id^="dmermaid"]')).toHaveCount(0);
+});
+
+test('Mermaid의 HTML과 스크립트는 실행하지 않고 외부로 요청하지 않는다', async ({ page }) => {
+  const requests: string[] = [];
+  page.on('request', request => { if (!request.url().startsWith('http://127.0.0.1:')) requests.push(request.url()); });
+  await openEditor(page, '```mermaid\nflowchart TD\n  가["<img src=https://example.com/x.png onerror=window.attacked=true>"] --> 나\n  click 나 href "javascript:window.attacked=true"\n```\n');
+  await mode(page, 'preview');
+  await expect(page.locator('#preview figure.mermaid-diagram svg')).toBeVisible();
+  expect(await page.locator('#preview svg img, #preview svg script, #preview svg foreignObject, #preview svg [onerror], #preview svg a[href^="javascript"]').count()).toBe(0);
+  expect(await page.evaluate(() => 'attacked' in window)).toBe(false);
+  expect(requests).toEqual([]);
+});
+
+test('PDF 준비는 Mermaid 그림이 끝날 때까지 기다린다', async ({ page }) => {
+  await openEditor(page, '```mermaid\nflowchart TD\n  가 --> 나\n```\n');
+  expect(await page.evaluate(() => window.hunminEditor.renderForPrint())).toBe(true);
+  await expect(page.locator('#preview figure.mermaid-diagram svg')).toHaveCount(1);
+});
+
+test('draw.io 이미지는 미리보기에 표시하고 다른 SVG는 요청하지 않는다', async ({ page }) => {
+  await openEditor(page, `${diagram()}\n\n![나쁨](../assets/${a}/${b}.svg)`);
+  await mode(page, 'preview');
+  await expect(page.locator('#preview img')).toHaveCount(1);
+  await expect(page.locator('#preview img')).toHaveAttribute('src', new RegExp(`^https://devpostit-assets\\.local/${a}/${b}\\.drawio\\.svg`));
+  await expect(page.locator('#preview')).toContainText('[이미지: 나쁨]');
+});
+
+test('머리글 버튼으로 draw.io 다이어그램을 요청하고 앱이 보낸 그림만 넣는다', async ({ page }) => {
+  await page.setViewportSize({ width: 480, height: 640 });
+  await hosted(page);
+  await send(page, 'note.load', 7, { markdown: '' });
+  await page.getByRole('button', { name: 'draw.io 다이어그램 추가', exact: true }).click();
+  await expect.poll(async () => (await sent(page)).at(-1)).toMatchObject({ type: 'note.newDiagramRequested', revision: 7, payload: {} });
+  await send(page, 'note.imageSaved', 7, { markdown: '![다이어그램](https://example.com/a.drawio.svg)' });
+  expect((await draft(page)).markdown).toBe('');
+  await send(page, 'note.imageSaved', 7, { markdown: diagram() });
+  await expect.poll(async () => (await draft(page)).markdown).toBe(diagram());
+});
+
+test('브라우저 단독 실행의 다이어그램 버튼은 앱이 필요하다고 알린다', async ({ page }) => {
+  await openEditor(page, '');
+  await page.locator('#new-diagram').click();
+  await expect(page.locator('#host-status')).toContainText('다이어그램은 앱에서');
+});
+
+test('draw.io 이미지의 메뉴에서만 편집을 요청한다', async ({ page }) => {
+  await hosted(page);
+  await send(page, 'note.load', 7, { markdown: `${image('그림')}\n\n${diagram()}` });
+  await mode(page, 'preview');
+  const editButton = page.getByRole('button', { name: 'draw.io로 편집', exact: true });
+  await page.locator('#preview img').nth(0).click();
+  await expect(editButton).toBeHidden();
+  await page.keyboard.press('Escape');
+  await page.locator('#preview img').nth(1).click();
+  await editButton.click();
+  await expect.poll(async () => (await sent(page)).at(-1)).toMatchObject({ type: 'note.editDiagramRequested', payload: { file: `${a}/${b}.drawio.svg` } });
+});
+
+test('앱으로 돌아오면 draw.io 그림만 다시 읽어 저장한 내용을 보여 준다', async ({ page }) => {
+  await hosted(page);
+  await send(page, 'note.load', 7, { markdown: `${image('그림')}\n\n${diagram()}` });
+  await mode(page, 'preview');
+  const png = page.locator('#preview img').nth(0);
+  const svg = page.locator('#preview img').nth(1);
+  const [pngBefore, svgBefore] = [await png.getAttribute('src'), await svg.getAttribute('src')];
+  await page.waitForTimeout(5);
+  await send(page, 'note.assetsChanged', 7, {});
+  await expect(svg).not.toHaveAttribute('src', svgBefore!);
+  expect(await png.getAttribute('src')).toBe(pngBefore);
+  await page.locator('#preview img').nth(1).click();
+  await page.getByRole('button', { name: '50%', exact: true }).click();
+  expect((await draft(page)).markdown).toContain(`![다이어그램|50%](../assets/${a}/${b}.drawio.svg)`);
+});

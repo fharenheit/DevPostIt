@@ -341,6 +341,34 @@ internal static class Program
         await imageEditor.ExecuteScriptAsync("window.hunminEditor.linkRequested('https://example.com/ok')");
         await UntilAsync(async () => { await Task.Yield(); return openedLinks.Count == 1; });
         Check(openedLinks[0] == "https://example.com/ok", "확인한 웹 링크만 염");
+        // Mermaid는 실제 WebView2의 보안 정책 안에서 그립니다.
+        await imageEditor.ExecuteScriptAsync("window.hunminEditor.setMode('source')");
+        await imageEditor.ExecuteScriptAsync("window.hunminEditor.insertText('\\n```mermaid\\nflowchart TD\\n  가[시작] --> 나[끝]\\n```\\n')");
+        await imageEditor.ExecuteScriptAsync("window.hunminEditor.setMode('preview')");
+        await UntilAsync(async () => (await imageEditor.ExecuteScriptAsync("document.querySelector('#preview figure.mermaid-diagram svg')?.textContent ?? ''")).Contains("시작"));
+        Check(await imageEditor.ExecuteScriptAsync("document.querySelector('#preview .diagram-error') === null") == "true", "Mermaid를 WebView2에서 표시");
+        // draw.io: 실제 앱을 띄우지 않고 열려는 파일만 확인합니다.
+        var diagramOpens = new List<string>();
+        var diagramMissing = 0;
+        pdfWindow.DiagramAppOpener = (_, file) => diagramOpens.Add(file);
+        pdfWindow.DiagramAppMissing = () => diagramMissing++;
+        pdfWindow.DiagramAppFinder = () => null;
+        var imageFilesBefore = Directory.GetFiles(openedImages!).Length;
+        await imageEditor.ExecuteScriptAsync("document.querySelector('#new-diagram').click()");
+        await UntilAsync(async () => { await Task.Yield(); return diagramMissing == 1; });
+        Check(Directory.GetFiles(openedImages!).Length == imageFilesBefore && diagramOpens.Count == 0, "draw.io가 없으면 파일을 만들지 않고 안내");
+        pdfWindow.DiagramAppFinder = () => "draw.io.exe";
+        await imageEditor.ExecuteScriptAsync("document.querySelector('#new-diagram').click()");
+        await UntilAsync(async () => { await Task.Yield(); return diagramOpens.Count == 1; });
+        Check(diagramOpens[0].EndsWith(".drawio.svg") && File.Exists(diagramOpens[0]), "새 다이어그램 파일을 만들어 draw.io로 염");
+        await UntilAsync(async () => (await imageEditor.ExecuteScriptAsync("window.hunminEditor.getDraft().markdown")).Contains(".drawio.svg"));
+        await imageEditor.ExecuteScriptAsync("window.hunminEditor.setMode('preview')");
+        await UntilAsync(async () => await imageEditor.ExecuteScriptAsync("document.querySelector('#preview img[src*=\".drawio.svg\"]')?.naturalWidth ?? 0") == "240");
+        var diagramFile = $"{Path.GetFileName(Path.GetDirectoryName(diagramOpens[0]))}/{Path.GetFileName(diagramOpens[0])}";
+        await imageEditor.ExecuteScriptAsync($"window.hunminEditor.diagramEditRequested('{diagramFile}')");
+        await UntilAsync(async () => { await Task.Yield(); return diagramOpens.Count == 2; });
+        Check(diagramOpens[1] == diagramOpens[0], "기존 다이어그램을 draw.io로 다시 염");
+        await imageEditor.ExecuteScriptAsync("window.hunminEditor.setMode('source')");
         // 가져오기와 이미지 정리: 파일 대화상자, 확인 창, Windows 휴지통 없이 분리한 데이터 폴더에서만 확인합니다.
         var importFile = Path.Combine(root, "가져올 메모.md");
         File.WriteAllText(importFile, "# 가져온 본문");

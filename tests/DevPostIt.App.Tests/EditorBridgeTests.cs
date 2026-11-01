@@ -300,6 +300,36 @@ public class EditorBridgeTests
         await Assert.ThrowsAsync<EditorProtocolException>(() => bridge.HandleAsync(request with { Payload = JsonSerializer.SerializeToElement(new { url = "https://example.com", extra = 1 }) }, default));
     }
 
+    [Theory]
+    [InlineData("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.png", true)]
+    [InlineData("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.drawio.svg", true)]
+    [InlineData("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.drawio.svg?v=123", true)]
+    [InlineData("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.svg", false)]
+    [InlineData("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.html", false)]
+    public void NoteAssetsAreOnlyAppImages(string path, bool allowed) => Assert.Equal(allowed, EditorOrigin.IsNoteAsset($"https://{EditorOrigin.AssetHost}/{path}"));
+
+    [Theory]
+    [InlineData("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.drawio.svg", false)]
+    [InlineData("../../Windows/notepad.exe", true)]
+    [InlineData("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.png", true)]
+    [InlineData("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.drawio.svg", true)]
+    public async Task EditDiagramAcceptsOnlyAppDiagramFiles(string file, bool rejected)
+    {
+        var bridge = new EditorBridge(Id, 7);
+        var request = Change(7) with { Type = "note.editDiagramRequested", Payload = JsonSerializer.SerializeToElement(new { file }) };
+        if (rejected) await Assert.ThrowsAsync<EditorProtocolException>(() => bridge.HandleAsync(request, default));
+        else Assert.Null(await bridge.HandleAsync(request, default));
+    }
+
+    [Fact]
+    public async Task NewDiagramRequestCarriesNothingAndChecksRevision()
+    {
+        var bridge = new EditorBridge(Id, 7);
+        var request = Change(7) with { Type = "note.newDiagramRequested", Payload = JsonSerializer.SerializeToElement(new { }) };
+        Assert.Null(await bridge.HandleAsync(request, default));
+        await Assert.ThrowsAsync<EditorProtocolException>(() => bridge.HandleAsync(request with { Revision = 6 }, default));
+    }
+
     [Fact]
     public void CleanImagesAcceptsOnlyThePlainRequestFromSettings()
     {

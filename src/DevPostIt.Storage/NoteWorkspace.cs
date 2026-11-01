@@ -227,6 +227,28 @@ public sealed class NoteWorkspace : IAsyncDisposable
         return $"![이미지]({string.Concat(Enumerable.Repeat("../", depth))}assets/{id:N}/{name})";
     }
 
+    // draw.io Desktop이 그대로 열어 저장하는 SVG입니다. 편집 데이터는 content 속성에 들어 있습니다. 저장 전에는 안내 그림이 보입니다.
+    private const string EmptyDiagram = """
+        <svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="240px" height="80px" viewBox="0 0 240 80" content="&lt;mxfile&gt;&lt;diagram name=&quot;Page-1&quot;&gt;&lt;mxGraphModel&gt;&lt;root&gt;&lt;mxCell id=&quot;0&quot;/&gt;&lt;mxCell id=&quot;1&quot; parent=&quot;0&quot;/&gt;&lt;/root&gt;&lt;/mxGraphModel&gt;&lt;/diagram&gt;&lt;/mxfile&gt;"><rect x="1" y="1" width="238" height="78" fill="#fffdf5" stroke="#a89e80" stroke-dasharray="4 3"/><text x="120" y="45" font-size="14" font-family="sans-serif" fill="#665e4b" text-anchor="middle">빈 다이어그램</text></svg>
+        """;
+    public async Task<(string Markdown, string Path)> CreateDiagramAsync(Guid id, CancellationToken cancellationToken)
+    {
+        if (!notes.TryGetValue(id, out var note)) throw new KeyNotFoundException("메모를 찾지 못했습니다.");
+        var name = $"{Guid.NewGuid():N}.drawio.svg";
+        var path = Path.Combine(EnsureImageFolder(id), name);
+        await File.WriteAllTextAsync(path + ".tmp", EmptyDiagram, cancellationToken);
+        File.Move(path + ".tmp", path);
+        var depth = note.RelativePath.Replace('\\', '/').Count(character => character == '/');
+        return ($"![다이어그램]({string.Concat(Enumerable.Repeat("../", depth))}assets/{id:N}/{name})", path);
+    }
+    // file은 브리지가 "폴더/파일.drawio.svg" 형식으로 검사한 값입니다.
+    public string DiagramPath(string file)
+    {
+        var path = Path.GetFullPath(Path.Combine(assetsRoot, file));
+        StoragePathGuard.RejectLinks(path);
+        return File.Exists(path) ? path : throw new FileNotFoundException("다이어그램 파일을 찾지 못했습니다.", file);
+    }
+
     // 앱이 저장한 이미지 중 어떤 메모, 휴지통 메모, 복구 기록도 파일 이름을 적지 않은 것만 찾습니다. 사용자가 폴더에 넣은 파일은 건드리지 않습니다.
     public async Task<IReadOnlyList<UnusedImage>> FindUnusedImagesAsync(CancellationToken cancellationToken)
     {

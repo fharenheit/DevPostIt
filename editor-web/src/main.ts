@@ -9,6 +9,7 @@ declare global { interface Window { hunminEditor: Editor } }
 const colorNames: Record<string, string> = { yellow: '노랑', green: '초록', blue: '파랑', pink: '분홍', purple: '보라', gray: '회색' };
 const pdfIcon = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2v8M5 7l3 3 3-3M3 13h10"/></svg>';
 const folderIcon = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4h4l1.5 1.5H14V13H2z"/></svg>';
+const diagramIcon = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 2.5h5v3.5h-5zM2 10h5v3.5H2zM9 10h5v3.5H9zM8 6v2M4.5 10V8h7v2"/></svg>';
 const captureIcon = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 5.5h3l1-2h4l1 2h3v7.5H2zM8 7a2.2 2.2 0 1 1 0 4.4A2.2 2.2 0 0 1 8 7z"/></svg>';
 const pinIcon = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 2h4l-.5 5 2 2.5h-7l2-2.5zM8 9.5V14"/></svg>';
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
@@ -21,6 +22,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
       </div>
       <div class="note-actions">
         <button type="button" id="capture" aria-label="화면 캡처" title="화면 캡처 (Ctrl+Shift+C)">${captureIcon}</button>
+        <button type="button" id="new-diagram" aria-label="draw.io 다이어그램 추가" title="draw.io 다이어그램 추가">${diagramIcon}</button>
         <button type="button" id="save-pdf" aria-label="PDF로 저장" title="PDF로 저장">${pdfIcon}</button>
         <button type="button" id="pin" aria-pressed="false" aria-label="항상 위" title="항상 위">${pinIcon}</button>
         <button type="button" id="note-color" aria-label="메모 색상" title="메모 색상" aria-expanded="false"><span class="swatch"></span></button>
@@ -216,3 +218,12 @@ document.querySelector('#note-images')!.addEventListener('click', () => {
   if (connection) connection.command('note.openImagesRequested');
   else document.querySelector('#host-status')!.textContent = '이미지 폴더는 앱에서 열 수 있습니다.';
 });
+
+document.querySelector('#new-diagram')!.addEventListener('click', () => {
+  if (connection) connection.command('note.newDiagramRequested');
+  else document.querySelector('#host-status')!.textContent = '다이어그램은 앱에서 만들 수 있습니다.';
+});
+editor.diagramEditRequested = file => {
+  if (connection) connection.editDiagram(file);
+  else document.querySelector('#host-status')!.textContent = '다이어그램은 앱에서 편집할 수 있습니다.';
+};

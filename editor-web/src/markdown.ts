@@ -19,7 +19,7 @@ markdown.renderer.rules.link_close = (tokens, index) => {
   return '</span>';
 };
 // 앱이 저장한 붙여넣기 이미지만 표시합니다. 다른 이미지는 요청하지 않고 글자로 둡니다.
-const noteImage = /^(?:\.\.\/)*assets\/([0-9a-f]{32}\/[0-9a-f]{32}\.png)$/;
+const noteImage = /^(?:\.\.\/)*assets\/([0-9a-f]{32}\/[0-9a-f]{32}\.(?:png|drawio\.svg))$/;
 markdown.renderer.rules.image = (tokens, index) => {
   const { alt: text, width } = parseImageAlt(tokens[index].content);
   const alt = markdown.utils.escapeHtml(text);

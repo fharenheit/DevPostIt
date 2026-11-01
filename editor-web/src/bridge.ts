@@ -8,7 +8,7 @@ const emptyId = '00000000-0000-0000-0000-000000000000';
 const guid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const maxBytes = 1024 * 1024;
 export const noteColors = ['yellow', 'green', 'blue', 'pink', 'purple', 'gray'];
-const savedImage = /^!\[이미지\]\((?:\.\.\/)*assets\/[0-9a-f]{32}\/[0-9a-f]{32}\.png\)$/;
+const savedImage = /^!\[(?:이미지|다이어그램)\]\((?:\.\.\/)*assets\/[0-9a-f]{32}\/[0-9a-f]{32}\.(?:png|drawio\.svg)\)$/;
 const bytes = (value: unknown) => new TextEncoder().encode(JSON.stringify(value)).byteLength;
 const keys = (value: object, expected: string[]) => Object.keys(value).length === expected.length && expected.every(key => Object.hasOwn(value, key));
 
@@ -35,7 +35,7 @@ export class EditorConnection {
     const draft = this.editor.getDraft();
     this.send('note.saveRequested', { markdown: draft.markdown, title: this.editor.getTitle() }, draft.revision);
   }
-  command(type: 'window.collapseRequested' | 'note.newRequested' | 'window.settingsRequested' | 'window.searchRequested' | 'note.imagePasteRequested' | 'note.exportPdfRequested' | 'window.captureRequested' | 'note.openImagesRequested'): void {
+  command(type: 'window.collapseRequested' | 'note.newRequested' | 'window.settingsRequested' | 'window.searchRequested' | 'note.imagePasteRequested' | 'note.exportPdfRequested' | 'window.captureRequested' | 'note.openImagesRequested' | 'note.newDiagramRequested'): void {
     if (this.noteId === emptyId || this.editor.isComposing()) return;
     this.publish();
     this.send(type, {}, this.editor.getDraft().revision);
@@ -45,6 +45,12 @@ export class EditorConnection {
     if (this.noteId === emptyId || this.editor.isComposing()) return;
     this.publish();
     this.send('note.openLinkRequested', { url }, this.editor.getDraft().revision);
+  }
+
+  editDiagram(file: string): void {
+    if (this.noteId === emptyId || this.editor.isComposing()) return;
+    this.publish();
+    this.send('note.editDiagramRequested', { file }, this.editor.getDraft().revision);
   }
 
   appearance(color: string, topmost: boolean): void {
@@ -105,6 +111,8 @@ export class EditorConnection {
         window.dispatchEvent(new CustomEvent('devpostit-appearance', { detail: { color, topmost } }));
     } else if (message.noteId === this.noteId && message.type === 'note.imageSaved') {
       if (keys(message.payload, ['markdown']) && typeof message.payload.markdown === 'string' && savedImage.test(message.payload.markdown)) this.editor.insertText(message.payload.markdown);
+    } else if (message.noteId === this.noteId && message.type === 'note.assetsChanged' && keys(message.payload, [])) {
+      this.editor.refreshDiagrams();
     } else if (message.noteId === this.noteId && message.revision === current.revision) {
       if (message.type === 'note.saved' && keys(message.payload, [])) {
         this.editor.markSaved(message.revision);

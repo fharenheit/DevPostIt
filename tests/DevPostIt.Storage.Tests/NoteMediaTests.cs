@@ -80,6 +80,33 @@ public sealed class NoteMediaTests : IDisposable
     }
 
     [Fact]
+    public async Task NewDiagramIsAnEditableSvgInTheNoteFolder()
+    {
+        await using var workspace = await NoteWorkspace.OpenAsync(root, default);
+        var note = workspace.Notes.Single();
+        var (markdown, path) = await workspace.CreateDiagramAsync(note.Id, default);
+        Assert.Matches($"^!\\[다이어그램\\]\\(\\.\\./assets/{note.Id:N}/[0-9a-f]{{32}}\\.drawio\\.svg\\)$", markdown);
+        Assert.Equal(Folder(workspace, note.Id), Path.GetDirectoryName(path));
+        var svg = System.Xml.Linq.XDocument.Load(path).Root!;
+        Assert.Equal("svg", svg.Name.LocalName);
+        var mxfile = System.Xml.Linq.XDocument.Parse(svg.Attribute("content")!.Value).Root!;
+        Assert.Equal("mxfile", mxfile.Name.LocalName);
+        Assert.Contains(mxfile.Descendants(), element => element.Name == "mxGraphModel");
+        Assert.DoesNotContain(svg.DescendantsAndSelf(), element => element.Name.LocalName == "script");
+        Assert.Equal(path, workspace.DiagramPath($"{note.Id:N}/{Path.GetFileName(path)}"));
+    }
+
+    [Fact]
+    public async Task DiagramCountsAsImageForCleanupAndMissingDiagramIsRejected()
+    {
+        await using var workspace = await NoteWorkspace.OpenAsync(root, default);
+        var note = workspace.Notes.Single();
+        var (_, path) = await workspace.CreateDiagramAsync(note.Id, default);
+        Assert.Equal(path, Assert.Single(await workspace.FindUnusedImagesAsync(default)).Path);
+        Assert.Throws<FileNotFoundException>(() => workspace.DiagramPath($"{note.Id:N}/{new string('c', 32)}.drawio.svg"));
+    }
+
+    [Fact]
     public async Task ImportedMarkdownBecomesNewNoteAndLeavesSourceUntouched()
     {
         var source = Path.Combine(root, "바깥", "회의 기록.md");

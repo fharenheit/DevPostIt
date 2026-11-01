@@ -21,7 +21,9 @@ public static class EditorOrigin
 
     public static bool IsNoteAsset(string source) => Uri.TryCreate(source, UriKind.Absolute, out var uri) &&
         uri.Scheme == Uri.UriSchemeHttps && uri.Host == AssetHost && uri.Port == 443 && uri.UserInfo.Length == 0 &&
-        System.Text.RegularExpressions.Regex.IsMatch(uri.AbsolutePath, "^/[0-9a-f]{32}/[0-9a-f]{32}\\.png$");
+        System.Text.RegularExpressions.Regex.IsMatch(uri.AbsolutePath, "^/[0-9a-f]{32}/[0-9a-f]{32}\\.(png|drawio\\.svg)$");
+
+    public static bool IsDiagramFile(string? file) => file is not null && System.Text.RegularExpressions.Regex.IsMatch(file, "^[0-9a-f]{32}/[0-9a-f]{32}\\.drawio\\.svg\\z");
 
     public static bool IsLocalResource(string source) => Uri.TryCreate(source, UriKind.Absolute, out var uri) &&
         uri.Scheme == Uri.UriSchemeHttps && uri.Host == "devpostit.local" && uri.Port == 443 && uri.UserInfo.Length == 0;
