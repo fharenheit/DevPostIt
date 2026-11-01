@@ -144,6 +144,10 @@ editor.imagePasteRequested = () => {
   if (connection) connection.command('note.imagePasteRequested');
   else document.querySelector('#host-status')!.textContent = '이미지 붙여넣기는 앱에서 사용할 수 있습니다.';
 };
+editor.linkRequested = url => {
+  if (connection) connection.openLink(url);
+  else document.querySelector('#host-status')!.textContent = '링크는 앱에서 열 수 있습니다.';
+};
 window.addEventListener('keydown', event => {
   if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'f') { event.preventDefault(); connection?.command('window.searchRequested'); }
 }, true);

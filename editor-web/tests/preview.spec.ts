@@ -8,7 +8,10 @@ test('위험 HTML·링크·원격 이미지를 실행하지 않고 원문을 보
   await openEditor(page, markdown);
   await mode(page, 'preview');
   await expect(page.locator('#preview')).toContainText('<script>');
-  expect(await page.locator('#preview script, #preview img, #preview a[href]').count()).toBe(0);
+  expect(await page.locator('#preview script, #preview img').count()).toBe(0);
+  // 웹 링크는 누를 때 앱이 확인 후 엽니다. 스크립트 주소는 링크가 되지 않습니다.
+  await expect(page.locator('#preview a[href]')).toHaveCount(1);
+  await expect(page.locator('#preview a[href]')).toHaveAttribute('href', 'https://example.com');
   expect(await page.evaluate(() => 'attacked' in window)).toBe(false);
   expect(requests).toEqual([]);
   expect((await draft(page)).markdown).toBe(markdown);

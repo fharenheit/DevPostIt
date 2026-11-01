@@ -8,6 +8,7 @@ import { planFormat, planInsertLines, type FormatPlan, type MarkdownAction, type
 import { markdownTableLines, tableFromClipboardHtml } from './paste-table';
 import EditorWorker from 'monaco-editor/editor/editor.worker?worker';
 import { renderMarkdown } from './markdown';
+import { imageAltEdit } from './image-size';
 import { formatBlock, CodeBlockError } from './code-format';
 
 globalThis.MonacoEnvironment = { getWorker: () => new EditorWorker() };
@@ -75,6 +76,9 @@ export class Editor {
   private preferences = defaultEditorPreferences;
   private highlighting: Promise<void> = Promise.resolve();
   imagePasteRequested?: () => void;
+  linkRequested?: (url: string) => void;
+  private readonly imageMenu = document.createElement('div');
+  private imageMenuTarget: HTMLImageElement | null = null;
 
   constructor(
     private readonly source: HTMLElement,
@@ -108,6 +112,26 @@ export class Editor {
     preview.addEventListener('change', event => {
       const box = event.target as HTMLInputElement;
       if (box.matches('input[type=checkbox][data-line]')) this.toggleTask(Number(box.dataset.line));
+    });
+    this.buildImageMenu();
+    preview.addEventListener('click', event => {
+      const target = event.target as Element;
+      const link = target.closest<HTMLAnchorElement>('a[href]');
+      if (link) {
+        event.preventDefault();
+        this.closeImageMenu();
+        this.linkRequested?.(link.getAttribute('href')!);
+        return;
+      }
+      const image = target.closest<HTMLImageElement>('img[data-line]');
+      if (image) this.openImageMenu(image);
+      else this.closeImageMenu();
+    });
+    preview.addEventListener('scroll', () => this.closeImageMenu());
+    window.addEventListener('keydown', event => { if (event.key === 'Escape') this.closeImageMenu(); });
+    document.addEventListener('click', event => {
+      const target = event.target as Node;
+      if (!preview.contains(target) && !this.imageMenu.contains(target)) this.closeImageMenu();
     });
     this.view.onDidChangeModelContent(() => {
       if (!this.model) return;
@@ -174,6 +198,7 @@ export class Editor {
   setMode(mode: EditorMode): void {
     if (this.composing) { this.pendingMode = mode; return; }
     this.pendingMode = null;
+    this.closeImageMenu();
     this.mode = mode;
     this.highlightRun++;
     if (mode === 'preview') {
@@ -265,6 +290,52 @@ export class Editor {
         this.view.pushUndoStop();
       }
     }
+    this.setMode('preview');
+    this.preview.scrollTop = scroll;
+  }
+  private buildImageMenu(): void {
+    const menu = this.imageMenu;
+    menu.id = 'image-menu';
+    menu.hidden = true;
+    menu.setAttribute('role', 'group');
+    menu.setAttribute('aria-label', '이미지 크기');
+    for (const [label, width] of [['25%', '25%'], ['50%', '50%'], ['75%', '75%'], ['원래 크기', null]] as const) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = label;
+      button.addEventListener('click', () => {
+        const image = this.imageMenuTarget;
+        this.closeImageMenu();
+        if (image) this.resizeImage(Number(image.dataset.line), Number(image.dataset.end), Number(image.dataset.index), new URL(image.src).pathname.split('/').pop() ?? '', width);
+      });
+      menu.append(button);
+    }
+    document.body.append(menu);
+  }
+  private openImageMenu(image: HTMLImageElement): void {
+    this.imageMenuTarget = image;
+    this.imageMenu.hidden = false;
+    const box = image.getBoundingClientRect();
+    const size = this.imageMenu.getBoundingClientRect();
+    this.imageMenu.style.left = `${Math.max(4, Math.min(box.left, window.innerWidth - size.width - 4))}px`;
+    this.imageMenu.style.top = `${Math.max(4, Math.min(box.top + 4, window.innerHeight - size.height - 4))}px`;
+  }
+  private closeImageMenu(): void {
+    this.imageMenu.hidden = true;
+    this.imageMenuTarget = null;
+  }
+  // 체크박스처럼 원문의 해당 부분만 고칩니다. 그 사이 원문이 바뀌어 찾지 못하면 그대로 둡니다.
+  resizeImage(line: number, end: number, index: number, file: string, width: string | null): void {
+    const model = this.model;
+    if (!model || this.composing || !Number.isInteger(line) || !Number.isInteger(end) || line < 0 || end <= line || end > model.getLineCount()) return;
+    const lines = Array.from({ length: end - line }, (_, offset) => model.getLineContent(line + offset + 1));
+    const edit = imageAltEdit(lines, index, file, width);
+    if (!edit) return;
+    const scroll = this.preview.scrollTop;
+    const row = line + edit.line + 1;
+    this.view.pushUndoStop();
+    this.view.executeEdits('image-size', [{ range: new monaco.Range(row, edit.start + 1, row, edit.end + 1), text: edit.text }]);
+    this.view.pushUndoStop();
     this.setMode('preview');
     this.preview.scrollTop = scroll;
   }

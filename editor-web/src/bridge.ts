@@ -41,6 +41,12 @@ export class EditorConnection {
     this.send(type, {}, this.editor.getDraft().revision);
   }
 
+  openLink(url: string): void {
+    if (this.noteId === emptyId || this.editor.isComposing()) return;
+    this.publish();
+    this.send('note.openLinkRequested', { url }, this.editor.getDraft().revision);
+  }
+
   appearance(color: string, topmost: boolean): void {
     if (this.noteId === emptyId || this.editor.isComposing()) return;
     this.publish();

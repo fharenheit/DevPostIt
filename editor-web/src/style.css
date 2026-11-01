@@ -104,6 +104,10 @@ h1 { margin: 0; font-size: 1.0625rem; font-weight: 600; letter-spacing: -0.3px; 
 .copy-code { position: absolute; top: .35rem; right: .35rem; padding: .1rem .45rem; border: 1px solid var(--line-strong); border-radius: .3rem; background: var(--paper); color: var(--ink); font-size: .8rem; font-family: var(--body-font, 'Segoe UI', 'Malgun Gothic', sans-serif); opacity: 0; }
 .preview pre:hover .copy-code, .copy-code:focus-visible { opacity: 1; }
 .preview-link { color: var(--accent); text-decoration: underline; }
+.preview img[data-line] { cursor: pointer; }
+#image-menu { position: fixed; z-index: 20; display: flex; gap: 2px; padding: 3px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--paper); box-shadow: 0 2px 8px #4a3f1a33; }
+#image-menu button { border: none; border-radius: 4px; padding: .1rem .45rem; background: transparent; color: var(--ink); font-size: .875rem; white-space: nowrap; }
+#image-menu button:hover { background: var(--paper-sunken); }
 
 /* 상태 문구가 길어지면 코드 도구를 밀어내지 않고 이 영역 안에서 줄바꿈·스크롤합니다. */
 .note-bar { flex-shrink: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .25rem .75rem; padding: .3rem var(--spacing-x); border-top: 1px solid var(--line); font-size: .8rem; color: var(--ink-muted); background: var(--paper); }
@@ -161,7 +165,7 @@ dialog p:empty { display: none; }
   :root { font-size: 11pt !important; }
   html, body, #app, .workspace, .editor-area, #preview { height: auto !important; overflow: visible !important; display: block; }
   .note-header { background: none; border: none; padding: 0 0 .5rem; }
-  .note-actions, .modes, #note-images, .format-toolbar, .note-bar, .copy-code, dialog { display: none !important; }
+  .note-actions, .modes, #note-images, #image-menu, .format-toolbar, .note-bar, .copy-code, dialog { display: none !important; }
   h1 { white-space: normal; overflow: visible; }
   .preview { padding: 0; font-size: 11pt; }
   .preview > * { max-width: none; }

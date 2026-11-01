@@ -39,6 +39,14 @@ public sealed class EditorBridge(Guid noteId, long revision)
             if (message.Revision != Revision) throw new EditorProtocolException("창 요청 리비전이 일치하지 않습니다.");
             return Task.FromResult<NoteChange?>(null);
         }
+        if (message.Type == "note.openLinkRequested")
+        {
+            Fields(message.Payload, "url");
+            var url = message.Payload.GetProperty("url");
+            if (url.ValueKind != JsonValueKind.String || !PreviewLink.IsAllowed(url.GetString())) throw new EditorProtocolException("열 수 없는 링크입니다.");
+            if (message.Revision != Revision) throw new EditorProtocolException("창 요청 리비전이 일치하지 않습니다.");
+            return Task.FromResult<NoteChange?>(null);
+        }
         if (message.Type == "window.appearanceChanged")
         {
             Fields(message.Payload, "color", "topmost");

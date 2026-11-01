@@ -57,6 +57,8 @@ public partial class MainWindow : Window
     public event Action? CaptureRequested;
     internal Func<string, string?> PdfPathPicker { get; set; } = PickPdfPath;
     internal Action<string> ImageFolderOpener { get; set; } = path => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(path) { UseShellExecute = true })?.Dispose();
+    internal Func<string, bool> LinkConfirmation { get; set; }
+    internal Action<string> LinkOpener { get; set; } = url => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true })?.Dispose();
     internal string? PendingPreferences { get; set; }
     internal Func<byte[]?> ClipboardImageReader { get; set; } = ClipboardPng;
     public event Action<string, bool>? AppearanceChanged;
@@ -70,6 +72,7 @@ public partial class MainWindow : Window
     public MainWindow(NoteWorkspace workspace, Guid noteId)
     {
         this.workspace = workspace; this.noteId = noteId;
+        LinkConfirmation = url => MessageBox.Show(this, $"이 링크를 기본 브라우저로 열까요?\n\n{url}", "링크 열기", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) == MessageBoxResult.Yes;
         InitializeComponent();
         Icon = NoteIcon.WindowImage;
         // 창 제목은 모든 메모가 같으므로 작업 표시줄 미리보기 설명으로 메모 이름을 구분합니다.
@@ -201,6 +204,11 @@ public partial class MainWindow : Window
             else if (result.Message.Type == "window.searchRequested") SearchRequested?.Invoke();
             else if (result.Message.Type == "window.captureRequested") CaptureRequested?.Invoke();
             else if (result.Message.Type == "note.exportPdfRequested") await ExportPdfAsync();
+            else if (result.Message.Type == "note.openLinkRequested")
+            {
+                var url = result.Message.Payload.GetProperty("url").GetString()!;
+                if (LinkConfirmation(url)) LinkOpener(url);
+            }
             else if (result.Message.Type == "note.openImagesRequested") ImageFolderOpener(await Task.Run(() => workspace.EnsureImageFolder(noteId)));
             else if (result.Message.Type == "window.appearanceChanged")
             {

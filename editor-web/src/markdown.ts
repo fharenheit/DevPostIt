@@ -1,17 +1,42 @@
 import MarkdownIt from 'markdown-it';
 import DOMPurify from 'dompurify';
+import { parseImageAlt } from './image-size';
 
 const markdown = new MarkdownIt({ html: false, linkify: false, typographer: false });
-// 미리보기는 읽기 전용입니다. 외부 탐색과 이미지 요청은 호스트 정책이 연결될 때까지 만들지 않습니다.
-markdown.renderer.rules.link_open = () => '<span class="preview-link">';
-markdown.renderer.rules.link_close = () => '</span>';
+// 웹과 메일 링크만 누를 수 있습니다. 누르면 페이지가 옮겨 가지 않고 앱이 확인 후 기본 브라우저로 엽니다.
+const openable = (href: unknown) => /^(?:https?:\/\/|mailto:)/i.test(String(href ?? ''));
+markdown.renderer.rules.link_open = (tokens, index) => {
+  const href = tokens[index].attrGet('href');
+  if (!openable(href)) return '<span class="preview-link">';
+  const value = markdown.utils.escapeHtml(String(href));
+  return `<a class="preview-link" href="${value}" title="${value}">`;
+};
+markdown.renderer.rules.link_close = (tokens, index) => {
+  for (let at = index - 1, depth = 0; at >= 0; at--) {
+    if (tokens[at].type === 'link_close') depth++;
+    else if (tokens[at].type === 'link_open' && depth-- === 0) return openable(tokens[at].attrGet('href')) ? '</a>' : '</span>';
+  }
+  return '</span>';
+};
 // 앱이 저장한 붙여넣기 이미지만 표시합니다. 다른 이미지는 요청하지 않고 글자로 둡니다.
 const noteImage = /^(?:\.\.\/)*assets\/([0-9a-f]{32}\/[0-9a-f]{32}\.png)$/;
 markdown.renderer.rules.image = (tokens, index) => {
-  const alt = markdown.utils.escapeHtml(tokens[index].content);
+  const { alt: text, width } = parseImageAlt(tokens[index].content);
+  const alt = markdown.utils.escapeHtml(text);
   const match = noteImage.exec(String(tokens[index].attrGet('src') ?? ''));
-  return match ? `<img src="https://devpostit-assets.local/${match[1]}" alt="${alt}">` : `[이미지: ${alt}]`;
+  if (!match) return `[이미지: ${alt}]`;
+  const { line, end, order } = tokens[index].meta ?? {};
+  const position = Number.isInteger(line) ? ` data-line="${line}" data-end="${end}" data-index="${order}"` : '';
+  return `<img src="https://devpostit-assets.local/${match[1]}" alt="${alt}"${width ? ` width="${width}"` : ''}${position}>`;
 };
+// 미리보기에서 크기를 고치려면 이미지가 원문의 어느 문단에 있는지 알아야 합니다.
+markdown.core.ruler.after('inline', 'image-positions', state => {
+  for (const token of state.tokens) {
+    if (token.type !== 'inline' || !token.map) continue;
+    let order = 0;
+    for (const child of token.children ?? []) if (child.type === 'image') child.meta = { line: token.map[0], end: token.map[1], order: order++ };
+  }
+});
 markdown.core.ruler.after('inline', 'task-checkboxes', state => {
   for (let index = 2; index < state.tokens.length; index++) {
     const token = state.tokens[index];
@@ -29,8 +54,8 @@ markdown.core.ruler.after('inline', 'task-checkboxes', state => {
 
 export function renderMarkdown(source: string): string {
   return DOMPurify.sanitize(markdown.render(source), {
-    ALLOWED_TAGS: ['p', 'br', 'hr', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'strong', 'em', 's', 'blockquote', 'ul', 'ol', 'li', 'pre', 'code', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'span', 'input', 'img'],
-    ALLOWED_ATTR: ['class', 'type', 'checked', 'start', 'align', 'src', 'alt', 'data-line', 'aria-label'],
+    ALLOWED_TAGS: ['p', 'br', 'hr', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'strong', 'em', 's', 'blockquote', 'ul', 'ol', 'li', 'pre', 'code', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'span', 'input', 'img', 'a'],
+    ALLOWED_ATTR: ['class', 'type', 'checked', 'start', 'align', 'src', 'alt', 'data-line', 'data-end', 'data-index', 'aria-label', 'href', 'title', 'width'],
     ALLOW_DATA_ATTR: false,
   });
 }

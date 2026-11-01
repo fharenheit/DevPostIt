@@ -270,6 +270,36 @@ public class EditorBridgeTests
         Assert.False(SettingsMessage.TryReadCaptureDelay(json, EditorOrigin.Page, out _));
     }
 
+    [Theory]
+    [InlineData("https://example.com/a?b=1", true)]
+    [InlineData("http://localhost:3000/", true)]
+    [InlineData("mailto:me@example.com", true)]
+    [InlineData("file:///C:/Windows/notepad.exe", false)]
+    [InlineData("javascript:alert(1)", false)]
+    [InlineData("ms-settings:privacy", false)]
+    [InlineData("C:\\Windows\\notepad.exe", false)]
+    [InlineData("a.md", false)]
+    [InlineData("https://bank.example@evil.example/", false)]
+    [InlineData("https://example.com/a b", false)]
+    [InlineData("https://example.com/\n", false)]
+    [InlineData("", false)]
+    public void PreviewLinkAllowsOnlyWebAndMail(string url, bool allowed) => Assert.Equal(allowed, PreviewLink.IsAllowed(url));
+
+    [Fact]
+    public void PreviewLinkRejectsVeryLongAddress() => Assert.False(PreviewLink.IsAllowed("https://example.com/" + new string('a', 2100)));
+
+    [Fact]
+    public async Task OpenLinkRequestChecksAddressFieldsAndRevision()
+    {
+        var bridge = new EditorBridge(Id, 7);
+        var request = Change(7) with { Type = "note.openLinkRequested", Payload = JsonSerializer.SerializeToElement(new { url = "https://example.com" }) };
+        Assert.Null(await bridge.HandleAsync(request, default));
+        await Assert.ThrowsAsync<EditorProtocolException>(() => bridge.HandleAsync(request with { Revision = 6 }, default));
+        await Assert.ThrowsAsync<EditorProtocolException>(() => bridge.HandleAsync(request with { Payload = JsonSerializer.SerializeToElement(new { url = "file:///C:/a" }) }, default));
+        await Assert.ThrowsAsync<EditorProtocolException>(() => bridge.HandleAsync(request with { Payload = JsonSerializer.SerializeToElement(new { url = 1 }) }, default));
+        await Assert.ThrowsAsync<EditorProtocolException>(() => bridge.HandleAsync(request with { Payload = JsonSerializer.SerializeToElement(new { url = "https://example.com", extra = 1 }) }, default));
+    }
+
     [Fact]
     public async Task OpenImagesRequestCarriesNothingAndChecksRevision()
     {
