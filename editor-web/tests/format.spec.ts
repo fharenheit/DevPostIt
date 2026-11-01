@@ -76,3 +76,53 @@ test('혼합 줄바꿈의 앞뒤 원문을 정리와 실행 취소에서 정확�
   await page.keyboard.press('Control+z');
   expect((await draft(page)).markdown).toBe(original);
 });
+
+const languageOptions: [string, string, string][] = [
+  ['json', '{"a":1}', '{ "a": 1 }'],
+  ['json5', '{a:1}', '{ a: 1 }'],
+  ['yaml', 'a: [1,2]', 'a: [1, 2]'],
+  ['java', 'class A{}', 'class A {}'],
+  ['js', 'const a={b:1};', 'const a = { b: 1 };'],
+  ['jsx', 'const a=<div className="x"/>;', 'const a = <div className="x" />;'],
+  ['flow', 'const a:number=1;', 'const a: number = 1;'],
+  ['ts', 'const a:number=1;', 'const a: number = 1;'],
+  ['tsx', 'const a:number=<b/>;', 'const a: number = <b />;'],
+  ['html', '<div  class="a"></div>', '<div class="a"></div>'],
+  ['vue', '<template><div/></template>', '<template><div /></template>'],
+  ['angular', '<div  *ngIf="a"></div>', '<div *ngIf="a"></div>'],
+  ['handlebars', '<div  class="a"></div>', '<div class="a"></div>'],
+  ['css', 'a{color:red;}', 'a {\n  color: red;\n}'],
+  ['scss', 'a{b{color:red;}}', 'a {\n  b {\n    color: red;\n  }\n}'],
+  ['less', '@c:red;a{color:@c;}', '@c: red;\na {\n  color: @c;\n}'],
+  ['graphql', 'query{a{b}}', 'query {\n  a {\n    b\n  }\n}'],
+  ['markdown', '*a*', '_a_'],
+  ['mdx', '*a*', '_a_'],
+];
+
+test('코드 언어 목록은 실제로 정리할 수 있는 언어만 보여 준다', async ({ page }) => {
+  await openEditor(page);
+  const values = await page.locator('#code-language option').evaluateAll(options => options.map(option => (option as HTMLOptionElement).value));
+  expect(values[0]).toBe('');
+  expect(values.slice(1).sort()).toEqual(languageOptions.map(([value]) => value).sort());
+});
+
+for (const [language, code, expected] of languageOptions) {
+  test(`언어 표시가 없는 블록을 목록의 ${language}로 정리한다`, async ({ page }) => {
+    const prefix = '```\n', suffix = '\n```\n';
+    await openEditor(page, prefix + code + suffix);
+    await atLine(page, 2);
+    await page.getByLabel('코드 언어').selectOption(language);
+    await page.getByRole('button', { name: '코드 정리', exact: true }).click();
+    await expect(page.locator('#format-status')).toContainText('정리했습니다');
+    expect((await draft(page)).markdown).toBe(prefix + expected + suffix);
+  });
+}
+
+test('블록에 적은 새 언어 이름으로도 정리한다', async ({ page }) => {
+  const prefix = '```scss\n', suffix = '\n```\n';
+  await openEditor(page, prefix + 'a{b{color:red;}}' + suffix);
+  await atLine(page, 2);
+  await page.getByRole('button', { name: '코드 정리', exact: true }).click();
+  await expect(page.locator('#format-status')).toContainText('정리했습니다');
+  expect((await draft(page)).markdown).toBe(prefix + 'a {\n  b {\n    color: red;\n  }\n}' + suffix);
+});

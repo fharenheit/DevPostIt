@@ -4,7 +4,13 @@ import type { Plugin } from 'prettier';
 
 export class CodeBlockError extends Error {}
 const markdown = new MarkdownIt({ html: false });
-const aliases: Record<string, string> = { json: 'json', jsonc: 'json', yaml: 'yaml', yml: 'yaml', java: 'java', javascript: 'babel', js: 'babel', typescript: 'typescript', ts: 'typescript', html: 'html', css: 'css' };
+const aliases: Record<string, string> = {
+  json: 'json', jsonc: 'json', json5: 'json5', yaml: 'yaml', yml: 'yaml', java: 'java',
+  javascript: 'babel', js: 'babel', jsx: 'babel', mjs: 'babel', cjs: 'babel', flow: 'flow',
+  typescript: 'typescript', ts: 'typescript', tsx: 'typescript', mts: 'typescript', cts: 'typescript',
+  html: 'html', vue: 'vue', angular: 'angular', handlebars: 'glimmer', hbs: 'glimmer',
+  css: 'css', scss: 'scss', less: 'less', graphql: 'graphql', gql: 'graphql', markdown: 'markdown', md: 'markdown', mdx: 'mdx',
+};
 async function plugins(parser: string): Promise<Plugin[]> {
   if (parser === 'java') {
     const { Parser } = await import('web-tree-sitter');
@@ -14,7 +20,12 @@ async function plugins(parser: string): Promise<Plugin[]> {
   }
   if (parser === 'yaml') return [await import('prettier/plugins/yaml')];
   if (parser === 'html') return [await import('prettier/plugins/html')];
-  if (parser === 'css') return [await import('prettier/plugins/postcss')];
+  if (parser === 'css' || parser === 'scss' || parser === 'less') return [await import('prettier/plugins/postcss')];
+  if (parser === 'graphql') return [await import('prettier/plugins/graphql')];
+  if (parser === 'markdown' || parser === 'mdx') return [await import('prettier/plugins/markdown')];
+  if (parser === 'glimmer') return [await import('prettier/plugins/glimmer')];
+  if (parser === 'flow') return [await import('prettier/plugins/flow'), await import('prettier/plugins/estree')];
+  if (parser === 'vue' || parser === 'angular') return [await import('prettier/plugins/html'), await import('prettier/plugins/angular'), await import('prettier/plugins/babel'), await import('prettier/plugins/estree'), await import('prettier/plugins/postcss')];
   return [parser === 'typescript' ? await import('prettier/plugins/typescript') : await import('prettier/plugins/babel'), await import('prettier/plugins/estree')];
 }
 export async function formatBlock(source: string, line: number, language?: string): Promise<{ start: number; end: number; startLine: number; endLine: number; text: string }> {
