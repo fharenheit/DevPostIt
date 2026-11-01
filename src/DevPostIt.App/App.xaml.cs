@@ -25,6 +25,13 @@ public partial class App : System.Windows.Application
             var previousData = await Task.Run(() => NoteBackup.ApplyPending(root));
             if (previousData is not null) System.Windows.MessageBox.Show($"백업에서 복원했습니다.\n복원 전 데이터는 아래 폴더에 남아 있습니다.\n{previousData}", "백업에서 복원", MessageBoxButton.OK, MessageBoxImage.Information);
             workspace = await Task.Run(() => NoteWorkspace.OpenAsync(root, CancellationToken.None));
+            if (!store.Current.TransparentImagesRepaired)
+            {
+                var assets = workspace.AssetsRoot;
+                await Task.Run(() => NoteImageRepair.Run(assets));
+                store.Current.TransparentImagesRepaired = true;
+                store.Save();
+            }
             var manager = new DesktopNoteManager(workspace, null, null, store, configured is null);
             if (previousData is not null) manager.PendingPreferences = NoteWorkspace.ReadPreferences(root);
             tray = new TrayService(manager, workspace, Dispatcher);

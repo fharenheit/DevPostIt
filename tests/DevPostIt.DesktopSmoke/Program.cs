@@ -275,12 +275,27 @@ internal static class Program
         var textFile = Path.Combine(root, "글.txt");
         File.WriteAllText(textFile, "글");
         Check(MainWindow.ImageFileToPng(textFile) is null, "이미지 확장자가 아닌 파일 거부");
-        pdfWindow.ClipboardImageReader = () => samplePng;
+        // 스크린샷처럼 알파값이 모두 0인 이미지로 붙여넣어 실제 화면과 PDF까지 확인합니다.
+        var screenshotPixels = new byte[200 * 200 * 4];
+        for (var index = 0; index < screenshotPixels.Length; index += 4) { screenshotPixels[index] = 10; screenshotPixels[index + 1] = 120; screenshotPixels[index + 2] = 230; }
+        var screenshot = BitmapSource.Create(200, 200, 96, 96, PixelFormats.Bgra32, null, screenshotPixels, 800);
+        pdfWindow.ClipboardImageReader = () => MainWindow.EncodeClipboardImage(screenshot);
         var imageEditor = (WebView2)pdfWindow.FindName("EditorView");
         await imageEditor.ExecuteScriptAsync("(() => { const data = new DataTransfer(); data.items.add(new File([new Uint8Array([1])], 'a.png', { type: 'image/png' })); document.querySelector('#source textarea').dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true })); })()");
         await UntilAsync(async () => (await imageEditor.ExecuteScriptAsync("window.hunminEditor.getDraft().markdown")).Contains("assets/"));
         await imageEditor.ExecuteScriptAsync("window.hunminEditor.setMode('preview')");
-        await UntilAsync(async () => await imageEditor.ExecuteScriptAsync("document.querySelector('#preview img')?.naturalWidth ?? 0") == "2");
+        await UntilAsync(async () => await imageEditor.ExecuteScriptAsync("document.querySelector('#preview img')?.naturalWidth ?? 0") == "200");
+        using (var capture = new MemoryStream())
+        {
+            await imageEditor.CoreWebView2.CapturePreviewAsync(Microsoft.Web.WebView2.Core.CoreWebView2CapturePreviewImageFormat.Png, capture);
+            capture.Position = 0;
+            var shot = new FormatConvertedBitmap(BitmapDecoder.Create(capture, BitmapCreateOptions.None, BitmapCacheOption.OnLoad).Frames[0], PixelFormats.Bgra32, null, 0);
+            var shotPixels = new byte[shot.PixelWidth * shot.PixelHeight * 4];
+            shot.CopyPixels(shotPixels, shot.PixelWidth * 4, 0);
+            var colored = 0;
+            for (var index = 0; index < shotPixels.Length; index += 4) if (Math.Abs(shotPixels[index] - 10) < 12 && Math.Abs(shotPixels[index + 1] - 120) < 12 && Math.Abs(shotPixels[index + 2] - 230) < 12) colored++;
+            Check(colored > 10000, $"붙여넣은 이미지가 미리보기 화면에 실제로 표시 ({colored}픽셀)");
+        }
         await imageEditor.ExecuteScriptAsync("window.hunminEditor.setMode('source')");
         var pdfPath = Path.Combine(root, "note.pdf");
         pdfWindow.PdfPathPicker = _ => pdfPath;
@@ -294,6 +309,33 @@ internal static class Program
             pdf.ReadExactly(header);
             Check(System.Text.Encoding.ASCII.GetString(header) == "%PDF" && pdf.Length > 500, "PDF 파일 저장");
         }
+        Check(System.Text.Encoding.Latin1.GetString(File.ReadAllBytes(pdfPath)).Contains("/Image"), "PDF에 이미지 포함");
+        // 0.2.0에서 투명하게 저장된 이미지 복구
+        var repairRoot = Path.Combine(root, "repair-assets");
+        var repairDirectory = Path.Combine(repairRoot, new string('a', 32));
+        Directory.CreateDirectory(repairDirectory);
+        byte[] SaveAlpha(byte alpha)
+        {
+            var values = new byte[16];
+            for (var index = 0; index < 16; index += 4) { values[index] = 10; values[index + 1] = 120; values[index + 2] = 230; values[index + 3] = alpha; }
+            var encoder = new PngBitmapEncoder();
+            encoder.Frames.Add(BitmapFrame.Create(BitmapSource.Create(2, 2, 96, 96, PixelFormats.Bgra32, null, values, 8)));
+            using var stream = new MemoryStream();
+            encoder.Save(stream);
+            return stream.ToArray();
+        }
+        var transparentFile = Path.Combine(repairDirectory, new string('b', 32) + ".png");
+        var partialFile = Path.Combine(repairDirectory, new string('c', 32) + ".png");
+        var otherFile = Path.Combine(repairDirectory, "사용자 파일.png");
+        File.WriteAllBytes(transparentFile, SaveAlpha(0));
+        File.WriteAllBytes(partialFile, SaveAlpha(128));
+        File.WriteAllBytes(otherFile, SaveAlpha(0));
+        var partialBefore = File.ReadAllBytes(partialFile);
+        var otherBefore = File.ReadAllBytes(otherFile);
+        Check(NoteImageRepair.Run(repairRoot) == 1, "완전히 투명한 앱 이미지만 복구");
+        Check(Pixel(File.ReadAllBytes(transparentFile)) is [10, 120, 230, 255], "복구한 이미지의 색상 유지");
+        Check(File.ReadAllBytes(partialFile).SequenceEqual(partialBefore) && File.ReadAllBytes(otherFile).SequenceEqual(otherBefore), "다른 이미지는 건드리지 않음");
+        Check(NoteImageRepair.Run(Path.Combine(root, "없는 폴더")) == 0, "이미지 폴더가 없어도 동작");
         Check(await pdfWindow.RequestCloseAsync(), "PDF 저장 후 메모 닫기");
         manager.ShowSettings();
         var backupSettings = application.Windows.OfType<SettingsWindow>().Single();

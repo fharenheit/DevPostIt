@@ -20,6 +20,7 @@ public sealed class AppSettings
     public string? PendingMigrationFrom { get; set; }
     public bool StartInTray { get; set; }
     public bool AutoUpdate { get; set; } = true;
+    public bool TransparentImagesRepaired { get; set; }
     public List<Guid>? OpenNotes { get; set; }
     public List<Guid> CollapsedNotes { get; set; } = [];
     public Dictionary<Guid, NoteWindowState> Notes { get; set; } = [];
