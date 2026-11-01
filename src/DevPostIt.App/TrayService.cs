@@ -38,6 +38,7 @@ public sealed class TrayService : IDisposable
             menu.Items.Add(notes);
             menu.Items.Add(TrashMenu(manager, workspace, Run));
             menu.Items.Add("설정", null, (_, _) => manager.ShowSettings());
+            menu.Items.Add("도움말", null, (_, _) => manager.ShowHelp());
             menu.Items.Add("정보", null, (_, _) => manager.ShowAbout());
             if (manager.AvailableUpdate is { } update) menu.Items.Add($"업데이트 설치 ({update.Version})", null, (_, _) =>
             {

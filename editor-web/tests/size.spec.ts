@@ -21,7 +21,7 @@ test('제품 표시 없이 작은 기본 크기를 유지하고 설정 창에서
   await expect(settings.locator('#font')).toHaveCSS('font-size', '14px');
   await expect.poll(() => page.evaluate(() => document.documentElement.style.fontSize)).toBe('16px');
   const after = await sizes(page);
-  for (const selector of Object.keys(before)) expect(after[selector] / before[selector]).toBeCloseTo(selector.includes('view-lines') ? 14 / 13 : 16 / 15, 2);
+  for (const selector of Object.keys(before)) expect(after[selector] / before[selector]).toBeCloseTo(selector.includes('view-lines') || selector.startsWith('#preview') ? 14 / 13 : 16 / 15, 2);
   await settings.getByRole('button', { name: '글자 작게', exact: true }).click();
   await mode(page, 'source');
   expect((await draft(page)).dirty).toBe(false);

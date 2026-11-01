@@ -160,6 +160,7 @@ internal static class Program
         tray.Menu.Show(new System.Drawing.Point(120, 120));
         Check(tray.Menu.Items.OfType<Forms.ToolStripMenuItem>().Any(item => item.Text == "메모 목록"), "트레이 메모 목록");
         Check(tray.Menu.Items.OfType<Forms.ToolStripMenuItem>().Any(item => item.Text == "정보"), "트레이 정보 메뉴");
+        Check(tray.Menu.Items.OfType<Forms.ToolStripMenuItem>().Any(item => item.Text == "도움말"), "트레이 도움말 메뉴");
         tray.Menu.Items.OfType<Forms.ToolStripMenuItem>().Single(item => item.Text == "설정").PerformClick();
         tray.Menu.Close();
         var settings = application.Windows.OfType<SettingsWindow>().Single();
@@ -229,6 +230,13 @@ internal static class Program
         var restored = application.Windows.OfType<MainWindow>().Single(window => window.NoteId == first.NoteId);
         await ReadyAsync(restored);
         Check(await restored.RequestCloseAsync(), "복원한 메모 창 닫기");
+        manager.ShowHelp();
+        var help = application.Windows.OfType<HelpWindow>().Single();
+        Check(help.IsVisible && help.Texts.Any() && help.Texts.All(text => text.FontSize == 13), "도움말 글자 크기 13");
+        Check(help.Texts.All(text => !string.IsNullOrWhiteSpace(text.Text)), "도움말 내용 표시");
+        manager.ShowHelp();
+        Check(application.Windows.OfType<HelpWindow>().Single() == help, "도움말 창 중복 방지");
+        help.Close();
         manager.ShowAbout();
         var about = application.Windows.OfType<AboutWindow>().Single();
         Check(about.IsVisible && about.VersionText.Contains(DesktopNoteManager.CurrentVersion.ToString(3)), "정보 창의 버전");
@@ -249,6 +257,7 @@ internal static class Program
         var pdfEditor = (WebView2)pdfWindow.FindName("EditorView");
         await pdfEditor.ExecuteScriptAsync("document.querySelector('#save-pdf').click()");
         await UntilAsync(async () => File.Exists(pdfPath) && await pdfEditor.ExecuteScriptAsync("document.querySelector('#save-pdf').disabled") == "false");
+        Check(!(await pdfEditor.ExecuteScriptAsync("document.querySelector('#host-status').textContent")).Contains("PDF"), "PDF 저장 경로를 하단에 표시하지 않음");
         using (var pdf = File.OpenRead(pdfPath))
         {
             var header = new byte[4];

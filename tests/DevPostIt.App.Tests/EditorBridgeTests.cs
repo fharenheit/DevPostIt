@@ -225,6 +225,23 @@ public class EditorBridgeTests
     }
 
     [Fact]
+    public void HelpIsWrittenInFormalKoreanAndCoversFeatures()
+    {
+        Assert.NotEmpty(HelpContent.Sections);
+        foreach (var section in HelpContent.Sections)
+        {
+            Assert.False(string.IsNullOrWhiteSpace(section.Title));
+            Assert.NotEmpty(section.Paragraphs);
+            foreach (var paragraph in section.Paragraphs)
+                foreach (var sentence in paragraph.Split(". ", StringSplitOptions.RemoveEmptyEntries))
+                    Assert.True(System.Text.RegularExpressions.Regex.IsMatch(sentence.TrimEnd('.'), "(니다|십시오)$"), $"합니다체가 아닙니다: {sentence}");
+        }
+        var text = string.Join('\n', HelpContent.Sections.SelectMany(section => section.Paragraphs.Prepend(section.Title)));
+        foreach (var topic in new[] { "휴지통", "백업", "복원", "검색", "PDF", "찾기", "바꾸기", "단축키", "미리보기", "글꼴", "업데이트", "표", "이미지", "항상 위", "데이터 폴더" })
+            Assert.Contains(topic, text);
+    }
+
+    [Fact]
     public void AssetsStayOnTrustedOrigin()
     {
         Assert.True(EditorOrigin.IsLocalResource("https://devpostit.local/assets/editor.worker.js"));

@@ -257,7 +257,7 @@ test('설정 페이지의 백업·복원·업데이트 요청에는 경로가 �
   await page.goto('/settings.html');
   await page.evaluate(() => (window as any).fromHost({ type: 'settings.state', dataFolder: 'C:\\data', startInTray: false, canChangeFolder: true, autoUpdate: true, canUpdate: true, version: '0.1.0' }));
   await expect(page.locator('#app-version')).toHaveText('버전 0.1.0');
-  await page.getByRole('button', { name: '백업 만들기', exact: true }).click();
+  await page.getByRole('button', { name: '백업', exact: true }).click();
   expect((await sent(page)).at(-1)).toEqual({ protocolVersion: 1, type: 'settings.backup' });
   await page.getByRole('button', { name: '복원', exact: true }).click();
   expect((await sent(page)).at(-1)).toEqual({ protocolVersion: 1, type: 'settings.restore' });

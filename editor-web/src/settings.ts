@@ -1,4 +1,4 @@
-import { applyTypography, defaultEditorPreferences, defaultFontSettings, editorTextSize, isSafeFontName, maxEditorSize, maxLineHeight, maxTextSize, minEditorSize, minLineHeight, minTextSize, readFontSettings, saveFontSettings, supportsLigatures, type EditorPreferences, type FontKey } from './fonts';
+import { applyTypography, defaultEditorPreferences, defaultFontSettings, editorTextSize, isSafeFontName, maxEditorSize, maxLineHeight, maxTextSize, minEditorSize, minLineHeight, minTextSize, previewTextSize, readFontSettings, saveFontSettings, supportsLigatures, type EditorPreferences, type FontKey } from './fonts';
 import './style.css';
 
 // 설정 창 전용 페이지입니다. 저장하면 같은 프로필의 열린 메모가 storage 이벤트로 반영합니다.
@@ -28,6 +28,10 @@ function render(): void {
   const editorSize = editorTextSize(settings);
   document.querySelector('#text-size')!.textContent = String(settings.size);
   document.querySelector('#editor-size')!.textContent = String(editorSize);
+  const previewSize = previewTextSize(settings);
+  document.querySelector('#preview-size')!.textContent = String(previewSize);
+  button('#preview-smaller').disabled = previewSize <= minEditorSize;
+  button('#preview-larger').disabled = previewSize >= maxEditorSize;
   document.querySelector('#line-height')!.textContent = settings.lineHeight.toFixed(1);
   button('#smaller').disabled = settings.size <= minTextSize;
   button('#larger').disabled = settings.size >= maxTextSize;
@@ -62,6 +66,8 @@ button('#smaller').addEventListener('click', () => { settings = { ...settings, s
 button('#larger').addEventListener('click', () => { settings = { ...settings, size: Math.min(maxTextSize, settings.size + 1) }; save(); });
 button('#editor-smaller').addEventListener('click', () => { settings = { ...settings, editorSize: Math.max(minEditorSize, editorTextSize(settings) - 1) }; save(); });
 button('#editor-larger').addEventListener('click', () => { settings = { ...settings, editorSize: Math.min(maxEditorSize, editorTextSize(settings) + 1) }; save(); });
+button('#preview-smaller').addEventListener('click', () => { settings = { ...settings, previewSize: Math.max(minEditorSize, previewTextSize(settings) - 1) }; save(); });
+button('#preview-larger').addEventListener('click', () => { settings = { ...settings, previewSize: Math.min(maxEditorSize, previewTextSize(settings) + 1) }; save(); });
 button('#line-smaller').addEventListener('click', () => { settings = { ...settings, lineHeight: stepLineHeight(-0.1) }; save(); });
 button('#line-larger').addEventListener('click', () => { settings = { ...settings, lineHeight: stepLineHeight(0.1) }; save(); });
 button('#font-reset').addEventListener('click', () => { saveFontSettings(defaultFontSettings()); show(); });

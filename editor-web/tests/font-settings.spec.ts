@@ -179,3 +179,66 @@ test('복원 때 앱이 보낸 글꼴 설정을 적용하고 손상된 값은 �
   await expect.poll(() => page.evaluate(() => document.documentElement.style.fontSize)).toBe('18px');
   await expect(page.locator('.monaco-editor .view-lines')).toHaveCSS('font-family', /^"JetBrains Mono"/);
 });
+
+const previewSize = (page: Page) => page.locator('#preview').evaluate(element => getComputedStyle(element).fontSize);
+
+test('미리보기 크기는 따로 정하지 않으면 소스 편집 크기를 따른다', async ({ page }) => {
+  await openEditor(page, '# 제목\n\n본문');
+  await mode(page, 'preview');
+  expect(await previewSize(page)).toBe('13px');
+  const settings = await openSettings(page);
+  await expect(settings.getByLabel('미리보기 글자 크기 값')).toHaveText('13');
+  await settings.getByRole('button', { name: '편집기 글자 크게', exact: true }).click();
+  await settings.getByRole('button', { name: '편집기 글자 크게', exact: true }).click();
+  await expect(settings.getByLabel('미리보기 글자 크기 값')).toHaveText('15');
+  await expect.poll(() => previewSize(page)).toBe('15px');
+});
+
+test('미리보기 크기를 정하면 소스 편집 크기와 따로 유지하고 기본값으로 되돌린다', async ({ page }) => {
+  await openEditor(page, '# 제목\n\n본문\n\n```ts\nconst a = 1;\n```\n');
+  await mode(page, 'preview');
+  const settings = await openSettings(page);
+  await settings.getByRole('button', { name: '미리보기 글자 크게', exact: true }).click();
+  await settings.getByRole('button', { name: '미리보기 글자 크게', exact: true }).click();
+  await settings.getByRole('button', { name: '미리보기 글자 크게', exact: true }).click();
+  await expect.poll(() => previewSize(page)).toBe('16px');
+  await expect(page.locator('.monaco-editor .view-lines')).toHaveCSS('font-size', '13px');
+  await settings.getByRole('button', { name: '편집기 글자 크게', exact: true }).click();
+  await expect(settings.getByLabel('미리보기 글자 크기 값')).toHaveText('16');
+  await expect(page.locator('#preview h1')).toHaveCSS('font-size', '24px');
+  const code = await page.locator('#preview code').evaluate(element => parseFloat(getComputedStyle(element).fontSize));
+  expect(code).toBeGreaterThan(14);
+  await page.reload();
+  await mode(page, 'preview');
+  expect(await previewSize(page)).toBe('16px');
+  await settings.getByRole('button', { name: '기본값으로', exact: true }).click();
+  await expect(settings.getByLabel('미리보기 글자 크기 값')).toHaveText('13');
+  await expect.poll(() => previewSize(page)).toBe('13px');
+});
+
+test('미리보기 크기는 범위를 넘지 않고 잘못 저장된 값은 무시한다', async ({ page }) => {
+  await seed(page, { ...preferences, previewSize: 99 });
+  await openEditor(page, '본문');
+  await mode(page, 'preview');
+  expect(await previewSize(page)).toBe('13px');
+  const settings = await openSettings(page);
+  for (let index = 0; index < 5; index++) await settings.getByRole('button', { name: '미리보기 글자 작게', exact: true }).click();
+  await expect(settings.getByLabel('미리보기 글자 크기 값')).toHaveText('8');
+  await expect(settings.getByRole('button', { name: '미리보기 글자 작게', exact: true })).toBeDisabled();
+});
+
+test('전체 글자 크기를 바꿔도 메모 머리글만 바뀌고 미리보기는 소스 편집 크기를 따른다', async ({ page }) => {
+  await openEditor(page, '본문');
+  await mode(page, 'preview');
+  const settings = await openSettings(page);
+  await settings.getByRole('button', { name: '글자 크게', exact: true }).click();
+  await expect.poll(() => previewSize(page)).toBe('14px');
+  await expect(page.locator('#source-mode')).toHaveCSS('font-size', '14px');
+});
+
+test('설정의 백업 버튼 이름은 백업이다', async ({ page }) => {
+  await page.addInitScript(() => Object.assign(window, { chrome: { webview: { postMessage: () => undefined, addEventListener: () => undefined } } }));
+  await page.goto('/settings.html');
+  await expect(page.getByRole('button', { name: '백업', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '백업 만들기', exact: true })).toHaveCount(0);
+});

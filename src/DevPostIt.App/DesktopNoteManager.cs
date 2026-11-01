@@ -19,6 +19,7 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
     private SettingsWindow? settings;
     private SearchWindow? search;
     private AboutWindow? about;
+    private HelpWindow? help;
     private Action? afterExit;
     private AppUpdater? updater;
     private DispatcherTimer? updateTimer;
@@ -118,6 +119,18 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
         }
         about.Activate();
     }
+    public void ShowHelp()
+    {
+        if (exiting) return;
+        if (help is null)
+        {
+            help = new HelpWindow();
+            help.Closed += (_, _) => help = null;
+            help.Show();
+        }
+        if (help.WindowState == WindowState.Minimized) help.WindowState = WindowState.Normal;
+        help.Activate();
+    }
     public void ShowSearch()
     {
         if (exiting) return;
@@ -205,6 +218,7 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
             settings?.Close();
             search?.Close();
             about?.Close();
+            help?.Close();
             await workspace.DisposeAsync();
             completed = true;
             updateTimer?.Stop();

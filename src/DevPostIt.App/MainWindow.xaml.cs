@@ -246,8 +246,7 @@ public partial class MainWindow : Window
             settings.ShouldPrintHeaderAndFooter = false;
             settings.PageWidth = 8.27; settings.PageHeight = 11.69;
             settings.MarginTop = settings.MarginBottom = settings.MarginLeft = settings.MarginRight = 0.6;
-            var saved = await core.PrintToPdfAsync(path, settings);
-            Send("note.conflict", new { message = saved ? $"PDF로 저장했습니다: {path}" : "PDF로 저장하지 못했습니다." }, bridge!.Revision);
+            if (!await core.PrintToPdfAsync(path, settings)) Send("note.conflict", new { message = "PDF로 저장하지 못했습니다." }, bridge!.Revision);
         }
         finally { if (!closed) Send("note.pdfFinished", new { }, bridge!.Revision); }
     }
