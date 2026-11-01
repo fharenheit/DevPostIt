@@ -85,7 +85,7 @@ dotnet run --project tests/HunminNotes.DesktopSmoke --no-restore
 
 ## 데이터와 검증 주의점
 
-- 기본 사용자 메모는 문서 폴더의 `DevPostIt/notes`, 저널·검색 DB는 `DevPostIt/.hunmin`, 설정은 `%LOCALAPPDATA%/DevPostIt/WebView2`에 있습니다.
+- 기본 사용자 메모는 `%LOCALAPPDATA%/DevPostIt/Data/notes`, 저널·검색 DB는 `Data/.hunmin`, 설정은 `%LOCALAPPDATA%/DevPostIt/WebView2`에 있습니다. 새 위치가 없으면 시작할 때 이전 위치(문서 폴더의 `DevPostIt`)를 복사·검증해 옮기며 원본은 지우지 않습니다.
 - 실행·삭제·크래시 시험은 반드시 별도 `DEVPOSTIT_DATA_DIR`와 `WEBVIEW2_USER_DATA_FOLDER`를 지정합니다. 하네스는 위의 고유 임시 루트를 사용합니다. 사용자 메모를 시험 데이터로 사용하지 않습니다.
 - 브라우저 편집기만 실행하면 네이티브 저장·트레이·삭제는 검증되지 않습니다. WPF를 실행하지 못한 환경에서는 그 한계를 보고합니다.
 - 셸 알림 영역의 물리 클릭·드래그, 실제 Windows IME, 강제 종료 시험을 합성 이벤트·소스 검토와 구분해 기록합니다.
