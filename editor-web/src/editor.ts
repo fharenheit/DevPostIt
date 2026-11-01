@@ -1,5 +1,7 @@
 import * as monaco from 'monaco-editor/editor/editor.api';
 import 'monaco-editor/languages/definitions/markdown/register';
+import DOMPurify from 'dompurify';
+import { findLanguageId } from './code-languages';
 import EditorWorker from 'monaco-editor/editor/editor.worker?worker';
 import { renderMarkdown } from './markdown';
 import { formatBlock, CodeBlockError } from './code-format';
@@ -8,16 +10,31 @@ globalThis.MonacoEnvironment = { getWorker: () => new EditorWorker() };
 
 // style.css의 메모지 색 토큰과 같은 값을 사용합니다.
 monaco.editor.defineTheme('devpostit-paper', {
-  base: 'vs', inherit: true,
+  base: 'vs', inherit: false,
   rules: [
     { token: '', foreground: '2F2A1F' },
-    { token: 'keyword', foreground: '7A5C00', fontStyle: 'bold' },
-    { token: 'string', foreground: '8A4B08' },
-    { token: 'string.link', foreground: '7A5C00' },
-    { token: 'variable', foreground: '665E4B' },
-    { token: 'comment', foreground: '665E4B', fontStyle: 'italic' },
+    { token: 'keyword.md', foreground: '7A5C00', fontStyle: 'bold' },
+    { token: 'string.md', foreground: '7A5C00' },
+    { token: 'string.link.md', foreground: '7A5C00' },
+    { token: 'variable.md', foreground: '665E4B' },
+    { token: 'comment.md', foreground: '665E4B', fontStyle: 'italic' },
     { token: 'strong', fontStyle: 'bold' },
     { token: 'emphasis', fontStyle: 'italic' },
+    // 코드 블록: 대비 4.5:1 이상을 유지하는 어두운 색만 사용합니다.
+    { token: 'keyword', foreground: '9A2F12' },
+    { token: 'string', foreground: '2B6636' },
+    { token: 'number', foreground: '0B5A85' },
+    { token: 'comment', foreground: '665E4B', fontStyle: 'italic' },
+    { token: 'type', foreground: '6A3F99' },
+    { token: 'annotation', foreground: '6A3F99' },
+    { token: 'tag', foreground: '9A2F12' },
+    { token: 'attribute.name', foreground: '0B5A85' },
+    { token: 'attribute.value', foreground: '2B6636' },
+    { token: 'delimiter', foreground: '4F4838' },
+    { token: 'variable', foreground: '0B5A85' },
+    { token: 'regexp', foreground: '2B6636' },
+    { token: 'metatag', foreground: '6A3F99' },
+    { token: 'predefined', foreground: '6A3F99' },
   ],
   colors: {
     'editor.background': '#FFFDF5',
@@ -50,6 +67,7 @@ export class Editor {
   private pendingMode: EditorMode | null = null;
   private generation = 0;
   private mode: EditorMode = 'source';
+  private highlightRun = 0;
 
   constructor(
     private readonly source: HTMLElement,
@@ -101,6 +119,8 @@ export class Editor {
     this.title = this.originalTitle = title;
     this.model = monaco.editor.createModel(markdown, 'markdown', monaco.Uri.parse(`inmemory://notes/${encodeURIComponent(noteId)}/${this.generation}.md`));
     const firstNewline = /\r\n|\n/.exec(markdown)?.[0];
+    // 괄호 색은 편집기 옵션이 아니라 모델 옵션을 따릅니다.
+    this.model.updateOptions({ bracketColorizationOptions: { enabled: false, independentColorPoolPerBracketType: false } });
     this.model.setEOL(firstNewline === '\r\n' ? monaco.editor.EndOfLineSequence.CRLF : monaco.editor.EndOfLineSequence.LF);
     this.modelBaseline = this.model.getValue(monaco.editor.EndOfLinePreference.TextDefined, true);
     this.rawVersions.clear();
@@ -115,7 +135,11 @@ export class Editor {
     if (this.composing) { this.pendingMode = mode; return; }
     this.pendingMode = null;
     this.mode = mode;
-    if (mode === 'preview') this.preview.innerHTML = renderMarkdown(this.draft.markdown);
+    this.highlightRun++;
+    if (mode === 'preview') {
+      this.preview.innerHTML = renderMarkdown(this.draft.markdown);
+      void this.highlightPreview(this.highlightRun);
+    }
     this.source.hidden = mode !== 'source';
     this.preview.hidden = mode !== 'preview';
     if (mode === 'source') this.view.layout();
@@ -168,6 +192,18 @@ export class Editor {
   setTextSize(size: number): void {
     this.view.updateOptions({ fontSize: size, lineHeight: Math.round(size * 1.7) });
     this.view.layout();
+  }
+  // 원문이 아니라 표시만 바꿉니다. 실패하거나 다른 화면으로 바뀌면 평문 코드 블록을 그대로 둡니다.
+  private async highlightPreview(run: number): Promise<void> {
+    for (const code of this.preview.querySelectorAll<HTMLElement>('pre > code[class*="language-"]')) {
+      const language = findLanguageId(/language-(\S+)/.exec(code.className)?.[1] ?? '');
+      if (!language) continue;
+      try {
+        const html = await monaco.editor.colorize((code.textContent ?? '').replace(/\r?\n$/, ''), language, { tabSize: 2 });
+        if (run !== this.highlightRun) return;
+        code.innerHTML = DOMPurify.sanitize(html, { ALLOWED_TAGS: ['div', 'span', 'br'], ALLOWED_ATTR: ['class'], ALLOW_DATA_ATTR: false }).replaceAll('&nbsp;', ' ');
+      } catch { /* 평문 코드 블록을 유지합니다. */ }
+    }
   }
   private notify(): void { this.changed(this.mode, this.getDraft()); }
 }

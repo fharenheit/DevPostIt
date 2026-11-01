@@ -49,6 +49,7 @@ h1 { margin: 0; font-size: 1.0625rem; font-weight: 600; letter-spacing: -0.3px; 
 .preview ul, .preview ol { padding-left: 1.5rem; }
 .preview pre { background: var(--paper-sunken); padding: .75rem 1rem; border-radius: .4rem; overflow-x: auto; }
 .preview code { font-family: 'JetBrains Mono', 'D2 Ligature', monospace; font-size: 0.875rem; }
+.preview pre code { white-space: pre; }
 .preview blockquote { border-left: 3px solid var(--line-strong); padding-left: .9rem; margin-block: .75rem; color: var(--ink-muted); }
 .preview table { border-collapse: collapse; }
 .preview td, .preview th { border: 1px solid var(--line); padding: .3rem .7rem; }
