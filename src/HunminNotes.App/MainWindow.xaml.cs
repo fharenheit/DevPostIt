@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Interop;
@@ -55,9 +56,24 @@ public partial class MainWindow : Window
     {
         this.workspace = workspace; this.noteId = noteId;
         InitializeComponent();
-        SourceInitialized += (_, _) => HwndSource.FromHwnd(new WindowInteropHelper(this).Handle)?.AddHook(WindowMessage);
+        SourceInitialized += (_, _) =>
+        {
+            var handle = new WindowInteropHelper(this).Handle;
+            HwndSource.FromHwnd(handle)?.AddHook(WindowMessage);
+            ApplyTitleBarColors(handle);
+        };
         StateChanged += (_, _) => { if (WindowState == WindowState.Minimized && CanCollapse) CollapseRequested?.Invoke(this); };
     }
+    // 네이티브 제목 표시줄을 메모지 색에 맞춥니다. 지원하지 않는 Windows 10에서는 호출만 실패하고 기본 색을 유지합니다. 값은 0x00BBGGRR입니다.
+    private static void ApplyTitleBarColors(IntPtr handle)
+    {
+        foreach (var (attribute, color) in new[] { (34, 0x00BDDFE8), (35, 0x00BFF3FF), (36, 0x001F2A2F) })
+        {
+            var value = color;
+            _ = DwmSetWindowAttribute(handle, attribute, ref value, sizeof(int));
+        }
+    }
+    [DllImport("dwmapi.dll")] private static extern int DwmSetWindowAttribute(IntPtr handle, int attribute, ref int value, int size);
     private IntPtr WindowMessage(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
         if (message == 0x0112 && (wParam.ToInt64() & 0xFFF0) == 0xF060 && !closing && !confirming) preserveOnClose = false;

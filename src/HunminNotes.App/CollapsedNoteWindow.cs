@@ -20,7 +20,7 @@ public sealed class CollapsedNoteWindow : Window
         var button = new Button
         {
             Background = new SolidColorBrush(Color.FromRgb(255, 232, 143)), BorderBrush = new SolidColorBrush(Color.FromRgb(205, 178, 86)),
-            ToolTip = $"{title}\n클릭: 열기 · 드래그: 이동", Cursor = Cursors.Hand
+            ToolTip = $"{title}\n클릭: 열기 · 드래그: 이동", Cursor = Cursors.Hand, Template = CreateIconTemplate()
         };
         System.Windows.Automation.AutomationProperties.SetName(button, $"{title} 열기");
         Point start = default;
@@ -33,5 +33,19 @@ public sealed class CollapsedNoteWindow : Window
         };
         button.Click += (_, _) => { if (!dragged) restore(); };
         Content = button;
+    }
+    // 기본 버튼 템플릿은 마우스를 올리면 파란색으로 바뀌므로 노란 메모지를 유지하고 테두리만 진하게 합니다.
+    private static ControlTemplate CreateIconTemplate()
+    {
+        var chrome = new FrameworkElementFactory(typeof(Border), "chrome");
+        chrome.SetValue(Border.BackgroundProperty, new TemplateBindingExtension(Button.BackgroundProperty));
+        chrome.SetValue(Border.BorderBrushProperty, new TemplateBindingExtension(Button.BorderBrushProperty));
+        chrome.SetValue(Border.BorderThicknessProperty, new Thickness(1));
+        chrome.SetValue(Border.CornerRadiusProperty, new CornerRadius(2));
+        var hover = new Trigger { Property = IsMouseOverProperty, Value = true };
+        hover.Setters.Add(new Setter(Border.BorderBrushProperty, new SolidColorBrush(Color.FromRgb(122, 92, 0)), "chrome"));
+        var template = new ControlTemplate(typeof(Button)) { VisualTree = chrome };
+        template.Triggers.Add(hover);
+        return template;
     }
 }

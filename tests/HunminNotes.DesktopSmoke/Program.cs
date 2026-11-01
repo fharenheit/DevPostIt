@@ -45,6 +45,7 @@ internal static class Program
         using var tray = new TrayService(manager, workspace, application.Dispatcher);
         var first = manager.ShowNote(workspace.Notes.Single().Id)!;
         await ReadyAsync(first);
+        Check(first.Width == 480 && first.Height == 640 && first.MinWidth == 320 && first.MinHeight == 360, "포스트잇 기본·최소 창 크기");
         var editor = (WebView2)first.FindName("EditorView");
         var firstNote = workspace.Notes.Single();
         first.DeleteConfirmation = () => MessageBoxResult.Yes;
@@ -79,6 +80,10 @@ internal static class Program
         await UntilAsync(() => Task.FromResult(application.Windows.OfType<CollapsedNoteWindow>().Count() == 1));
         var icon = application.Windows.OfType<CollapsedNoteWindow>().Single();
         Check(!first.IsVisible && icon.IsVisible && icon.Width == 24 && ((Button)icon.Content).Content is null, "24px 빈 노란 아이콘 표시");
+        var iconButton = (Button)icon.Content;
+        iconButton.ApplyTemplate();
+        var iconChrome = (Border)iconButton.Template.FindName("chrome", iconButton);
+        Check(iconChrome.Background == iconButton.Background && iconButton.Template.Triggers.Count > 0, "접힌 아이콘은 마우스를 올려도 노란색 유지");
         ((Button)icon.Content).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         Check(first.IsVisible && !application.Windows.OfType<CollapsedNoteWindow>().Any(), "같은 창 클릭 복원");
         Check(ReferenceEquals(first, manager.ShowNote(first.NoteId)), "중복 창 방지");
