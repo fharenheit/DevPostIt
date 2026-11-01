@@ -44,7 +44,7 @@
 
 ## 코드 언어
 
-Monaco는 색 구분만 제공합니다. 언어 목록은 Monaco의 모든 언어를 보여 주고, 정리 도구가 없는 언어는 ‘색 구분만’으로 표시합니다. 정리는 Prettier(웹 언어, Java, XML, PHP), clang-format(C 계열, C#, Protobuf), Ruff(Python), gofmt(Go), shfmt(Shell), sql-formatter(SQL)를 앱에 포함해 오프라인으로 처리합니다. wasm 도구는 해당 언어를 처음 정리할 때 불러옵니다. Rust, Scala, Ruby, R은 브라우저에서 돌릴 수 있는 정리 도구를 찾지 못했습니다.
+Monaco는 색 구분만 제공합니다. 언어 목록은 Monaco의 모든 언어를 보여 주고, 정리 도구가 없는 언어는 ‘색 구분만’으로 표시합니다. 정리는 Prettier(웹 언어, Java, XML, PHP), clang-format(C 계열, C#, Protobuf), Ruff(Python), gofmt(Go), shfmt(Shell), sql-formatter(SQL)를 앱에 포함해 오프라인으로 처리합니다. wasm 도구는 해당 언어를 처음 정리할 때 불러옵니다. Rust와 R은 npm 검색에서 쓸 만한 도구를 찾지 못했고, Scala의 `scalafmt`는 2017년 베타입니다. Ruby는 CRuby wasm 기반 `@scalar/ruby-fmt`가 있지만 Node용으로 소개되어 있고 시험하지 않았습니다.
 
 ## 화면 캡처
 
