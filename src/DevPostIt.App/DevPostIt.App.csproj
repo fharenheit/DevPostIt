@@ -21,7 +21,7 @@
     <RootNamespace>DevPostIt.App</RootNamespace>
     <Product>메모장</Product>
     <Title>메모</Title>
-    <Version>0.3.0</Version>
+    <Version>0.4.0</Version>
     <EditorWebRoot>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)/../../editor-web'))</EditorWebRoot>
     <BundledNode>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)/../../.tools/node/node-v24.22.1-win-x64'))</BundledNode>
     <EditorNpm Condition="Exists('$(BundledNode)/npm.cmd')">$(BundledNode)/npm.cmd</EditorNpm>
