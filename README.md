@@ -39,6 +39,33 @@ Windows 제목 표시줄에는 항상 ‘Post It for Developer’를 표시합�
 
 Claude에서도 이어서 개발할 수 있도록 [공통 작업 지침](AGENTS.md), [Claude 진입 문서](CLAUDE.md), [현재 상태 인계](docs/development/HANDOFF.md)를 제공합니다. 시작 방법은 [Claude 작업 안내](docs/development/CLAUDE_SETUP.md)를 참고하세요.
 
+## Windows 로그인 시 자동 실행
+
+Windows에 로그인할 때 앱이 시작되게 하려면 현재 사용자의 시작프로그램 폴더에 바로 가기를 만듭니다. 관리자 권한은 필요 없습니다. 이 방법은 로그인한 뒤에 실행되며, PC를 켜고 로그인하기 전에는 실행되지 않습니다.
+
+먼저 트레이의 ‘종료’로 앱을 끄고, 내려받은 exe가 있는 폴더의 PowerShell에서 실행합니다. exe를 고정 위치에 복사한 뒤 바로 가기를 만듭니다. 복사한 exe를 옮기거나 지우면 자동 실행이 동작하지 않습니다.
+
+```powershell
+$target = "$env:LOCALAPPDATA\Programs\DevPostIt\DevPostIt.exe"
+New-Item -ItemType Directory -Force (Split-Path $target) | Out-Null
+Copy-Item .\DevPostIt-0.1.0-win-x64.exe $target
+$startup = [Environment]::GetFolderPath('Startup')
+$shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut("$startup\DevPostIt.lnk")
+$shortcut.TargetPath = $target
+$shortcut.Save()
+```
+
+명령 대신 직접 만들 수도 있습니다. Win+R에서 `shell:startup`을 실행해 열린 폴더에 exe의 바로 가기를 넣으면 됩니다.
+
+- **동작:** 로그인하면 트레이 아이콘이 등록되고 최근에 수정한 메모 창 하나가 열립니다. 창을 숨긴 채 트레이로만 시작하는 옵션은 아직 없습니다.
+- **끄기:** 설정 > 앱 > 시작 프로그램에서 끄거나, 아래 명령으로 바로 가기를 지웁니다. 메모는 지워지지 않습니다.
+- **새 버전:** 트레이의 ‘종료’로 앱을 끈 뒤 같은 경로의 exe를 새 파일로 덮어씁니다.
+- **차단될 때:** exe에 코드 서명이 없어 SmartScreen 경고가 뜨거나 Smart App Control에 차단될 수 있으며, 차단되면 자동 실행도 되지 않습니다.
+
+```powershell
+Remove-Item "$([Environment]::GetFolderPath('Startup'))\DevPostIt.lnk"
+```
+
 ## 릴리즈 빌드
 
 Windows x64용 단일 exe는 저장소 루트에서 만듭니다. .NET을 함께 포함하므로 별도 설치가 필요 없고 WebView2 Runtime만 있으면 실행됩니다. 이 빌드의 패키지 잠금 파일은 `obj` 아래에 따로 만들어져 저장소의 잠금 파일을 바꾸지 않습니다.
