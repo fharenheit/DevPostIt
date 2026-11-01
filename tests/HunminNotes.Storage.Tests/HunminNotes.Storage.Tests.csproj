@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\HunminNotes.Storage\HunminNotes.Storage.csproj" />
+    <ProjectReference Include="..\HunminNotes.CrashHarness\HunminNotes.CrashHarness.csproj" />
   </ItemGroup>
 
 </Project>

@@ -6,7 +6,7 @@ using System.Text.Json;
 
 namespace HunminNotes.Storage;
 
-public sealed class SqliteNoteIndex
+public sealed class SqliteNoteIndex : INoteIndexWriter
 {
     private const int ApplicationId = 0x44504958;
     private const int SchemaVersion = 1;

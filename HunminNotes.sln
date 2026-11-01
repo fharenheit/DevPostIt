@@ -21,6 +21,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HunminNotes.EditorHost", "s
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HunminNotes.App.Tests", "tests\HunminNotes.App.Tests\HunminNotes.App.Tests.csproj", "{6779BC73-8870-4E4C-89F1-D7C43359D458}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HunminNotes.CrashHarness", "tests\HunminNotes.CrashHarness\HunminNotes.CrashHarness.csproj", "{BCBAAB30-6D27-42A1-B9EF-DBEF976138B3}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -115,6 +117,18 @@ Global
 		{6779BC73-8870-4E4C-89F1-D7C43359D458}.Release|x64.Build.0 = Release|Any CPU
 		{6779BC73-8870-4E4C-89F1-D7C43359D458}.Release|x86.ActiveCfg = Release|Any CPU
 		{6779BC73-8870-4E4C-89F1-D7C43359D458}.Release|x86.Build.0 = Release|Any CPU
+		{BCBAAB30-6D27-42A1-B9EF-DBEF976138B3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BCBAAB30-6D27-42A1-B9EF-DBEF976138B3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BCBAAB30-6D27-42A1-B9EF-DBEF976138B3}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{BCBAAB30-6D27-42A1-B9EF-DBEF976138B3}.Debug|x64.Build.0 = Debug|Any CPU
+		{BCBAAB30-6D27-42A1-B9EF-DBEF976138B3}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{BCBAAB30-6D27-42A1-B9EF-DBEF976138B3}.Debug|x86.Build.0 = Debug|Any CPU
+		{BCBAAB30-6D27-42A1-B9EF-DBEF976138B3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BCBAAB30-6D27-42A1-B9EF-DBEF976138B3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BCBAAB30-6D27-42A1-B9EF-DBEF976138B3}.Release|x64.ActiveCfg = Release|Any CPU
+		{BCBAAB30-6D27-42A1-B9EF-DBEF976138B3}.Release|x64.Build.0 = Release|Any CPU
+		{BCBAAB30-6D27-42A1-B9EF-DBEF976138B3}.Release|x86.ActiveCfg = Release|Any CPU
+		{BCBAAB30-6D27-42A1-B9EF-DBEF976138B3}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -127,5 +141,6 @@ Global
 		{157CDC37-4524-4E7E-B32A-6A5724820D53} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{4B469C59-8830-495A-85DF-2670665A6B68} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{6779BC73-8870-4E4C-89F1-D7C43359D458} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{BCBAAB30-6D27-42A1-B9EF-DBEF976138B3} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 	EndGlobalSection
 EndGlobal

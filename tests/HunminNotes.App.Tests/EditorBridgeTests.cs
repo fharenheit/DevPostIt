@@ -104,6 +104,17 @@ public class EditorBridgeTests
     }
 
     [Fact]
+    public void ClosingDraftMustBeCompleteValidAndWithinMessageLimit()
+    {
+        var valid = JsonSerializer.Serialize(new { markdown = "종료 직전 입력", revision = 9, dirty = true });
+        Assert.Equal("종료 직전 입력", EditorDraftSnapshot.Parse(valid).Markdown);
+        var oversized = JsonSerializer.Serialize(new { markdown = new string('x', EditorBridge.MaxMessageBytes + 1), revision = 9, dirty = true });
+        Assert.Throws<EditorProtocolException>(() => EditorDraftSnapshot.Parse(oversized));
+        Assert.Throws<EditorProtocolException>(() => EditorDraftSnapshot.Parse("null"));
+        Assert.Throws<EditorProtocolException>(() => EditorDraftSnapshot.Parse("{}"));
+    }
+
+    [Fact]
     public async Task CancelledMessageDoesNotChangeRevision()
     {
         using var source = new CancellationTokenSource();

@@ -1,4 +1,5 @@
 using HunminNotes.Core;
+using static HunminNotes.Storage.StoragePathGuard;
 
 namespace HunminNotes.Storage;
 
@@ -9,6 +10,7 @@ public sealed class MarkdownNoteRepository : INoteRepository
     private readonly string rootPath;
     private readonly FrontmatterCodec codec = new();
     private readonly SemaphoreSlim gate = new(1, 1);
+    private readonly AtomicFileWriter writer = new();
 
     public MarkdownNoteRepository(string root)
     {
@@ -46,11 +48,8 @@ public sealed class MarkdownNoteRepository : INoteRepository
             cancellationToken.ThrowIfCancellationRequested();
             RejectLinks(full);
             Directory.CreateDirectory(Path.GetDirectoryName(full)!);
-            // 원자적 교체와 복구 저널은 작업 6에서 도입합니다.
-            await using var file = new FileStream(full, samePath is null ? FileMode.CreateNew : FileMode.Truncate,
-                FileAccess.Write, FileShare.None, 4096, FileOptions.Asynchronous);
-            await using var writer = new StreamWriter(file, new System.Text.UTF8Encoding(false));
-            await writer.WriteAsync(content.AsMemory(), cancellationToken);
+            if (samePath is null) await writer.WriteNewAsync(full, content, cancellationToken);
+            else await writer.WriteAsync(full, content, cancellationToken);
         }
         finally { gate.Release(); }
     }
@@ -122,13 +121,4 @@ public sealed class MarkdownNoteRepository : INoteRepository
         return (relative, full);
     }
 
-    private static void RejectLinks(string path)
-    {
-        for (var current = path; current is not null; current = Path.GetDirectoryName(current))
-        {
-            if ((File.Exists(current) || Directory.Exists(current)) &&
-                (File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
-                throw new IOException("연결된 파일·디렉터리는 저장소에서 허용하지 않습니다.");
-        }
-    }
 }

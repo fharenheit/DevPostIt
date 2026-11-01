@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\HunminNotes.Core\HunminNotes.Core.csproj" />
     <ProjectReference Include="..\HunminNotes.EditorHost\HunminNotes.EditorHost.csproj" />
+    <ProjectReference Include="..\HunminNotes.Storage\HunminNotes.Storage.csproj" />
   </ItemGroup>
 
   <ItemGroup>

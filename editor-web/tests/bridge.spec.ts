@@ -36,6 +36,7 @@ test('준비→호스트 문서 로드→변경 메시지→저장 요청을 실
   expect((await draft(page)).dirty).toBe(true);
   await send(page, 'note.saved', changed.revision, {});
   expect((await draft(page)).dirty).toBe(false);
+  await expect(page.locator('#host-status')).toContainText('저장됨');
 });
 
 test('잘못된 호스트 메시지와 오래된 저장 응답은 현재 본문에 영향을 주지 않는다', async ({ page }) => {

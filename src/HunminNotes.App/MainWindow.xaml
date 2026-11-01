@@ -6,7 +6,7 @@
         xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
         mc:Ignorable="d"
         Title="DevPostIt" Height="850" Width="1200" MinHeight="560" MinWidth="780"
-        Loaded="WindowLoaded" Closed="WindowClosed" Background="#F1F4F2">
+        Loaded="WindowLoaded" Closing="WindowClosing" Closed="WindowClosed" Background="#F1F4F2">
     <Grid>
         <wv2:WebView2 x:Name="EditorView" />
         <Border x:Name="Loading" Background="#F1F4F2">

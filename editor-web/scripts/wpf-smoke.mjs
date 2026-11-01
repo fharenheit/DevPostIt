@@ -24,7 +24,7 @@ try {
     await page.keyboard.insertText('# WPF 실제 편집\n\n한글 본문과 Monaco 연결 확인');
     await expect.poll(() => page.evaluate(() => window.hunminEditor.getDraft().markdown)).toBe('# WPF 실제 편집\n\n한글 본문과 Monaco 연결 확인');
     await page.keyboard.press('Control+s');
-    await expect(page.locator('#host-status')).toContainText('파일 저장 기능은 아직 연결 전');
+    await expect(page.locator('#host-status')).toContainText('저장됨');
     await page.getByRole('button', { name: '미리보기', exact: true }).click();
     await expect(page.locator('#preview h1')).toHaveText('WPF 실제 편집');
     await page.getByRole('button', { name: '글자 크게', exact: true }).click();

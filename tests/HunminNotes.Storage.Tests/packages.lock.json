@@ -152,6 +152,12 @@
       "hunminnotes.core": {
         "type": "Project"
       },
+      "hunminnotes.crashharness": {
+        "type": "Project",
+        "dependencies": {
+          "HunminNotes.Storage": "[1.0.0, )"
+        }
+      },
       "hunminnotes.storage": {
         "type": "Project",
         "dependencies": {

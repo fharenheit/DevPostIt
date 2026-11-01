@@ -37,7 +37,10 @@ export class EditorConnection {
     if (this.loading || this.noteId === emptyId || this.editor.isComposing()) return;
     const draft = this.editor.getDraft();
     if (draft.revision <= this.sentRevision) return;
-    if (this.send('note.changed', { markdown: draft.markdown }, draft.revision)) this.sentRevision = draft.revision;
+    if (this.send('note.changed', { markdown: draft.markdown }, draft.revision)) {
+      this.sentRevision = draft.revision;
+      this.status('자동 저장 대기 중…');
+    }
   }
 
   private send(type: string, payload: Record<string, unknown>, revision: number): boolean {
@@ -64,9 +67,12 @@ export class EditorConnection {
         this.sentRevision = message.revision;
         this.editor.load(message.noteId, message.payload.markdown, message.revision);
       } finally { this.loading = false; }
-      this.status('앱 연결됨 · 본문 저장 기능은 준비 중입니다.');
+      this.status('앱 연결됨 · 자동 저장 사용');
     } else if (message.noteId === this.noteId && message.revision === current.revision) {
-      if (message.type === 'note.saved' && keys(message.payload, [])) this.editor.markSaved(message.revision);
+      if (message.type === 'note.saved' && keys(message.payload, [])) {
+        this.editor.markSaved(message.revision);
+        this.status('저장됨 · 자동 저장 사용');
+      }
       else if (message.type === 'note.conflict' && keys(message.payload, ['message']) && typeof message.payload.message === 'string') this.status(message.payload.message);
     }
   }
