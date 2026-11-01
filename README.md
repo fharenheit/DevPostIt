@@ -1,4 +1,4 @@
-# DevPostIt
+# Post It for Developer (DevPostIt)
 
 Windows용 WPF + WebView2 Markdown 메모 앱입니다. Monaco 소스 편집기와 미리보기, 코드 블록 정리, 이름 변경, 여러 메모의 자동 저장·복구, 트레이와 작은 포스트잇 아이콘을 제공합니다. SQLite 검색 인덱스를 사용하며 중앙 검색 화면과 외부 파일 감시는 후속 단계입니다.
 
