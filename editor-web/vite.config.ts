@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 
 export default defineConfig(({ command }) => ({
   base: './',
-  build: { rollupOptions: { input: { main: 'index.html', settings: 'settings.html', search: 'search.html' } } },
+  build: { rollupOptions: { input: { main: 'index.html', settings: 'settings.html', search: 'search.html', formatter: 'formatter.html' } } },
   plugins: [{
     name: 'local-editor-csp',
     transformIndexHtml(html) {

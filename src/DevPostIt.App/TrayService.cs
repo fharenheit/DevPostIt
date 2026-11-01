@@ -31,6 +31,7 @@ public sealed class TrayService : IDisposable
             menu.Items.Add("새 메모", null, (_, _) => Run(manager.CreateAsync));
             menu.Items.Add("메모 검색", null, (_, _) => manager.ShowSearch());
             menu.Items.Add("화면 캡처", null, (_, _) => Run(manager.StartObjectCaptureAsync));
+            menu.Items.Add("소스코드 포맷터", null, (_, _) => manager.ShowFormatter());
             menu.Items.Add("Markdown 가져오기…", null, (_, _) => Run(manager.ImportMarkdownAsync));
             var notes = new Forms.ToolStripMenuItem("메모 목록");
             var all = workspace.Notes;

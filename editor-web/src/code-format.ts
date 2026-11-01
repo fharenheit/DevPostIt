@@ -11,6 +11,15 @@ const aliases: Record<string, string> = {
   html: 'html', vue: 'vue', angular: 'angular', handlebars: 'glimmer', hbs: 'glimmer',
   css: 'css', scss: 'scss', less: 'less', graphql: 'graphql', gql: 'graphql', markdown: 'markdown', md: 'markdown', mdx: 'mdx',
 };
+// 소스코드 포맷터에서 고를 수 있는 언어입니다. monaco는 색 구분에 쓰는 언어입니다. Markdown은 메모에서 다룹니다.
+export const sourceLanguages = [
+  { value: 'angular', label: 'Angular', monaco: 'html' }, { value: 'css', label: 'CSS', monaco: 'css' }, { value: 'flow', label: 'Flow', monaco: 'javascript' },
+  { value: 'graphql', label: 'GraphQL', monaco: 'graphql' }, { value: 'handlebars', label: 'Handlebars', monaco: 'handlebars' }, { value: 'html', label: 'HTML', monaco: 'html' },
+  { value: 'java', label: 'Java', monaco: 'java' }, { value: 'js', label: 'JavaScript', monaco: 'javascript' }, { value: 'json', label: 'JSON', monaco: 'json' },
+  { value: 'json5', label: 'JSON5', monaco: 'json' }, { value: 'jsx', label: 'JSX', monaco: 'javascript' }, { value: 'less', label: 'Less', monaco: 'less' },
+  { value: 'scss', label: 'SCSS', monaco: 'scss' }, { value: 'tsx', label: 'TSX', monaco: 'typescript' }, { value: 'ts', label: 'TypeScript', monaco: 'typescript' },
+  { value: 'vue', label: 'Vue', monaco: 'html' }, { value: 'yaml', label: 'YAML', monaco: 'yaml' },
+] as const;
 async function plugins(parser: string): Promise<Plugin[]> {
   if (parser === 'java') {
     const { Parser } = await import('web-tree-sitter');
@@ -28,6 +37,12 @@ async function plugins(parser: string): Promise<Plugin[]> {
   if (parser === 'vue' || parser === 'angular') return [await import('prettier/plugins/html'), await import('prettier/plugins/angular'), await import('prettier/plugins/babel'), await import('prettier/plugins/estree'), await import('prettier/plugins/postcss')];
   return [parser === 'typescript' ? await import('prettier/plugins/typescript') : await import('prettier/plugins/babel'), await import('prettier/plugins/estree')];
 }
+const formatWith = async (source: string, parser: string) => format(source, { parser, plugins: await plugins(parser), tabWidth: 2, printWidth: 100, endOfLine: 'lf' });
+export async function formatSource(source: string, language: string): Promise<string> {
+  const parser = aliases[language];
+  if (!parser) throw new CodeBlockError('지원하지 않는 언어입니다.');
+  return formatWith(source, parser);
+}
 export async function formatBlock(source: string, line: number, language?: string): Promise<{ start: number; end: number; startLine: number; endLine: number; text: string }> {
   const token = markdown.parse(source, {}).find(token => token.type === 'fence' && token.map && line >= token.map[0] && line < token.map[1]);
   if (!token?.map || token.level !== 0) throw new CodeBlockError('최상위 코드 블록 안에 커서를 놓아 주세요.');
@@ -38,7 +53,7 @@ export async function formatBlock(source: string, line: number, language?: strin
   if (!opening || !closing || last - first < 2) throw new CodeBlockError('코드 블록의 닫는 울타리가 필요합니다.');
   const parser = aliases[(language || token.info.trim().split(/\s/)[0]).toLowerCase()];
   if (!parser) throw new CodeBlockError('지원하는 코드 언어를 선택하거나 블록에 표시해 주세요.');
-  const result = await format(token.content, { parser, plugins: await plugins(parser), tabWidth: 2, printWidth: 100, endOfLine: 'lf' });
+  const result = await formatWith(token.content, parser);
   const eol = lines[first].endsWith('\r') ? '\r\n' : '\n';
   const text = result.trimEnd().split('\n').map(line => opening[1] + line).join(eol) + eol;
   const offset = (line: number) => lines.slice(0, line).reduce((count, text) => count + text.length + 1, 0);

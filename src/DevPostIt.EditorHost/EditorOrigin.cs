@@ -5,6 +5,7 @@ public static class EditorOrigin
     public const string Page = "https://devpostit.local/index.html";
     public const string SettingsPage = "https://devpostit.local/settings.html";
     public const string SearchPage = "https://devpostit.local/search.html";
+    public const string FormatterPage = "https://devpostit.local/formatter.html";
     public const string AssetHost = "devpostit-assets.local";
     public static bool IsTrustedPage(string source) => IsLocalResource(source) &&
         Uri.TryCreate(source, UriKind.Absolute, out var uri) && uri.AbsolutePath == "/index.html" &&
@@ -17,6 +18,10 @@ public static class EditorOrigin
 
     public static bool IsSearchPage(string source) => IsLocalResource(source) &&
         Uri.TryCreate(source, UriKind.Absolute, out var uri) && uri.AbsolutePath == "/search.html" &&
+        uri.Query.Length == 0 && uri.Fragment.Length == 0;
+
+    public static bool IsFormatterPage(string source) => IsLocalResource(source) &&
+        Uri.TryCreate(source, UriKind.Absolute, out var uri) && uri.AbsolutePath == "/formatter.html" &&
         uri.Query.Length == 0 && uri.Fragment.Length == 0;
 
     public static bool IsNoteAsset(string source) => Uri.TryCreate(source, UriKind.Absolute, out var uri) &&

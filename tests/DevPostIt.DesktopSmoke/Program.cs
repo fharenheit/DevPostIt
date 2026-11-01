@@ -163,6 +163,7 @@ internal static class Program
         Check(tray.Menu.Items.OfType<Forms.ToolStripMenuItem>().Any(item => item.Text == "정보"), "트레이 정보 메뉴");
         Check(tray.Menu.Items.OfType<Forms.ToolStripMenuItem>().Any(item => item.Text == "도움말"), "트레이 도움말 메뉴");
         Check(tray.Menu.Items.OfType<Forms.ToolStripMenuItem>().Any(item => item.Text == "화면 캡처"), "트레이 화면 캡처 메뉴");
+        Check(tray.Menu.Items.OfType<Forms.ToolStripMenuItem>().Any(item => item.Text == "소스코드 포맷터"), "트레이 소스코드 포맷터 메뉴");
         tray.Menu.Items.OfType<Forms.ToolStripMenuItem>().Single(item => item.Text == "설정").PerformClick();
         tray.Menu.Close();
         var settings = application.Windows.OfType<SettingsWindow>().Single();
@@ -249,6 +250,18 @@ internal static class Program
         manager.ShowAbout();
         Check(application.Windows.OfType<AboutWindow>().Single() == about, "정보 창 중복 방지");
         about.Close();
+        // 소스코드 포맷터: 실제 WebView2의 보안 정책 안에서 Monaco와 Java 정리까지 확인합니다.
+        var notesBeforeFormatter = workspace.Notes.Count;
+        manager.ShowFormatter();
+        var formatter = application.Windows.OfType<FormatterWindow>().Single();
+        await UntilAsync(async () => formatter.View.CoreWebView2 is not null && await formatter.View.ExecuteScriptAsync("Boolean(window.hunminFormatter)") == "true");
+        await formatter.View.ExecuteScriptAsync("(() => { const select = document.querySelector('#formatter-language'); select.value = 'java'; select.dispatchEvent(new Event('change')); window.hunminFormatter.setValue('class Main{int a=1;}'); document.querySelector('#formatter-format').click(); })()");
+        await UntilAsync(async () => (await formatter.View.ExecuteScriptAsync("window.hunminFormatter.getValue()")).Contains("class Main {"));
+        Check(await formatter.View.ExecuteScriptAsync("window.hunminFormatter.getLanguage()") == "\"java\"", "포맷터의 언어 선택");
+        Check(workspace.Notes.Count == notesBeforeFormatter, "포맷터는 메모를 만들지 않음");
+        manager.ShowFormatter();
+        Check(application.Windows.OfType<FormatterWindow>().Single() == formatter, "포맷터 창 중복 방지");
+        formatter.Close();
         manager.ShowSearch();
         var searchWindow = application.Windows.OfType<SearchWindow>().Single();
         // 실제 WebView2의 PDF 저장과 설정 창의 전체 백업을 파일 결과로 확인합니다.
@@ -502,7 +515,7 @@ internal static class Program
         Check(await pdfWindow.RequestCloseAsync(), "PDF 저장 후 메모 닫기");
         manager.ShowSettings();
         var backupSettings = application.Windows.OfType<SettingsWindow>().Single();
-        await UntilAsync(async () => backupSettings.View.CoreWebView2 is not null && await backupSettings.View.ExecuteScriptAsync("Boolean(document.querySelector('#backup'))") == "true");
+        await UntilAsync(async () => backupSettings.View.CoreWebView2 is not null && await backupSettings.View.ExecuteScriptAsync("document.querySelector('#backup-row')?.hidden === false") == "true");
         var backupPath = Path.Combine(root, "backup.zip");
         backupSettings.BackupPathPicker = () => backupPath;
         await backupSettings.View.ExecuteScriptAsync("document.querySelector('#backup').click()");

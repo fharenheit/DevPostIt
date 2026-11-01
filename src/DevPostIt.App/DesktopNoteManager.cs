@@ -20,6 +20,7 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
     private SearchWindow? search;
     private AboutWindow? about;
     private HelpWindow? help;
+    private FormatterWindow? formatter;
     private MainWindow? lastActive;
     private ObjectCaptureSession? capture;
     internal bool ObjectCaptureHooks { get; set; } = true;
@@ -185,6 +186,18 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
         if (help.WindowState == WindowState.Minimized) help.WindowState = WindowState.Normal;
         help.Activate();
     }
+    public void ShowFormatter()
+    {
+        if (exiting) return;
+        if (formatter is null)
+        {
+            formatter = new FormatterWindow();
+            formatter.Closed += (_, _) => formatter = null;
+            formatter.Show();
+        }
+        if (formatter.WindowState == WindowState.Minimized) formatter.WindowState = WindowState.Normal;
+        formatter.Activate();
+    }
     public void ShowSearch()
     {
         if (exiting) return;
@@ -300,6 +313,7 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
             search?.Close();
             about?.Close();
             help?.Close();
+            formatter?.Close();
             await workspace.DisposeAsync();
             completed = true;
             updateTimer?.Stop();

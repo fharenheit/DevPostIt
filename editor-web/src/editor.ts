@@ -1,62 +1,15 @@
 import * as monaco from 'monaco-editor/editor/editor.api';
 import 'monaco-editor/languages/definitions/markdown/register';
 import DOMPurify from 'dompurify';
-import './editor-features';
+import { preferenceOptions, sharedEditorOptions } from './monaco-setup';
 import { findLanguageId } from './code-languages';
 import { defaultEditorPreferences, type EditorPreferences } from './fonts';
 import { planFormat, planInsertLines, type FormatPlan, type MarkdownAction, type TextDocument, type TextRange } from './markdown-format';
 import { markdownTableLines, tableFromClipboardHtml } from './paste-table';
-import EditorWorker from 'monaco-editor/editor/editor.worker?worker';
 import { renderMarkdown } from './markdown';
 import { imageAltEdit } from './image-size';
 import { renderDiagrams } from './diagrams';
 import { formatBlock, CodeBlockError } from './code-format';
-
-globalThis.MonacoEnvironment = { getWorker: () => new EditorWorker() };
-
-// style.css의 메모지 색 토큰과 같은 값을 사용합니다.
-monaco.editor.defineTheme('devpostit-paper', {
-  base: 'vs', inherit: false,
-  rules: [
-    { token: '', foreground: '2F2A1F' },
-    { token: 'keyword.md', foreground: '7A5C00', fontStyle: 'bold' },
-    { token: 'string.md', foreground: '7A5C00' },
-    { token: 'string.link.md', foreground: '7A5C00' },
-    { token: 'variable.md', foreground: '665E4B' },
-    { token: 'comment.md', foreground: '665E4B', fontStyle: 'italic' },
-    { token: 'strong', fontStyle: 'bold' },
-    { token: 'emphasis', fontStyle: 'italic' },
-    // 코드 블록: 대비 4.5:1 이상을 유지하는 어두운 색만 사용합니다.
-    { token: 'keyword', foreground: '9A2F12' },
-    { token: 'string', foreground: '2B6636' },
-    { token: 'number', foreground: '0B5A85' },
-    { token: 'comment', foreground: '665E4B', fontStyle: 'italic' },
-    { token: 'type', foreground: '6A3F99' },
-    { token: 'annotation', foreground: '6A3F99' },
-    { token: 'tag', foreground: '9A2F12' },
-    { token: 'attribute.name', foreground: '0B5A85' },
-    { token: 'attribute.value', foreground: '2B6636' },
-    { token: 'delimiter', foreground: '4F4838' },
-    { token: 'variable', foreground: '0B5A85' },
-    { token: 'regexp', foreground: '2B6636' },
-    { token: 'metatag', foreground: '6A3F99' },
-    { token: 'predefined', foreground: '6A3F99' },
-  ],
-  colors: {
-    'editor.background': '#FFFDF5',
-    'editor.foreground': '#2F2A1F',
-    'editorCursor.foreground': '#7A5C00',
-    'editorLineNumber.foreground': '#A89E80',
-    'editorLineNumber.activeForeground': '#665E4B',
-    'editor.selectionBackground': '#FFE88F',
-    'editor.inactiveSelectionBackground': '#F8F2DC',
-    'editor.lineHighlightBackground': '#F8F2DC',
-    'editor.lineHighlightBorder': '#00000000',
-    'scrollbarSlider.background': '#C9BB8866',
-    'scrollbarSlider.hoverBackground': '#C9BB88AA',
-    'scrollbarSlider.activeBackground': '#C9BB88',
-  },
-});
 
 export type EditorMode = 'source' | 'preview';
 export type Draft = { markdown: string; revision: number; dirty: boolean };
@@ -89,21 +42,7 @@ export class Editor {
     private readonly preview: HTMLElement,
     private readonly changed: (mode: EditorMode, draft: Draft) => void,
   ) {
-    this.view = monaco.editor.create(source, {
-      language: 'markdown', theme: 'devpostit-paper', automaticLayout: true,
-      minimap: { enabled: false }, wordWrap: 'on', fontSize: 13, lineHeight: 22,
-      padding: { top: 12, bottom: 12 }, scrollBeyondLastLine: false,
-      lineNumbersMinChars: 3, lineDecorationsWidth: 8, renderLineHighlight: 'line', renderLineHighlightOnlyWhenFocus: false,
-      folding: true, showFoldingControls: 'mouseover', matchBrackets: 'always', contextmenu: true, smoothScrolling: true, mouseWheelZoom: false,
-      guides: { indentation: true }, wordBasedSuggestions: 'currentDocument',
-      find: { addExtraSpaceOnTop: false, seedSearchStringFromSelection: 'selection', autoFindInSelection: 'multiline' },
-      overviewRulerLanes: 0, overviewRulerBorder: false, hideCursorInOverviewRuler: true,
-      scrollbar: { verticalScrollbarSize: 8, horizontalScrollbarSize: 8, useShadows: false },
-      ariaLabel: 'Markdown 본문', editContext: false,
-      links: false,
-      renderWhitespace: 'selection', tabSize: 2, quickSuggestions: false,
-      unicodeHighlight: { ambiguousCharacters: false, invisibleCharacters: false },
-    });
+    this.view = monaco.editor.create(source, { ...sharedEditorOptions, language: 'markdown', ariaLabel: 'Markdown 본문' });
     const shortcut = (keys: number, action: MarkdownAction) => this.view.addCommand(keys, () => this.applyFormat(action));
     shortcut(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyB, 'bold');
     shortcut(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyI, 'italic');
@@ -220,13 +159,7 @@ export class Editor {
 
   setPreferences(preferences: EditorPreferences): void {
     this.preferences = preferences;
-    this.view.updateOptions({
-      lineNumbers: preferences.lineNumbers ? 'on' : 'off',
-      wordWrap: preferences.wordWrap ? 'on' : 'off',
-      minimap: { enabled: preferences.minimap },
-      renderWhitespace: preferences.whitespace ? 'all' : 'selection',
-      stickyScroll: { enabled: preferences.stickyScroll },
-    });
+    this.view.updateOptions(preferenceOptions(preferences));
     this.model?.updateOptions({ bracketColorizationOptions: { enabled: preferences.bracketColors, independentColorPoolPerBracketType: false } });
   }
   runEditorAction(id: string): void {

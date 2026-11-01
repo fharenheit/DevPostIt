@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="ko">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>소스코드 포맷터</title></head>
+<body>
+  <main id="formatter" aria-label="소스코드 포맷터">
+    <div class="formatter-bar">
+      <label for="formatter-language">언어</label>
+      <select id="formatter-language"></select>
+      <button id="formatter-format" type="button" title="소스 전체 포맷 (Ctrl+Alt+F, Shift+Alt+F)">포맷</button>
+      <span id="formatter-status" role="status"></span>
+    </div>
+    <div id="formatter-code"></div>
+  </main>
+  <script type="module" src="/src/formatter.ts"></script>
+</body>
+</html>
