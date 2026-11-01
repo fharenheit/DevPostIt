@@ -21,6 +21,7 @@ public static class SettingsMessage
         seconds = accepted ? read : 0;
         return accepted;
     }
+    public static bool TryReadCaptureAnnotate(string json, string source, out bool value) => TryReadFlag(json, source, "settings.captureAnnotate", out value);
     public static bool TryReadStartInTray(string json, string source, out bool value) => TryReadFlag(json, source, "settings.startInTray", out value);
     public static bool TryReadAutoUpdate(string json, string source, out bool value) => TryReadFlag(json, source, "settings.autoUpdate", out value);
     private static bool TryReadFlag(string json, string source, string type, out bool value)

@@ -24,6 +24,8 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
     private ObjectCaptureSession? capture;
     internal bool ObjectCaptureHooks { get; set; } = true;
     internal bool IsObjectCapturing => capture is not null;
+    private readonly List<CaptureAnnotationWindow> annotators = [];
+    internal bool AnnotateCapture { get => settingsStore.Current.AnnotateCapture; set => settingsStore.Current.AnnotateCapture = value; }
     private Action? afterExit;
     private AppUpdater? updater;
     private DispatcherTimer? updateTimer;
@@ -143,7 +145,7 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
             foreach (var window in hidden) if (!window.IsVisible && windows.ContainsValue(window)) window.Show();
         }
         capture = new ObjectCaptureSession(
-            png => { Restore(); _ = RunAsync(() => InsertCaptureAsync(target, png)); },
+            png => { Restore(); _ = RunAsync(() => FinishCaptureAsync(target, png)); },
             Restore,
             ObjectCaptureHooks);
         foreach (var window in hidden) window.Hide();
@@ -153,6 +155,17 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
         capture?.Start();
     }
     internal void CancelObjectCapture() => capture?.Cancel();
+    // 주석 창을 닫으면 그림을 버립니다. 주석을 끄면 바로 메모에 넣습니다.
+    internal Task FinishCaptureAsync(MainWindow target, byte[] png)
+    {
+        if (exiting) return Task.CompletedTask;
+        if (!AnnotateCapture) return InsertCaptureAsync(target, png);
+        var window = new CaptureAnnotationWindow(png, result => _ = RunAsync(() => InsertCaptureAsync(target, result)));
+        annotators.Add(window);
+        window.Closed += (_, _) => annotators.Remove(window);
+        window.Show();
+        return Task.CompletedTask;
+    }
     private async Task InsertCaptureAsync(MainWindow target, byte[] png)
     {
         if (ShowNote(target.NoteId) is not { } window) return;
@@ -280,6 +293,7 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
         {
             await operations.StopAsync();
             capture?.Cancel();
+            foreach (var window in annotators.ToArray()) window.Close();
             RememberNow();
             foreach (var window in windows.Values.ToArray()) if (!await window.RequestCloseAsync()) return;
             settings?.Close();

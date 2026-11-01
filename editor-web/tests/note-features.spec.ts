@@ -339,3 +339,22 @@ test('설정 페이지의 이미지 정리 버튼은 경로 없이 앱에 요청
   await page.getByRole('button', { name: '정리', exact: true }).click();
   expect((await sent(page)).at(-1)).toEqual({ protocolVersion: 1, type: 'settings.cleanImages' });
 });
+
+test('설정 페이지의 캡처 후 주석 선택을 앱에 알리고 기본은 켜짐이다', async ({ page }) => {
+  await page.addInitScript(() => {
+    const messages: unknown[] = [];
+    let receive: ((event: { data: unknown }) => void) | undefined;
+    Object.assign(window, {
+      chrome: { webview: { postMessage: (message: unknown) => messages.push(message), addEventListener: (_type: string, handler: typeof receive) => { receive = handler; } } },
+      hostMessages: messages,
+      fromHost: (message: unknown) => receive?.({ data: message }),
+    });
+  });
+  await page.goto('/settings.html');
+  const option = page.getByLabel('캡처 후 주석 창 열기');
+  await expect(option).toBeChecked();
+  await page.evaluate(() => (window as any).fromHost({ type: 'settings.state', dataFolder: 'C:\\data', captureAnnotate: false, autoUpdate: true, canUpdate: false, version: '0.4.0' }));
+  await expect(option).not.toBeChecked();
+  await option.check();
+  expect((await sent(page)).at(-1)).toEqual({ protocolVersion: 1, type: 'settings.captureAnnotate', value: true });
+});

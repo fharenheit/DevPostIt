@@ -89,7 +89,9 @@ if (host) {
   const status = document.querySelector<HTMLElement>('#settings-status')!;
   const captureDelay = document.querySelector<HTMLSelectElement>('#capture-delay')!;
   captureDelay.addEventListener('change', () => host.postMessage({ protocolVersion: 1, type: 'settings.captureDelay', value: Number(captureDelay.value) }));
-  for (const row of ['#backup-row', '#update-row', '#capture-delay-row', '#clean-images-row']) document.querySelector<HTMLElement>(row)!.hidden = false;
+  for (const row of ['#backup-row', '#update-row', '#capture-delay-row', '#clean-images-row', '#capture-annotate-row']) document.querySelector<HTMLElement>(row)!.hidden = false;
+  const captureAnnotate = document.querySelector<HTMLInputElement>('#capture-annotate')!;
+  captureAnnotate.addEventListener('change', () => host.postMessage({ protocolVersion: 1, type: 'settings.captureAnnotate', value: captureAnnotate.checked }));
   document.querySelector('#clean-images')!.addEventListener('click', () => host.postMessage({ protocolVersion: 1, type: 'settings.cleanImages' }));
   document.querySelector('#backup')!.addEventListener('click', () => host.postMessage({ protocolVersion: 1, type: 'settings.backup' }));
   document.querySelector('#restore')!.addEventListener('click', () => host.postMessage({ protocolVersion: 1, type: 'settings.restore' }));
@@ -107,7 +109,7 @@ if (host) {
       bodySelect.value = settings.bodyFont;
       return;
     }
-    const data = event.data as { type?: unknown; message?: unknown; dataFolder?: unknown; pendingFolder?: unknown; startInTray?: unknown; canChangeFolder?: unknown; autoUpdate?: unknown; canUpdate?: unknown; version?: unknown; captureDelay?: unknown } | null;
+    const data = event.data as { type?: unknown; message?: unknown; dataFolder?: unknown; pendingFolder?: unknown; startInTray?: unknown; canChangeFolder?: unknown; autoUpdate?: unknown; canUpdate?: unknown; version?: unknown; captureDelay?: unknown; captureAnnotate?: unknown } | null;
     if (data?.type === 'settings.status' && typeof data.message === 'string') {
       status.hidden = false;
       status.textContent = data.message;
@@ -119,6 +121,7 @@ if (host) {
     startInTray.checked = data.startInTray === true;
     change.hidden = data.canChangeFolder !== true;
     autoUpdate.checked = data.autoUpdate !== false;
+    captureAnnotate.checked = data.captureAnnotate !== false;
     if (typeof data.captureDelay === 'number') captureDelay.value = String(data.captureDelay);
     document.querySelector<HTMLElement>('#auto-update-row')!.hidden = data.canUpdate !== true;
     if (typeof data.version === 'string') document.querySelector('#app-version')!.textContent = `버전 ${data.version}`;

@@ -237,7 +237,7 @@ public class EditorBridgeTests
                     Assert.True(System.Text.RegularExpressions.Regex.IsMatch(sentence.TrimEnd('.'), "(니다|십시오)$"), $"합니다체가 아닙니다: {sentence}");
         }
         var text = string.Join('\n', HelpContent.Sections.SelectMany(section => section.Paragraphs.Prepend(section.Title)));
-        foreach (var topic in new[] { "휴지통", "백업", "복원", "검색", "PDF", "찾기", "바꾸기", "단축키", "미리보기", "글꼴", "업데이트", "표", "이미지", "항상 위", "데이터 폴더", "캡처", "이미지 폴더" })
+        foreach (var topic in new[] { "휴지통", "백업", "복원", "검색", "PDF", "찾기", "바꾸기", "단축키", "미리보기", "글꼴", "업데이트", "표", "이미지", "항상 위", "데이터 폴더", "캡처", "이미지 폴더", "주석", "모자이크", "Mermaid", "draw.io", "가져오기", "링크", "쓰지 않는 이미지" })
             Assert.Contains(topic, text);
     }
 
@@ -328,6 +328,68 @@ public class EditorBridgeTests
         var request = Change(7) with { Type = "note.newDiagramRequested", Payload = JsonSerializer.SerializeToElement(new { }) };
         Assert.Null(await bridge.HandleAsync(request, default));
         await Assert.ThrowsAsync<EditorProtocolException>(() => bridge.HandleAsync(request with { Revision = 6 }, default));
+    }
+
+    private static byte[] Gradient(int width, int height)
+    {
+        var pixels = new byte[width * height * 4];
+        for (var at = 0; at < pixels.Length; at += 4) { pixels[at] = (byte)(at / 4 % 251); pixels[at + 1] = (byte)(at / 8 % 241); pixels[at + 2] = 9; pixels[at + 3] = 255; }
+        return pixels;
+    }
+
+    [Fact]
+    public void MosaicMakesEveryBlockOneColorAndLeavesTheRestAlone()
+    {
+        var before = Gradient(40, 40);
+        var pixels = before.ToArray();
+        CaptureAnnotations.Pixelate(pixels, 40, 40, new ScreenRect(8, 8, 16, 16), 8);
+        byte[] At(byte[] data, int x, int y) => data[((y * 40 + x) * 4)..((y * 40 + x) * 4 + 4)];
+        Assert.Equal(At(pixels, 8, 8), At(pixels, 15, 15));
+        Assert.Equal(At(pixels, 16, 16), At(pixels, 23, 23));
+        Assert.NotEqual(At(before, 8, 8), At(pixels, 8, 8));
+        Assert.Equal(At(before, 7, 8), At(pixels, 7, 8));
+        Assert.Equal(At(before, 24, 24), At(pixels, 24, 24));
+    }
+
+    [Fact]
+    public void MosaicAveragesTheOriginalColors()
+    {
+        byte[] pixels = [0, 0, 0, 255, 100, 200, 50, 255];
+        CaptureAnnotations.Pixelate(pixels, 2, 1, new ScreenRect(0, 0, 2, 1), 2);
+        Assert.Equal(new byte[] { 50, 100, 25, 255, 50, 100, 25, 255 }, pixels);
+    }
+
+    [Theory]
+    [InlineData(30, 40, 10, 20, 10, 20, 20, 20)]
+    [InlineData(-5, -5, 10, 10, 0, 0, 10, 10)]
+    [InlineData(90, 90, 200, 200, 90, 90, 10, 10)]
+    public void AnnotationAreaIsNormalizedAndClamped(double x1, double y1, double x2, double y2, int x, int y, int width, int height) =>
+        Assert.Equal(new ScreenRect(x, y, width, height), CaptureAnnotations.Area(x1, y1, x2, y2, 100, 100));
+
+    [Theory]
+    [InlineData(200, 200, 300, 300)]
+    [InlineData(10, 10, 10, 50)]
+    public void AnnotationAreaOutsideOrEmptyIsRejected(double x1, double y1, double x2, double y2) => Assert.Null(CaptureAnnotations.Area(x1, y1, x2, y2, 100, 100));
+
+    [Fact]
+    public void ArrowHeadPointsAtTheEndOfTheLine()
+    {
+        var head = CaptureAnnotations.ArrowHead(0, 0, 100, 0, 12);
+        Assert.Equal((100.0, 0.0), head[0]);
+        Assert.True(head[1].X < 100 && head[2].X < 100);
+        Assert.Equal(head[1].X, head[2].X, 6);
+        Assert.Equal(-head[1].Y, head[2].Y, 6);
+    }
+
+    [Theory]
+    [InlineData("""{"protocolVersion":1,"type":"settings.captureAnnotate","value":false}""", true, false)]
+    [InlineData("""{"protocolVersion":1,"type":"settings.captureAnnotate","value":true}""", true, true)]
+    [InlineData("""{"protocolVersion":1,"type":"settings.captureAnnotate","value":"no"}""", false, false)]
+    public void CaptureAnnotateIsAPlainFlag(string json, bool accepted, bool value)
+    {
+        Assert.Equal(accepted, SettingsMessage.TryReadCaptureAnnotate(json, EditorOrigin.SettingsPage, out var read));
+        Assert.Equal(value, read);
+        Assert.False(SettingsMessage.TryReadCaptureAnnotate(json, EditorOrigin.Page, out _));
     }
 
     [Fact]

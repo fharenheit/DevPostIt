@@ -8,6 +8,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using DevPostIt.App;
 using DevPostIt.Core;
+using DevPostIt.EditorHost;
 using DevPostIt.Storage;
 using Microsoft.Web.WebView2.Wpf;
 using Forms = System.Windows.Forms;
@@ -369,6 +370,77 @@ internal static class Program
         await UntilAsync(async () => { await Task.Yield(); return diagramOpens.Count == 2; });
         Check(diagramOpens[1] == diagramOpens[0], "기존 다이어그램을 draw.io로 다시 염");
         await imageEditor.ExecuteScriptAsync("window.hunminEditor.setMode('source')");
+        // 캡처 주석: 입력을 보내지 않고 창의 동작과 결과 그림만 확인합니다.
+        static byte[] SolidPng(int width, int height, byte blue, byte green, byte red)
+        {
+            var pixels = new byte[width * height * 4];
+            for (var at = 0; at < pixels.Length; at += 4) { pixels[at] = blue; pixels[at + 1] = green; pixels[at + 2] = red; pixels[at + 3] = 255; }
+            var encoder = new PngBitmapEncoder();
+            encoder.Frames.Add(BitmapFrame.Create(BitmapSource.Create(width, height, 96, 96, PixelFormats.Bgra32, null, pixels, width * 4)));
+            using var stream = new MemoryStream();
+            encoder.Save(stream);
+            return stream.ToArray();
+        }
+        static (int Width, int Height, byte[] Pixels) ReadPng(byte[] png)
+        {
+            using var stream = new MemoryStream(png);
+            var frame = new FormatConvertedBitmap(BitmapDecoder.Create(stream, BitmapCreateOptions.None, BitmapCacheOption.OnLoad).Frames[0], PixelFormats.Bgra32, null, 0);
+            var pixels = new byte[frame.PixelWidth * frame.PixelHeight * 4];
+            frame.CopyPixels(pixels, frame.PixelWidth * 4, 0);
+            return (frame.PixelWidth, frame.PixelHeight, pixels);
+        }
+        static bool IsReddish(byte[] pixels, int width, int x, int y) { var at = (y * width + x) * 4; return pixels[at + 2] > 180 && pixels[at + 1] < 110 && pixels[at] < 110; }
+        var plainCapture = SolidPng(200, 120, 255, 255, 255);
+        byte[]? annotated = null;
+        var annotator = new CaptureAnnotationWindow(plainCapture, png => annotated = png);
+        annotator.Show();
+        annotator.AddAnnotation(new Annotation(AnnotationTool.Rectangle, 20, 20, 80, 60, CaptureAnnotations.Red));
+        annotator.AddAnnotation(new Annotation(AnnotationTool.Arrow, 100, 30, 180, 30, CaptureAnnotations.Red));
+        annotator.AddAnnotation(new Annotation(AnnotationTool.Text, 20, 80, 0, 0, CaptureAnnotations.Red, "주석"));
+        annotator.AddAnnotation(new Annotation(AnnotationTool.Arrow, 0, 0, 10, 10, CaptureAnnotations.Red));
+        annotator.Undo();
+        Check(annotator.AnnotationCount == 3, "주석 실행 취소");
+        annotator.Finish();
+        Check(annotated is not null && !annotator.IsVisible, "주석 완료 시 그림을 돌려주고 창을 닫음");
+        var marked = ReadPng(annotated!);
+        Check(marked.Width == 200 && marked.Height == 120, "주석 그림은 원본 픽셀 크기 유지");
+        Check(IsReddish(marked.Pixels, 200, 20, 40) && IsReddish(marked.Pixels, 200, 140, 30), "사각형과 화살표를 그림에 그림");
+        Check(!IsReddish(marked.Pixels, 200, 50, 40) && !IsReddish(marked.Pixels, 200, 5, 5), "주석 밖의 그림은 그대로");
+        Check(Enumerable.Range(20, 40).Any(x => Enumerable.Range(80, 30).Any(y => IsReddish(marked.Pixels, 200, x, y))), "글자 주석을 그림에 그림");
+        var checker = new byte[40 * 40 * 4];
+        for (var at = 0; at < checker.Length; at += 4) { var dark = (at / 4 % 40 + at / 4 / 40) % 2 == 0; checker[at] = checker[at + 1] = checker[at + 2] = (byte)(dark ? 0 : 255); checker[at + 3] = 255; }
+        var checkerEncoder = new PngBitmapEncoder();
+        checkerEncoder.Frames.Add(BitmapFrame.Create(BitmapSource.Create(40, 40, 96, 96, PixelFormats.Bgra32, null, checker, 160)));
+        using var checkerStream = new MemoryStream();
+        checkerEncoder.Save(checkerStream);
+        var hidden = ReadPng(CaptureAnnotationWindow.Render(checkerStream.ToArray(), [new Annotation(AnnotationTool.Mosaic, 0, 0, 16, 16, 0)]));
+        Check(hidden.Pixels[0] == hidden.Pixels[(5 * 40 + 5) * 4] && hidden.Pixels[0] is > 100 and < 155, "모자이크가 원래 무늬를 가림");
+        Check(hidden.Pixels[(30 * 40 + 30) * 4] is 0 or 255, "모자이크 밖은 그대로");
+        byte[]? untouched = null;
+        var plainAnnotator = new CaptureAnnotationWindow(plainCapture, png => untouched = png);
+        plainAnnotator.Show();
+        plainAnnotator.AddAnnotation(new Annotation(AnnotationTool.Arrow, 0, 0, 50, 50, CaptureAnnotations.Red));
+        plainAnnotator.InsertOriginal();
+        Check(untouched is not null && untouched.SequenceEqual(plainCapture), "그대로 넣기는 원본을 돌려줌");
+        byte[]? discarded = null;
+        var cancelled = new CaptureAnnotationWindow(plainCapture, png => discarded = png);
+        cancelled.Show();
+        cancelled.Close();
+        Check(discarded is null, "주석 창을 닫으면 메모에 넣지 않음");
+        // 캡처에서 메모까지: 설정이 켜져 있으면 주석 창을 거치고, 끄면 바로 넣습니다.
+        await imageEditor.ExecuteScriptAsync("window.hunminEditor.setMode('source')");
+        var beforeAnnotated = await imageEditor.ExecuteScriptAsync("window.hunminEditor.getDraft().markdown");
+        await manager.FinishCaptureAsync(pdfWindow, plainCapture);
+        var flow = application.Windows.OfType<CaptureAnnotationWindow>().Single();
+        Check(await imageEditor.ExecuteScriptAsync("window.hunminEditor.getDraft().markdown") == beforeAnnotated, "주석을 마치기 전에는 메모에 넣지 않음");
+        flow.Finish();
+        await UntilAsync(async () => await imageEditor.ExecuteScriptAsync("window.hunminEditor.getDraft().markdown") != beforeAnnotated);
+        manager.AnnotateCapture = false;
+        var beforeDirect = await imageEditor.ExecuteScriptAsync("window.hunminEditor.getDraft().markdown");
+        await manager.FinishCaptureAsync(pdfWindow, plainCapture);
+        await UntilAsync(async () => await imageEditor.ExecuteScriptAsync("window.hunminEditor.getDraft().markdown") != beforeDirect);
+        Check(!application.Windows.OfType<CaptureAnnotationWindow>().Any(), "주석을 끄면 바로 메모에 넣음");
+        manager.AnnotateCapture = true;
         // 가져오기와 이미지 정리: 파일 대화상자, 확인 창, Windows 휴지통 없이 분리한 데이터 폴더에서만 확인합니다.
         var importFile = Path.Combine(root, "가져올 메모.md");
         File.WriteAllText(importFile, "# 가져온 본문");
