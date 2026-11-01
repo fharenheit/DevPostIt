@@ -1,23 +1,6 @@
 import * as monaco from 'monaco-editor/editor/editor.api';
-import 'monaco-editor/languages/definitions/bat/register';
-import 'monaco-editor/languages/definitions/cpp/register';
-import 'monaco-editor/languages/definitions/csharp/register';
-import 'monaco-editor/languages/definitions/css/register';
-import 'monaco-editor/languages/definitions/dockerfile/register';
-import 'monaco-editor/languages/definitions/go/register';
-import 'monaco-editor/languages/definitions/html/register';
-import 'monaco-editor/languages/definitions/ini/register';
-import 'monaco-editor/languages/definitions/java/register';
-import 'monaco-editor/languages/definitions/javascript/register';
-import 'monaco-editor/languages/definitions/kotlin/register';
-import 'monaco-editor/languages/definitions/powershell/register';
-import 'monaco-editor/languages/definitions/python/register';
-import 'monaco-editor/languages/definitions/rust/register';
-import 'monaco-editor/languages/definitions/shell/register';
-import 'monaco-editor/languages/definitions/sql/register';
-import 'monaco-editor/languages/definitions/typescript/register';
-import 'monaco-editor/languages/definitions/xml/register';
-import 'monaco-editor/languages/definitions/yaml/register';
+// Monaco가 제공하는 모든 언어 정의를 등록합니다. 토크나이저는 해당 언어를 처음 쓸 때 불러옵니다.
+import 'monaco-editor/languages/definitions/register.all';
 
 // Monaco의 JSON은 작업자가 필요한 언어 서비스에 묶여 있어 색 구분만 하는 토크나이저를 따로 둡니다.
 monaco.languages.register({ id: 'json', extensions: ['.json'], aliases: ['JSON', 'json', 'jsonc'] });
@@ -34,10 +17,19 @@ monaco.languages.setMonarchTokensProvider('json', {
   },
 });
 // Markdown에서 자주 쓰는 언어 이름을 추가합니다. 소스 편집의 코드 블록도 이 이름으로 언어를 찾습니다.
-monaco.languages.register({ id: 'shell', aliases: ['bash', 'zsh', 'shell'] });
-monaco.languages.register({ id: 'csharp', aliases: ['cs'] });
-monaco.languages.register({ id: 'python', aliases: ['python', 'py'] });
-monaco.languages.register({ id: 'powershell', aliases: ['ps1', 'pwsh'] });
+for (const [id, aliases] of Object.entries({
+  shell: ['bash', 'zsh', 'shell'],
+  csharp: ['cs'],
+  python: ['python', 'py'],
+  powershell: ['ps1', 'pwsh'],
+  cpp: ['cc', 'cxx', 'hpp'],
+  go: ['golang'],
+  rust: ['rs'],
+  kotlin: ['kt'],
+  ruby: ['rb'],
+  javascript: ['jsx'],
+  typescript: ['tsx'],
+})) monaco.languages.register({ id, aliases });
 
 export function findLanguageId(name: string): string | undefined {
   const wanted = name.toLowerCase();

@@ -28,7 +28,37 @@ const samples: Record<string, string> = {
   csharp: 'public class Note { int count = 1; }',
 };
 
-for (const [language, code] of Object.entries(samples)) {
+const moreSamples: Record<string, string> = {
+  cpp: '#include <vector>\nint main() { return 0; } // 설명',
+  'c++': 'class Note { int count = 1; }; // 설명',
+  c: 'int main(void) { return 0; } /* 설명 */',
+  go: 'func main() { x := "메모" }',
+  rust: 'fn main() { let x = "메모"; }',
+  kotlin: 'fun main() { val x = "메모" }',
+  php: '<?php echo "메모"; ?>',
+  ruby: 'def note; "메모"; end',
+  swift: 'let note = "메모"',
+  scala: 'object Note { val x = "메모" }',
+  lua: 'local x = "메모"',
+  dart: 'void main() { var x = "메모"; }',
+  r: 'x <- "메모"',
+  perl: 'my $x = "메모";',
+  powershell: '$x = "메모"',
+  dockerfile: 'FROM node:24',
+  graphql: 'query { note(id: 1) { name } }',
+  scss: '.note { color: red; }',
+  less: '.note { color: red; }',
+  bat: 'echo 메모 & rem 설명',
+  vb: 'Dim x As String = "메모"',
+  xml: '<note id="1">메모</note>',
+  ini: '[note]\nname = 메모',
+  'objective-c': 'int main() { return 0; }',
+  tsx: 'const a = "메모";',
+  golang: 'func main() {}',
+  yml: 'name: 1',
+};
+
+for (const [language, code] of Object.entries({ ...samples, ...moreSamples })) {
   test(`미리보기에서 ${language} 코드 블록을 색으로 구분한다`, async ({ page }) => {
     await openEditor(page, `\`\`\`${language}\n${code}\n\`\`\`\n`);
     await mode(page, 'preview');
@@ -123,4 +153,12 @@ test('언어가 달라도 같은 종류의 토큰은 같은 색을 쓰고 소스
   await expect.poll(() => colorsIn(page, '#preview pre:last-of-type code')).toBeGreaterThan(1);
   expect(await colorOf(page, '#preview', 'true')).toBe(await colorOf(page, '#preview', 'const'));
   expect(await colorOf(page, '#preview', '"값"')).toBe(await colorOf(page, '#preview', '"문자"'));
+});
+
+test('소스 편집에서도 C++ 코드 블록을 색으로 구분한다', async ({ page }) => {
+  await openEditor(page, '```cpp\nint note = 1;\n```\n');
+  await expect.poll(async () => {
+    const [keyword, name] = await Promise.all([colorOf(page, '#source .view-lines', 'int'), colorOf(page, '#source .view-lines', 'note')]);
+    return Boolean(keyword && name && keyword !== name);
+  }).toBe(true);
 });
