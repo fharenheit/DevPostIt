@@ -14,12 +14,11 @@ public sealed class CollapsedNoteWindow : Window
 {
     public CollapsedNoteWindow(string title, Action restore)
     {
-        Title = $"DevPostIt 작은 메모 — {title}";
-        Width = Height = 48; WindowStyle = WindowStyle.None; ResizeMode = ResizeMode.NoResize;
+        Title = $"작은 메모 — {title}";
+        Width = Height = 24; WindowStyle = WindowStyle.None; ResizeMode = ResizeMode.NoResize;
         ShowInTaskbar = false; AllowsTransparency = true; Background = Brushes.Transparent;
         var button = new Button
         {
-            Content = new TextBlock { Text = "▤", FontSize = 30, Foreground = new SolidColorBrush(Color.FromRgb(99, 82, 23)), HorizontalAlignment = System.Windows.HorizontalAlignment.Center },
             Background = new SolidColorBrush(Color.FromRgb(255, 232, 143)), BorderBrush = new SolidColorBrush(Color.FromRgb(205, 178, 86)),
             ToolTip = $"{title}\n클릭: 열기 · 드래그: 이동", Cursor = Cursors.Hand
         };

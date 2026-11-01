@@ -23,7 +23,7 @@ public partial class App : System.Windows.Application
         }
         catch (Exception error)
         {
-            System.Windows.MessageBox.Show($"DevPostIt을 시작하지 못했습니다. 이미 실행 중이면 트레이 아이콘을 확인하세요.\n{error.Message}", "DevPostIt", MessageBoxButton.OK, MessageBoxImage.Error);
+            System.Windows.MessageBox.Show($"메모장을 시작하지 못했습니다. 이미 실행 중이면 트레이 아이콘을 확인하세요.\n{error.Message}", "메모", MessageBoxButton.OK, MessageBoxImage.Error);
             if (workspace is not null) await workspace.DisposeAsync();
             Shutdown(1);
         }

@@ -5,7 +5,7 @@ namespace HunminNotes.Storage;
 
 public sealed class DuplicateNoteIdException(Guid id) : IOException($"중복 메모 ID: {id}");
 
-public sealed class MarkdownNoteRepository : INoteRepository
+public sealed class MarkdownNoteRepository : INoteDeletionRepository
 {
     private readonly string rootPath;
     private readonly FrontmatterCodec codec = new();
@@ -26,6 +26,20 @@ public sealed class MarkdownNoteRepository : INoteRepository
     }
 
     public Task SaveAsync(Note note, CancellationToken cancellationToken) => SaveCoreAsync(note, cancellationToken, false);
+    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken)
+    {
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            var note = (await ScanAsync(cancellationToken)).SingleOrDefault(note => note.Id == id);
+            if (note is null) return;
+            var (_, full) = Resolve(note.RelativePath);
+            RejectLinks(full);
+            cancellationToken.ThrowIfCancellationRequested();
+            File.Delete(full);
+        }
+        finally { gate.Release(); }
+    }
     public async Task<IReadOnlyList<Note>> ListAsync(CancellationToken cancellationToken)
     {
         await gate.WaitAsync(cancellationToken);

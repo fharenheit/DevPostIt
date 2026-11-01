@@ -19,7 +19,7 @@ internal static class Program
         var code = 0;
         application.Startup += async (_, _) =>
         {
-            try { await VerifyAsync(application, root); Console.WriteLine("WPF 수명 검증 통과: 접기·클릭 복원·개별 창 닫기·생성/종료 경합·임대 해제"); }
+            try { await VerifyAsync(application, root); Console.WriteLine("WPF 검증 통과: 최소화·24px 복원·X 삭제 확인·초기화 취소·지연 입력 보존·종료 경합"); }
             catch (Exception error) { code = 1; Console.Error.WriteLine(error); }
             finally { application.Shutdown(); }
         };
@@ -29,6 +29,15 @@ internal static class Program
     private static async Task VerifyAsync(System.Windows.Application application, string root)
     {
         var workspace = await NoteWorkspace.OpenAsync(System.IO.Path.Combine(root, "data"), default);
+        var opening = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var starting = new MainWindow(workspace, workspace.Notes.Single().Id) { InitializationDelay = () => opening.Task, DeleteConfirmation = () => MessageBoxResult.No };
+        starting.Show();
+        await application.Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.ContextIdle);
+        var earlyCancel = starting.RequestDeleteAsync();
+        opening.SetResult();
+        Check(!await earlyCancel, "초기화 중 삭제 취소");
+        await ReadyAsync(starting);
+        Check(await starting.RequestCloseAsync(), "삭제 취소 후 편집기 초기화 유지");
         var completion = new TaskCompletionSource<Note>(TaskCreationOptions.RunContinuationsAsynchronously);
         var delaying = false;
         var quit = false;
@@ -37,6 +46,17 @@ internal static class Program
         var first = manager.ShowNote(workspace.Notes.Single().Id)!;
         await ReadyAsync(first);
         var editor = (WebView2)first.FindName("EditorView");
+        var firstNote = workspace.Notes.Single();
+        first.DeleteConfirmation = () => MessageBoxResult.Yes;
+        first.DeleteFailureDialog = async _ =>
+        {
+            await editor.ExecuteScriptAsync("window.hunminEditor.rename('늦게 전달된 이름')");
+            await Task.Delay(100);
+        };
+        using (var locked = new FileStream(Path.Combine(root, "data", "notes", firstNote.RelativePath), FileMode.Open, FileAccess.Read, FileShare.Read))
+            Check(!await first.RequestDeleteAsync(), "삭제 실패 시 창 유지");
+        await UntilAsync(async () => (await workspace.Service.GetStateAsync(first.NoteId, default)).Note.Title == "늦게 전달된 이름");
+        first.DeleteConfirmation = null; first.DeleteFailureDialog = null;
         var original = await workspace.Service.GetStateAsync(first.NoteId, default);
         var warningVisible = false;
         first.CloseFailurePrompt = (uncaptured, _) =>
@@ -45,7 +65,8 @@ internal static class Program
             return MessageBoxResult.OK;
         };
         await editor.ExecuteScriptAsync("window.hunminEditor.load('oversized', ('x'.repeat(80)+'\\n').repeat(13000), 100)");
-        manager.Collapse(first);
+        first.WindowState = WindowState.Minimized;
+        await UntilAsync(() => Task.FromResult(application.Windows.OfType<CollapsedNoteWindow>().Count() == 1));
         Check(!await first.RequestCloseAsync(), "미보존 초안의 종료 차단");
         Check(warningVisible, "접힌 창의 미보존 초안 경고는 복원된 창에 표시");
         Check(first.IsVisible && !application.Windows.OfType<CollapsedNoteWindow>().Any(), "종료 취소 시 작은 아이콘 제거");
@@ -54,9 +75,10 @@ internal static class Program
         first.CloseFailurePrompt = null;
         await editor.ExecuteScriptAsync("window.hunminEditor.rename('접기 복원 검증')");
         await UntilAsync(async () => (await workspace.Service.GetStateAsync(first.NoteId, default)).Note.Title == "접기 복원 검증");
-        manager.Collapse(first);
+        first.WindowState = WindowState.Minimized;
+        await UntilAsync(() => Task.FromResult(application.Windows.OfType<CollapsedNoteWindow>().Count() == 1));
         var icon = application.Windows.OfType<CollapsedNoteWindow>().Single();
-        Check(!first.IsVisible && icon.IsVisible && icon.Width == 48, "접힌 아이콘 표시");
+        Check(!first.IsVisible && icon.IsVisible && icon.Width == 24 && ((Button)icon.Content).Content is null, "24px 빈 노란 아이콘 표시");
         ((Button)icon.Content).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         Check(first.IsVisible && !application.Windows.OfType<CollapsedNoteWindow>().Any(), "같은 창 클릭 복원");
         Check(ReferenceEquals(first, manager.ShowNote(first.NoteId)), "중복 창 방지");
@@ -97,6 +119,15 @@ internal static class Program
         var reopened = application.Windows.OfType<MainWindow>().Single();
         await ReadyAsync(reopened);
         Check(await reopened.RequestCloseAsync(), "마지막 창 닫은 뒤 트레이 목록에서 다시 열기");
+        var deleting = manager.ShowNote(first.NoteId)!;
+        await ReadyAsync(deleting);
+        deleting.DeleteConfirmation = () => MessageBoxResult.No;
+        Check(!await deleting.RequestDeleteAsync() && deleting.IsVisible, "X 삭제 확인 취소");
+        Check(workspace.Notes.Any(note => note.Id == first.NoteId), "취소 시 메모 보존");
+        deleting.DeleteConfirmation = () => MessageBoxResult.Yes;
+        Check(await deleting.RequestDeleteAsync(), "X 삭제 승인");
+        Check(workspace.Notes.All(note => note.Id != first.NoteId), "승인 시 목록 제거");
+        Check(workspace.Notes.Any(note => note.Id == second.NoteId), "다른 메모 보존");
         using (var attempted = new DataDirectoryLease(System.IO.Path.Combine(root, "other-data"))) { }
         delaying = true;
         var creating = manager.CreateAsync();

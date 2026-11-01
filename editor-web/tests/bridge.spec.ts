@@ -1,13 +1,13 @@
 import { test, expect, type Page } from '@playwright/test';
-import { replaceText, mode, draft } from './helpers';
+import { replaceText, mode, draft, openSettings } from './helpers';
 
 const id = '018f5df0-7e6c-7ad0-a8c1-9b67490da11b';
-test('제목 더블클릭으로 현재 메모의 접기 요청을 보낸다', async ({ page }) => {
+test('제목 더블클릭은 접기 대신 이름 편집을 연다', async ({ page }) => {
   await hosted(page);
   await send(page);
   await page.locator('h1').dblclick();
-  await expect.poll(async () => (await messages(page)).at(-1)?.type).toBe('window.collapseRequested');
-  expect((await messages(page)).at(-1)?.noteId).toBe(id);
+  await expect(page.getByLabel('메모 이름', { exact: true })).toBeVisible();
+  expect((await messages(page)).some(message => message.type === 'window.collapseRequested')).toBe(false);
 });
 
 test('트레이 설정 요청은 대화상자를 열고 글자 크기는 다른 창에도 적용된다', async ({ page, context }) => {
@@ -27,7 +27,7 @@ test('메모 제목 로드·이름 변경·취소와 본문을 같은 리비전�
   await hosted(page);
   await send(page, 'note.load', 7, { markdown: '원본', title: '첫 이름' });
   await expect(page.locator('h1')).toHaveText('첫 이름');
-  await page.getByRole('button', { name: '이름 변경', exact: true }).click();
+  await page.locator('h1').dblclick();
   await page.getByLabel('메모 이름', { exact: true }).fill('  회의 기록  ');
   await page.getByRole('button', { name: '확인', exact: true }).click();
   await expect(page.locator('h1')).toHaveText('회의 기록');
@@ -37,7 +37,7 @@ test('메모 제목 로드·이름 변경·취소와 본문을 같은 리비전�
   expect(change.revision).toBe(8);
   await send(page, 'note.saved', 8, {});
   expect((await draft(page)).dirty).toBe(false);
-  await page.getByRole('button', { name: '이름 변경', exact: true }).click();
+  await page.locator('h1').dblclick();
   await page.getByLabel('메모 이름', { exact: true }).fill('취소 이름');
   await page.getByRole('button', { name: '취소', exact: true }).click();
   await expect(page.locator('h1')).toHaveText('회의 기록');
@@ -94,6 +94,7 @@ test('잘못된 호스트 메시지와 오래된 저장 응답은 현재 본문�
   expect((await draft(page)).markdown).toBe('유지할 변경');
   const count = (await messages(page)).length;
   await mode(page, 'preview');
+  await openSettings(page);
   await page.getByRole('button', { name: '글자 크게', exact: true }).click();
   expect((await messages(page)).length).toBe(count);
 });

@@ -15,7 +15,7 @@ public sealed class TrayService : IDisposable
     public TrayService(DesktopNoteManager manager, NoteWorkspace workspace, Dispatcher dispatcher)
     {
         void Run(Func<Task> action) => dispatcher.BeginInvoke(new Action(() => _ = DesktopNoteManager.RunAsync(action)));
-        tray = new Forms.NotifyIcon { Text = "DevPostIt", Icon = icon, ContextMenuStrip = menu, Visible = true };
+        tray = new Forms.NotifyIcon { Text = "메모장", Icon = icon, ContextMenuStrip = menu, Visible = true };
         tray.MouseClick += (_, e) => { if (e.Button == Forms.MouseButtons.Left) Run(manager.CreateAsync); };
         menu.Opening += (_, _) =>
         {

@@ -47,6 +47,7 @@ public sealed class NoteService(INoteRepository repository, IDraftJournal journa
         await session.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            if (session.Deleted) throw new KeyNotFoundException("삭제된 메모입니다.");
             if (session.State.RecoveryPending) throw new InvalidOperationException("복구 내용을 먼저 선택하세요.");
             if (change.Revision <= session.State.Revision || change.Revision > 9_007_199_254_740_991)
                 throw new InvalidOperationException("오래되거나 유효하지 않은 리비전입니다.");
@@ -75,12 +76,61 @@ public sealed class NoteService(INoteRepository repository, IDraftJournal journa
 
     public Task<NoteSaveState> FlushAsync(Guid id, CancellationToken cancellationToken) => FlushCoreAsync(GetSession(id), null, cancellationToken);
 
+    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken)
+    {
+        if (repository is not INoteDeletionRepository deletions || index is not INoteIndexDeletionWriter indexDeletions)
+            throw new NotSupportedException("이 저장소는 영구 삭제를 지원하지 않습니다.");
+        var session = GetSession(id);
+        await session.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (session.Deleted) return;
+            StopTimer(session);
+            var previousDraft = await journal.ReadAsync(id, cancellationToken).ConfigureAwait(false);
+            await journal.RemoveAsync(id, cancellationToken).ConfigureAwait(false);
+            session.JournalPending = false; session.JournalRevision = -1;
+            try
+            {
+                await indexDeletions.RemoveAsync(id, cancellationToken).ConfigureAwait(false);
+                await deletions.DeleteAsync(id, cancellationToken).ConfigureAwait(false);
+                session.Deleted = true;
+                sessions.TryRemove(id, out _);
+            }
+            catch
+            {
+                try
+                {
+                    if (previousDraft is not null)
+                    {
+                        await journal.WriteAsync(previousDraft, CancellationToken.None).ConfigureAwait(false);
+                        session.JournalPending = true; session.JournalRevision = previousDraft.Revision;
+                    }
+                    else if (session.State.HasUnsavedChanges) await WriteJournalAsync(session, CancellationToken.None).ConfigureAwait(false);
+                }
+                catch { /* 파일은 남겨 두고 삭제 오류를 보고합니다. */ }
+                try
+                {
+                    var disk = await repository.GetAsync(id, CancellationToken.None).ConfigureAwait(false);
+                    if (disk is not null) await index.UpsertAsync(disk, CancellationToken.None).ConfigureAwait(false);
+                }
+                catch { /* 파생 인덱스는 재시작 때 복구하며 메모 파일을 보존합니다. */ }
+                throw;
+            }
+        }
+        finally
+        {
+            if (!session.Deleted && session.State.HasUnsavedChanges && !session.State.RecoveryPending) Schedule(session);
+            session.Gate.Release();
+        }
+    }
+
     private async Task<NoteSaveState> FlushCoreAsync(Session session, long? expectedRevision, CancellationToken cancellationToken)
     {
         NoteSaveState? notification = null;
         await session.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            if (session.Deleted) throw new KeyNotFoundException("삭제된 메모입니다.");
             if (expectedRevision.HasValue && session.State.Revision != expectedRevision.Value) return session.State;
             if (session.State.RecoveryPending) throw new InvalidOperationException("복구 내용을 먼저 선택하세요.");
             StopTimer(session);
@@ -125,7 +175,7 @@ public sealed class NoteService(INoteRepository repository, IDraftJournal journa
     {
         var session = GetSession(id);
         await session.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try { return session.State; }
+        try { if (session.Deleted) throw new KeyNotFoundException("삭제된 메모입니다."); return session.State; }
         finally { session.Gate.Release(); }
     }
 
@@ -136,6 +186,7 @@ public sealed class NoteService(INoteRepository repository, IDraftJournal journa
         await session.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            if (session.Deleted) throw new KeyNotFoundException("삭제된 메모입니다.");
             if (!session.State.RecoveryPending) return session.State;
             if (restore)
             {
@@ -211,6 +262,7 @@ public sealed class NoteService(INoteRepository repository, IDraftJournal journa
 
     private sealed class Session(NoteSaveState state, string baseFingerprint)
     {
+        public bool Deleted;
         public readonly SemaphoreSlim Gate = new(1, 1);
         public readonly List<Task> Jobs = [];
         public NoteSaveState State = state;

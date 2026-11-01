@@ -22,21 +22,30 @@ public partial class MainWindow : Window
     private Task<NoteSaveState>? startup;
     private Task? initialization;
     private bool closing;
+    private bool confirming;
+    private readonly Queue<(string Json, string Source)> deferredMessages = new();
     private bool allowClose;
     private bool closed;
     private bool opened;
 
     private TaskCompletionSource<bool>? closeCompletion;
     private bool settingsRequested;
+    private bool renameRequested;
+    private bool preserveOnClose = true;
+    internal Func<MessageBoxResult>? DeleteConfirmation { get; set; }
+    internal Func<Task>? InitializationDelay { get; set; }
+    internal Func<string, Task>? DeleteFailureDialog { get; set; }
+    internal Task<bool> RequestDeleteAsync() => BeginClose(false);
     internal Func<bool, string, MessageBoxResult>? CloseFailurePrompt { get; set; }
     private MessageBoxResult ReportCloseFailure(bool uncaptured, string error)
     {
         if (!IsVisible) Show();
+        if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
         Activate();
         if (CloseFailurePrompt is { } prompt) return prompt(uncaptured, error);
         return uncaptured
-            ? MessageBox.Show(this, $"화면의 최신 입력을 안전하게 보존하지 못해 종료를 취소했습니다.\n내용을 별도로 보관하거나 분량을 줄인 뒤 다시 시도하세요.\n{error}", "DevPostIt 미보존 초안", MessageBoxButton.OK, MessageBoxImage.Warning)
-            : MessageBox.Show(this, $"저장을 완료하지 못했습니다.\n{error}\n복구 기록을 보존한 채 종료할까요?", "DevPostIt 저장 오류", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            ? MessageBox.Show(this, $"화면의 최신 입력을 안전하게 보존하지 못해 종료를 취소했습니다.\n내용을 별도로 보관하거나 분량을 줄인 뒤 다시 시도하세요.\n{error}", "미보존 초안", MessageBoxButton.OK, MessageBoxImage.Warning)
+            : MessageBox.Show(this, $"저장을 완료하지 못했습니다.\n{error}\n복구 기록을 보존한 채 종료할까요?", "저장 오류", MessageBoxButton.YesNo, MessageBoxImage.Warning);
     }
     public Guid NoteId => noteId;
     public bool CanCollapse => !closed && !closing;
@@ -47,35 +56,51 @@ public partial class MainWindow : Window
         this.workspace = workspace; this.noteId = noteId;
         InitializeComponent();
         SourceInitialized += (_, _) => HwndSource.FromHwnd(new WindowInteropHelper(this).Handle)?.AddHook(WindowMessage);
+        StateChanged += (_, _) => { if (WindowState == WindowState.Minimized && CanCollapse) CollapseRequested?.Invoke(this); };
     }
     private IntPtr WindowMessage(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
+        if (message == 0x0112 && (wParam.ToInt64() & 0xFFF0) == 0xF060 && !closing && !confirming) preserveOnClose = false;
         if (message == 0x00A3 && wParam.ToInt64() == 2 && CanCollapse)
         {
             handled = true;
-            Dispatcher.BeginInvoke(new Action(() => CollapseRequested?.Invoke(this)));
+            Dispatcher.BeginInvoke(new Action(ShowRename));
         }
         return IntPtr.Zero;
     }
-    public Task<bool> RequestCloseAsync()
+    public Task<bool> RequestCloseAsync() => BeginClose(true);
+    private Task<bool> BeginClose(bool preserve)
     {
         if (closed) return Task.FromResult(true);
         if (closeCompletion is not null) return closeCompletion.Task;
         var completion = closeCompletion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        if (closing || confirming) return completion.Task;
+        preserveOnClose = preserve;
         Close();
         return completion.Task;
     }
     private void CancelClose()
     {
         closing = false; EditorView.IsEnabled = true;
+        preserveOnClose = true;
         closeCompletion?.TrySetResult(false); closeCompletion = null;
         if (!IsVisible) Show();
+        if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
         Activate();
+        if (initialization?.IsCompleted == true && bridge is null) initialization = InitializeEditorAsync();
+        var pending = deferredMessages.ToArray();
+        deferredMessages.Clear();
+        foreach (var message in pending) _ = ProcessMessageAsync(message.Json, message.Source);
     }
     public void ShowSettings()
     {
         if (bridge is null || Loading.Visibility != Visibility.Collapsed) { settingsRequested = true; return; }
         Send("ui.openSettings", new { }, bridge.Revision);
+    }
+    public void ShowRename()
+    {
+        if (bridge is null || Loading.Visibility != Visibility.Collapsed) { renameRequested = true; return; }
+        Send("ui.openRename", new { }, bridge.Revision);
     }
 
     private void WindowLoaded(object sender, RoutedEventArgs e) => initialization ??= InitializeEditorAsync();
@@ -84,14 +109,15 @@ public partial class MainWindow : Window
     {
         try
         {
+            if (InitializationDelay is { } delay) await delay();
             startup = Task.Run(OpenNotesAsync);
             var state = await startup;
             if (closing || closed) return;
             opened = true;
-            Title = $"{state.Note.Title} — DevPostIt";
+            Title = state.Note.Title;
             if (state.RecoveryPending)
             {
-                var choice = MessageBox.Show(this, "저장되지 않은 복구 초안이 있습니다.\n예: 초안을 복원합니다.\n아니요: 현재 파일을 유지하고 초안을 버립니다.\n취소: 복구 기록을 보존하고 닫습니다.", "DevPostIt 복구", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+                var choice = MessageBox.Show(this, "저장되지 않은 복구 초안이 있습니다.\n예: 초안을 복원합니다.\n아니요: 현재 파일을 유지하고 초안을 버립니다.\n취소: 복구 기록을 보존하고 닫습니다.", "메모 복구", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
                 if (choice == MessageBoxResult.Cancel)
                 {
                     allowClose = true; Close(); return;
@@ -133,20 +159,24 @@ public partial class MainWindow : Window
             core.NavigationCompleted += (_, args) => { if (!args.IsSuccess) LoadingText.Text = $"편집기를 열지 못했습니다: {args.WebErrorStatus}"; };
             core.Navigate(EditorOrigin.Page);
         }
-        catch (Exception error) { LoadingText.Text = $"DevPostIt을 시작하지 못했습니다.\n{error.Message}"; }
+        catch (Exception error) { LoadingText.Text = $"메모장을 시작하지 못했습니다.\n{error.Message}"; }
     }
 
     private Task<NoteSaveState> OpenNotesAsync() => workspace.OpenNoteAsync(noteId, CancellationToken.None);
 
     private async void MessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs args)
     {
-        if (bridge is null || service is null || closing) return;
-        var json = args.WebMessageAsJson;
-        var source = args.Source;
+        await ProcessMessageAsync(args.WebMessageAsJson, args.Source);
+    }
+    private async Task ProcessMessageAsync(string json, string source)
+    {
+        if (bridge is null || closed) return;
+        if (closing) { deferredMessages.Enqueue((json, source)); return; }
         await messages.WaitAsync();
         try
         {
-            if (closing) return;
+            if (closed) return;
+            if (closing) { deferredMessages.Enqueue((json, source)); return; }
             var result = await bridge.ReceiveAsync(json, source, CancellationToken.None);
             if (result.Change is not null) await Task.Run(() => service.ApplyChangeAsync(result.Change, CancellationToken.None));
             else if (result.Message.Type == "editor.ready")
@@ -157,6 +187,7 @@ public partial class MainWindow : Window
                 else if (state.HasUnsavedChanges) Send("note.conflict", new { message = "복구 초안을 자동 저장하는 중입니다." }, state.Revision);
                 Loading.Visibility = Visibility.Collapsed;
                 if (settingsRequested) { settingsRequested = false; ShowSettings(); }
+                if (renameRequested) { renameRequested = false; ShowRename(); }
             }
             else if (result.Message.Type == "window.collapseRequested") CollapseRequested?.Invoke(this);
             else if (result.Message.Type == "note.newRequested") NewNoteRequested?.Invoke();
@@ -183,7 +214,7 @@ public partial class MainWindow : Window
         Dispatcher.BeginInvoke(new Action(() =>
         {
             if (closed || closing || bridge is null) return;
-            Title = $"{state.Note.Title} — DevPostIt";
+            Title = state.Note.Title;
             if (!state.HasUnsavedChanges && !state.RecoveryPending) Send("note.saved", new { }, state.SavedRevision);
             if (state.Error is not null) Send("note.conflict", new { message = state.Error }, state.Revision);
         }));
@@ -201,7 +232,19 @@ public partial class MainWindow : Window
         if (allowClose) return;
         if (service is null && startup is null) return;
         e.Cancel = true;
-        if (closing) return;
+        if (closing || confirming) return;
+        if (!preserveOnClose)
+        {
+            confirming = true;
+            try
+            {
+                if (!IsVisible) Show();
+                Activate();
+                var answer = DeleteConfirmation?.Invoke() ?? MessageBox.Show(this, "메모를 영구 삭제하시겠습니까?", "메모 삭제", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+                if (answer != MessageBoxResult.Yes) { CancelClose(); return; }
+            }
+            finally { confirming = false; }
+        }
         closing = true;
         EditorView.IsEnabled = false;
         await messages.WaitAsync();
@@ -209,6 +252,11 @@ public partial class MainWindow : Window
         try
         {
             if (initialization is not null) { try { await initialization; } catch (Exception) { } }
+            if (!preserveOnClose)
+            {
+                await Task.Run(() => workspace.DeleteAsync(noteId, CancellationToken.None));
+                allowClose = true; Close(); return;
+            }
             if (opened)
             {
                 if (bridge is not null && EditorView.CoreWebView2 is not null && Loading.Visibility == Visibility.Collapsed)
@@ -232,6 +280,12 @@ public partial class MainWindow : Window
         }
         catch (Exception error)
         {
+            if (!preserveOnClose)
+            {
+                if (DeleteFailureDialog is { } dialog) await dialog(error.Message);
+                else MessageBox.Show(this, $"메모를 삭제하지 못했습니다.\n{error.Message}", "삭제 오류", MessageBoxButton.OK, MessageBoxImage.Error);
+                CancelClose(); return;
+            }
             if (!snapshotCaptured)
             {
                 ReportCloseFailure(true, error.Message);
@@ -249,5 +303,5 @@ public partial class MainWindow : Window
         Close();
     }
 
-    private void WindowClosed(object? sender, EventArgs e) { closed = true; service.StateChanged -= OnNoteStateChanged; EditorView.Dispose(); closeCompletion?.TrySetResult(true); }
+    private void WindowClosed(object? sender, EventArgs e) { closed = true; deferredMessages.Clear(); service.StateChanged -= OnNoteStateChanged; EditorView.Dispose(); closeCompletion?.TrySetResult(true); }
 }

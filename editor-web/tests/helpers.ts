@@ -7,7 +7,13 @@ export async function openEditor(page: Page, markdown = '', revision = 7) {
 }
 export async function draft(page: Page) { return page.evaluate(() => window.hunminEditor.getDraft()); }
 export async function mode(page: Page, value: 'source' | 'preview') {
+  const settings = page.getByRole('dialog', { name: '설정', exact: true });
+  if (await settings.isVisible()) await settings.getByRole('button', { name: '닫기', exact: true }).click();
   await page.getByRole('button', { name: value === 'source' ? '소스 편집' : '미리보기', exact: true }).click();
+}
+export async function openSettings(page: Page) {
+  await page.keyboard.press('Control+,');
+  await expect(page.getByRole('dialog', { name: '설정', exact: true })).toBeVisible();
 }
 export async function replaceText(page: Page, text: string) {
   const input = page.getByRole('textbox', { name: 'Markdown 본문' });

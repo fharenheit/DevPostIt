@@ -11,6 +11,14 @@ public interface INoteIndexWriter
 {
     Task UpsertAsync(Note note, CancellationToken cancellationToken);
 }
+public interface INoteIndexDeletionWriter : INoteIndexWriter
+{
+    Task RemoveAsync(Guid id, CancellationToken cancellationToken);
+}
+public interface INoteDeletionRepository : INoteRepository
+{
+    Task DeleteAsync(Guid id, CancellationToken cancellationToken);
+}
 public enum NoteSaveStatus { Clean, Pending, Saved, Failed, RecoveryPending }
 public record NoteSaveState(Note Note, long Revision, long SavedRevision, NoteSaveStatus Status,
     bool RecoveryPending, bool IndexPending, string? Error)

@@ -45,7 +45,8 @@ public sealed class FileRecoveryJournal : IDraftJournal
     public Task RemoveAsync(Guid id, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        File.Delete(GetPath(id));
+        try { File.Delete(GetPath(id)); }
+        catch (DirectoryNotFoundException) { /* 아직 초안을 만든 적이 없는 메모도 제거할 수 있습니다. */ }
         return Task.CompletedTask;
     }
 

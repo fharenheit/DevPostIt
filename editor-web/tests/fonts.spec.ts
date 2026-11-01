@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { openEditor, draft } from './helpers';
+import { openEditor, draft, openSettings } from './helpers';
 
 test('먼저 요청한 글꼴이 늦게 로딩되어도 최신 선택을 덮어쓰지 않는다', async ({ page }) => {
   let release!: () => void;
@@ -7,6 +7,7 @@ test('먼저 요청한 글꼴이 늦게 로딩되어도 최신 선택을 덮어�
   await page.route('**/D2Codingligature-Regular.ttf', async route => { await fontReleased; await route.continue(); });
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => Boolean(window.hunminEditor));
+  await openSettings(page);
   await page.getByLabel('편집 글꼴').selectOption('jetbrains');
   await page.getByLabel('합자 사용').uncheck();
   release();
@@ -28,6 +29,7 @@ test('오프라인 글꼴 두 개가 실제 로딩되고 선택·합자 설정�
     expect.objectContaining({ family: 'JetBrains Mono', status: 'loaded' }),
   ]));
   await expect(page.getByLabel('편집 글꼴')).toHaveValue('d2');
+  await openSettings(page);
   await page.getByLabel('편집 글꼴').selectOption('jetbrains');
   await expect(page.locator('.monaco-editor .view-lines')).toHaveCSS('font-family', /^"JetBrains Mono"/);
   await expect(page.getByLabel('합자 사용')).toBeChecked();

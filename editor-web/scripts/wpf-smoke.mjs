@@ -8,9 +8,10 @@ try {
   const page = pages.find(candidate => candidate.url() === 'https://devpostit.local/index.html');
   if (!page) throw new Error('DevPostIt의 로컬 편집기 페이지를 찾지 못했습니다.');
   await page.waitForFunction(() => Boolean(window.hunminEditor));
-  await expect(page).toHaveTitle('DevPostIt');
+  await expect(page).not.toHaveTitle('DevPostIt');
   await expect(page.locator('#host-status')).toContainText('앱 연결됨');
   if (process.argv.includes('--restore')) {
+    await page.keyboard.press('Control+,');
     await expect(page.getByLabel('기준 글자 크기')).toHaveText('16');
     await expect(page.getByLabel('편집 글꼴')).toHaveValue('jetbrains');
     await expect(page.getByLabel('합자 사용')).not.toBeChecked();
@@ -27,6 +28,7 @@ try {
     await expect(page.locator('#host-status')).toContainText('저장됨');
     await page.getByRole('button', { name: '미리보기', exact: true }).click();
     await expect(page.locator('#preview h1')).toHaveText('WPF 실제 편집');
+    await page.keyboard.press('Control+,');
     await page.getByRole('button', { name: '글자 크게', exact: true }).click();
     await expect(page.getByLabel('기준 글자 크기')).toHaveText('16');
     await page.getByLabel('편집 글꼴').selectOption('jetbrains');

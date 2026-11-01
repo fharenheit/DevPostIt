@@ -51,6 +51,8 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
     public void CollapseAll() { foreach (var window in windows.Values.ToArray()) Collapse(window); }
     public void ShowSettings()
     {
+        if (exiting) return;
+        if (workspace.Notes.Count == 0) { _ = RunAsync(async () => { await CreateAsync(); ShowSettings(); }); return; }
         var window = windows.Values.FirstOrDefault(window => window.IsActive) ?? windows.Values.FirstOrDefault();
         ShowNote(window?.NoteId ?? workspace.Notes[0].Id)?.ShowSettings();
     }
@@ -72,6 +74,6 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
     public static async Task RunAsync(Func<Task> action)
     {
         try { await action(); }
-        catch (Exception error) { System.Windows.MessageBox.Show(error.Message, "DevPostIt", MessageBoxButton.OK, MessageBoxImage.Error); }
+        catch (Exception error) { System.Windows.MessageBox.Show(error.Message, "메모", MessageBoxButton.OK, MessageBoxImage.Error); }
     }
 }
