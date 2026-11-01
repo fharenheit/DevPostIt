@@ -7,3 +7,6 @@ TestResults/
 editor-web/dist/
 editor-web/test-results/
 editor-web/playwright-report/
+CLAUDE.local.md
+.claude/settings.local.json
+.claude/worktrees/
