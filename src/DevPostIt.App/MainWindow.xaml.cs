@@ -3,6 +3,8 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Interop;
+using System.Windows.Media.Imaging;
+using System.Windows.Shell;
 using MessageBox = System.Windows.MessageBox;
 using DevPostIt.Core;
 using DevPostIt.EditorHost;
@@ -51,23 +53,34 @@ public partial class MainWindow : Window
     public event Action<MainWindow>? CollapseRequested;
     public event Action? NewNoteRequested;
     public event Action? SettingsRequested;
+    public event Action? SearchRequested;
+    public event Action<string, bool>? AppearanceChanged;
+    public string NoteColor { get; private set; } = NoteColors.Default;
+    public void ApplyAppearance(string color, bool topmost)
+    {
+        NoteColor = color;
+        Topmost = topmost;
+        if (new WindowInteropHelper(this).Handle is var handle && handle != IntPtr.Zero) ApplyTitleBarColors(handle, color);
+    }
     public MainWindow(NoteWorkspace workspace, Guid noteId)
     {
         this.workspace = workspace; this.noteId = noteId;
         InitializeComponent();
         Icon = NoteIcon.WindowImage;
+        // 창 제목은 모든 메모가 같으므로 작업 표시줄 미리보기 설명으로 메모 이름을 구분합니다.
+        TaskbarItemInfo = new TaskbarItemInfo();
         SourceInitialized += (_, _) =>
         {
             var handle = new WindowInteropHelper(this).Handle;
             HwndSource.FromHwnd(handle)?.AddHook(WindowMessage);
-            ApplyTitleBarColors(handle);
+            ApplyTitleBarColors(handle, NoteColor);
         };
         StateChanged += (_, _) => { if (WindowState == WindowState.Minimized && CanCollapse) CollapseRequested?.Invoke(this); };
     }
     // 네이티브 제목 표시줄을 메모지 색에 맞춥니다. 지원하지 않는 Windows 10에서는 호출만 실패하고 기본 색을 유지합니다. 값은 0x00BBGGRR입니다.
-    internal static void ApplyTitleBarColors(IntPtr handle)
+    internal static void ApplyTitleBarColors(IntPtr handle, string? noteColor = null)
     {
-        foreach (var (attribute, color) in new[] { (34, 0x00BDDFE8), (35, 0x00BFF3FF), (36, 0x001F2A2F) })
+        foreach (var (attribute, color) in new[] { (34, 0x00BDDFE8), (35, NoteAppearance.CaptionColor(noteColor)), (36, 0x001F2A2F) })
         {
             var value = color;
             _ = DwmSetWindowAttribute(handle, attribute, ref value, sizeof(int));
@@ -134,7 +147,9 @@ public partial class MainWindow : Window
                 try { state = await Task.Run(() => service!.FlushAsync(noteId, CancellationToken.None)); }
                 catch (Exception) { state = await service!.GetStateAsync(noteId, CancellationToken.None); }
             }
-            var core = await LocalWebView.ConfigureAsync(EditorView, EditorOrigin.IsTrustedPage);
+            var core = await LocalWebView.ConfigureAsync(EditorView, EditorOrigin.IsTrustedPage, workspace.AssetsRoot);
+            TaskbarItemInfo.Description = state.Note.Title;
+            service!.ExternalChanged += OnExternalChanged;
             bridge = new EditorBridge(noteId, state.Revision);
             service!.StateChanged += OnNoteStateChanged;
             core.WebMessageReceived += MessageReceived;
@@ -167,11 +182,26 @@ public partial class MainWindow : Window
                 Send("note.load", new { markdown = state.Note.Markdown, title = state.Note.Title }, state.Revision);
                 if (state.Error is not null) Send("note.conflict", new { message = state.Error }, state.Revision);
                 else if (state.HasUnsavedChanges) Send("note.conflict", new { message = "복구 초안을 자동 저장하는 중입니다." }, state.Revision);
+                Send("ui.appearance", new { color = NoteColor, topmost = Topmost }, state.Revision);
                 Loading.Visibility = Visibility.Collapsed;
             }
             else if (result.Message.Type == "window.collapseRequested") CollapseRequested?.Invoke(this);
             else if (result.Message.Type == "note.newRequested") NewNoteRequested?.Invoke();
             else if (result.Message.Type == "window.settingsRequested") SettingsRequested?.Invoke();
+            else if (result.Message.Type == "window.searchRequested") SearchRequested?.Invoke();
+            else if (result.Message.Type == "window.appearanceChanged")
+            {
+                var color = result.Message.Payload.GetProperty("color").GetString()!;
+                var topmost = result.Message.Payload.GetProperty("topmost").GetBoolean();
+                ApplyAppearance(color, topmost);
+                AppearanceChanged?.Invoke(color, topmost);
+            }
+            else if (result.Message.Type == "note.imagePasteRequested")
+            {
+                var png = ClipboardPng() ?? throw new InvalidOperationException("클립보드에서 이미지를 찾지 못했습니다.");
+                var markdown = await Task.Run(() => workspace.SaveImageAsync(noteId, png, CancellationToken.None));
+                Send("note.imageSaved", new { markdown }, bridge.Revision);
+            }
             else if (result.Message.Type == "note.saveRequested")
             {
                 var state = await service.GetStateAsync(noteId, CancellationToken.None);
@@ -189,12 +219,36 @@ public partial class MainWindow : Window
         finally { messages.Release(); }
     }
 
+    private static byte[]? ClipboardPng()
+    {
+        if (!System.Windows.Clipboard.ContainsImage() || System.Windows.Clipboard.GetImage() is not { } image) return null;
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(image));
+        using var stream = new System.IO.MemoryStream();
+        encoder.Save(stream);
+        return stream.ToArray();
+    }
+    private void OnExternalChanged(ExternalChange change)
+    {
+        if (closed || change.NoteId != noteId) return;
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (closed || closing || bridge is null) return;
+            if (change.Kind == ExternalChangeKind.Reloaded)
+            {
+                bridge.SyncRevision(change.State.Revision);
+                Send("note.load", new { markdown = change.State.Note.Markdown, title = change.State.Note.Title }, change.State.Revision);
+            }
+            else if (change.Message is not null) Send("note.conflict", new { message = change.Message }, bridge.Revision);
+        }));
+    }
     private void OnNoteStateChanged(NoteSaveState state)
     {
         if (closed || state.Note.Id != noteId) return;
         Dispatcher.BeginInvoke(new Action(() =>
         {
             if (closed || closing || bridge is null) return;
+            TaskbarItemInfo.Description = state.Note.Title;
             if (!state.HasUnsavedChanges && !state.RecoveryPending) Send("note.saved", new { }, state.SavedRevision);
             if (state.Error is not null) Send("note.conflict", new { message = state.Error }, state.Revision);
         }));
@@ -220,7 +274,7 @@ public partial class MainWindow : Window
             {
                 if (!IsVisible) Show();
                 Activate();
-                var answer = DeleteConfirmation?.Invoke() ?? MessageBox.Show(this, "메모를 영구 삭제하시겠습니까?", "메모 삭제", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+                var answer = DeleteConfirmation?.Invoke() ?? MessageBox.Show(this, "메모를 휴지통으로 옮기시겠습니까?\n트레이의 ‘휴지통’에서 복원할 수 있습니다.", "메모 삭제", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
                 if (answer != MessageBoxResult.Yes) { CancelClose(); return; }
             }
             finally { confirming = false; }
@@ -232,11 +286,6 @@ public partial class MainWindow : Window
         try
         {
             if (initialization is not null) { try { await initialization; } catch (Exception) { } }
-            if (!preserveOnClose)
-            {
-                await Task.Run(() => workspace.DeleteAsync(noteId, CancellationToken.None));
-                allowClose = true; Close(); return;
-            }
             if (opened)
             {
                 if (bridge is not null && EditorView.CoreWebView2 is not null && Loading.Visibility == Visibility.Collapsed)
@@ -257,13 +306,19 @@ public partial class MainWindow : Window
                 }
                 await Task.Run(() => service!.FlushAsync(noteId, CancellationToken.None));
             }
+            // 화면의 최신 입력까지 저장한 뒤 휴지통으로 옮깁니다.
+            if (!preserveOnClose)
+            {
+                await Task.Run(() => workspace.TrashAsync(noteId, CancellationToken.None));
+                allowClose = true; Close(); return;
+            }
         }
         catch (Exception error)
         {
             if (!preserveOnClose)
             {
                 if (DeleteFailureDialog is { } dialog) await dialog(error.Message);
-                else MessageBox.Show(this, $"메모를 삭제하지 못했습니다.\n{error.Message}", "삭제 오류", MessageBoxButton.OK, MessageBoxImage.Error);
+                else MessageBox.Show(this, $"메모를 휴지통으로 옮기지 못했습니다.\n{error.Message}", "삭제 오류", MessageBoxButton.OK, MessageBoxImage.Error);
                 CancelClose(); return;
             }
             if (!snapshotCaptured)
@@ -283,5 +338,5 @@ public partial class MainWindow : Window
         Close();
     }
 
-    private void WindowClosed(object? sender, EventArgs e) { closed = true; deferredMessages.Clear(); service.StateChanged -= OnNoteStateChanged; EditorView.Dispose(); closeCompletion?.TrySetResult(true); }
+    private void WindowClosed(object? sender, EventArgs e) { closed = true; deferredMessages.Clear(); service.StateChanged -= OnNoteStateChanged; service.ExternalChanged -= OnExternalChanged; EditorView.Dispose(); closeCompletion?.TrySetResult(true); }
 }

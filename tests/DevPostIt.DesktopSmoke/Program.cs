@@ -100,6 +100,8 @@ internal static class Program
         Check(!first.IsVisible, "제목 표시줄 더블클릭으로 아이콘 접기");
         icon = application.Windows.OfType<CollapsedNoteWindow>().Single();
         icon.Activate();
+        if (Environment.GetEnvironmentVariable("DEVPOSTIT_SMOKE_REAL_INPUT") == "1")
+        {
         await application.Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.ContextIdle);
         var (left, top) = (icon.Left, icon.Top);
         var grip = icon.PointToScreen(new System.Windows.Point(12, 12));
@@ -127,6 +129,13 @@ internal static class Program
         }
         finally { SetCursorPos(cursor.X, cursor.Y); }
         Check(!application.Windows.OfType<CollapsedNoteWindow>().Any(), "옮긴 아이콘 클릭 복원");
+        }
+        else
+        {
+            // 실제 입력은 위에 놓인 다른 창으로 들어갈 수 있어 명시적으로 켰을 때만 보냅니다.
+            ((Button)icon.Content).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Check(first.IsVisible && !application.Windows.OfType<CollapsedNoteWindow>().Any(), "아이콘 클릭 복원");
+        }
         tray.Menu.Show(new System.Drawing.Point(120, 120));
         Check(tray.Menu.Items.OfType<Forms.ToolStripMenuItem>().Any(item => item.Text == "메모 목록"), "트레이 메모 목록");
         tray.Menu.Items.OfType<Forms.ToolStripMenuItem>().Single(item => item.Text == "설정").PerformClick();
@@ -192,6 +201,21 @@ internal static class Program
         deleting.DeleteConfirmation = () => MessageBoxResult.Yes;
         Check(await deleting.RequestDeleteAsync(), "X 삭제 승인");
         Check(workspace.Notes.All(note => note.Id != first.NoteId), "승인 시 목록 제거");
+        Check(workspace.TrashedNotes.Any(note => note.Id == first.NoteId), "X는 휴지통으로 이동");
+        await manager.RestoreFromTrashAsync(first.NoteId);
+        Check(workspace.Notes.Any(note => note.Id == first.NoteId) && !workspace.TrashedNotes.Any(), "휴지통에서 복원");
+        var restored = application.Windows.OfType<MainWindow>().Single(window => window.NoteId == first.NoteId);
+        await ReadyAsync(restored);
+        Check(await restored.RequestCloseAsync(), "복원한 메모 창 닫기");
+        manager.ShowSearch();
+        var searchWindow = application.Windows.OfType<SearchWindow>().Single();
+        await UntilAsync(async () => searchWindow.View.CoreWebView2 is not null && await searchWindow.View.ExecuteScriptAsync("document.querySelectorAll('#search-results button').length") != "0");
+        await searchWindow.View.ExecuteScriptAsync("document.querySelector('#search-results button').click()");
+        await UntilAsync(() => Task.FromResult(application.Windows.OfType<MainWindow>().Any()));
+        var opened = application.Windows.OfType<MainWindow>().Single();
+        await ReadyAsync(opened);
+        Check(await opened.RequestCloseAsync(), "검색 결과로 연 메모 닫기");
+        searchWindow.Close();
         Check(workspace.Notes.Any(note => note.Id == second.NoteId), "다른 메모 보존");
         using (var attempted = new DataDirectoryLease(System.IO.Path.Combine(root, "other-data"))) { }
         manager.ShowSettings();

@@ -3,7 +3,6 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using Button = System.Windows.Controls.Button;
-using Brushes = System.Windows.Media.Brushes;
 using Point = System.Windows.Point;
 using Color = System.Windows.Media.Color;
 using Cursors = System.Windows.Input.Cursors;
@@ -12,14 +11,15 @@ namespace DevPostIt.App;
 
 public sealed class CollapsedNoteWindow : Window
 {
-    public CollapsedNoteWindow(string title, Action restore)
+    public CollapsedNoteWindow(string title, Action restore, string color = EditorHost.NoteColors.Default)
     {
         Title = $"작은 메모 — {title}";
         Width = Height = 24; WindowStyle = WindowStyle.None; ResizeMode = ResizeMode.NoResize;
-        ShowInTaskbar = false; AllowsTransparency = true; Background = Brushes.Transparent;
+        ShowInTaskbar = false; AllowsTransparency = true; Background = System.Windows.Media.Brushes.Transparent;
+        var (fill, border) = NoteAppearance.IconColors(color);
         var button = new Button
         {
-            Background = new SolidColorBrush(Color.FromRgb(255, 232, 143)), BorderBrush = new SolidColorBrush(Color.FromRgb(205, 178, 86)),
+            Background = new SolidColorBrush(fill), BorderBrush = new SolidColorBrush(border),
             ToolTip = $"{title}\n클릭: 열기 · 드래그: 이동", Cursor = Cursors.Hand, Template = CreateIconTemplate()
         };
         System.Windows.Automation.AutomationProperties.SetName(button, $"{title} 열기");
@@ -37,7 +37,7 @@ public sealed class CollapsedNoteWindow : Window
         button.Click += (_, _) => { if (!dragged) restore(); };
         Content = button;
     }
-    // 기본 버튼 템플릿은 마우스를 올리면 파란색으로 바뀌므로 노란 메모지를 유지하고 테두리만 진하게 합니다.
+    // 기본 버튼 템플릿은 마우스를 올리면 파란색으로 바뀌므로 메모지 색을 유지하고 테두리만 진하게 합니다.
     private static ControlTemplate CreateIconTemplate()
     {
         var chrome = new FrameworkElementFactory(typeof(Border), "chrome");
@@ -51,4 +51,22 @@ public sealed class CollapsedNoteWindow : Window
         template.Triggers.Add(hover);
         return template;
     }
+}
+
+internal static class NoteAppearance
+{
+    // 제목 표시줄 색(0x00BBGGRR)과 접힌 아이콘 색입니다. 머리글 색은 style.css의 data-note-color와 맞춥니다.
+    public static int CaptionColor(string? color) => color switch
+    {
+        "green" => 0x00DCF3D8, "blue" => 0x00F8EAD6, "pink" => 0x00E8DDFB, "purple" => 0x00F7DFE6, "gray" => 0x00E1E6E8, _ => 0x00BFF3FF,
+    };
+    public static (Color Fill, Color Border) IconColors(string? color) => color switch
+    {
+        "green" => (Color.FromRgb(169, 229, 181), Color.FromRgb(96, 166, 112)),
+        "blue" => (Color.FromRgb(169, 211, 242), Color.FromRgb(92, 146, 190)),
+        "pink" => (Color.FromRgb(246, 179, 203), Color.FromRgb(190, 110, 140)),
+        "purple" => (Color.FromRgb(201, 184, 240), Color.FromRgb(136, 112, 190)),
+        "gray" => (Color.FromRgb(201, 198, 190), Color.FromRgb(140, 136, 126)),
+        _ => (Color.FromRgb(255, 232, 143), Color.FromRgb(205, 178, 86)),
+    };
 }

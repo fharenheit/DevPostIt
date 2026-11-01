@@ -7,7 +7,7 @@ namespace DevPostIt.App;
 // 메모와 설정 창이 같은 프로필과 외부 리소스 차단 정책을 쓰도록 WebView2 설정을 한곳에 둡니다.
 internal static class LocalWebView
 {
-    public static async Task<CoreWebView2> ConfigureAsync(WebView2 view, Func<string, bool> isAllowedPage)
+    public static async Task<CoreWebView2> ConfigureAsync(WebView2 view, Func<string, bool> isAllowedPage, string? noteAssets = null)
     {
         var assets = System.IO.Path.Combine(AppContext.BaseDirectory, "editor-web");
         if (!System.IO.File.Exists(System.IO.Path.Combine(assets, "index.html")))
@@ -23,6 +23,11 @@ internal static class LocalWebView
         core.Settings.AreDefaultScriptDialogsEnabled = false;
         core.Settings.AreBrowserAcceleratorKeysEnabled = false;
         core.SetVirtualHostNameToFolderMapping("devpostit.local", assets, CoreWebView2HostResourceAccessKind.DenyCors);
+        if (noteAssets is not null)
+        {
+            System.IO.Directory.CreateDirectory(noteAssets);
+            core.SetVirtualHostNameToFolderMapping(EditorOrigin.AssetHost, noteAssets, CoreWebView2HostResourceAccessKind.Deny);
+        }
         core.NavigationStarting += (_, args) => args.Cancel = !isAllowedPage(args.Uri);
         core.FrameNavigationStarting += (_, args) => args.Cancel = true;
         core.NewWindowRequested += (_, args) => args.Handled = true;
@@ -31,7 +36,7 @@ internal static class LocalWebView
         core.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All);
         core.WebResourceRequested += (_, args) =>
         {
-            if (!EditorOrigin.IsLocalResource(args.Request.Uri)) args.Response = environment.CreateWebResourceResponse(null, 403, "Blocked", "");
+            if (!EditorOrigin.IsLocalResource(args.Request.Uri) && !(noteAssets is not null && EditorOrigin.IsNoteAsset(args.Request.Uri))) args.Response = environment.CreateWebResourceResponse(null, 403, "Blocked", "");
         };
         return core;
     }

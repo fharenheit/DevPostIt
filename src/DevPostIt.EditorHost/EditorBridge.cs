@@ -7,8 +7,16 @@ namespace DevPostIt.EditorHost;
 public sealed class EditorProtocolException(string message) : Exception(message);
 public record BridgeResult(EditorMessage Message, NoteChange? Change);
 
+public static class NoteColors
+{
+    public const string Default = "yellow";
+    public static readonly IReadOnlyList<string> All = ["yellow", "green", "blue", "pink", "purple", "gray"];
+    public static bool IsKnown(string? color) => color is not null && All.Contains(color);
+}
+
 public sealed class EditorBridge(Guid noteId, long revision)
 {
+    public void SyncRevision(long value) => Revision = value;
     public const int MaxMessageBytes = 1024 * 1024;
     public long Revision { get; private set; } = revision;
     public Task<NoteChange?> HandleAsync(EditorMessage message, CancellationToken cancellationToken)
@@ -25,10 +33,19 @@ public sealed class EditorBridge(Guid noteId, long revision)
             return Task.FromResult<NoteChange?>(null);
         }
         if (message.NoteId != noteId || noteId == Guid.Empty) throw new EditorProtocolException("잘못된 메모 ID입니다.");
-        if (message.Type is "window.collapseRequested" or "note.newRequested" or "window.settingsRequested")
+        if (message.Type is "window.collapseRequested" or "note.newRequested" or "window.settingsRequested" or "window.searchRequested" or "note.imagePasteRequested")
         {
             Fields(message.Payload);
             if (message.Revision != Revision) throw new EditorProtocolException("창 요청 리비전이 일치하지 않습니다.");
+            return Task.FromResult<NoteChange?>(null);
+        }
+        if (message.Type == "window.appearanceChanged")
+        {
+            Fields(message.Payload, "color", "topmost");
+            var color = message.Payload.GetProperty("color");
+            var topmost = message.Payload.GetProperty("topmost");
+            if (color.ValueKind != JsonValueKind.String || !NoteColors.IsKnown(color.GetString()) || topmost.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+                throw new EditorProtocolException("잘못된 메모 표시 설정입니다.");
             return Task.FromResult<NoteChange?>(null);
         }
         if (message.Type is not ("note.changed" or "note.saveRequested"))

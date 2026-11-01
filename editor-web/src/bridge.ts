@@ -6,6 +6,8 @@ declare global { interface Window { chrome?: { webview?: WebView } } }
 const emptyId = '00000000-0000-0000-0000-000000000000';
 const guid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const maxBytes = 1024 * 1024;
+export const noteColors = ['yellow', 'green', 'blue', 'pink', 'purple', 'gray'];
+const savedImage = /^!\[이미지\]\((?:\.\.\/)*assets\/[0-9a-f]{32}\/[0-9a-f]{32}\.png\)$/;
 const bytes = (value: unknown) => new TextEncoder().encode(JSON.stringify(value)).byteLength;
 const keys = (value: object, expected: string[]) => Object.keys(value).length === expected.length && expected.every(key => Object.hasOwn(value, key));
 
@@ -32,10 +34,16 @@ export class EditorConnection {
     const draft = this.editor.getDraft();
     this.send('note.saveRequested', { markdown: draft.markdown, title: this.editor.getTitle() }, draft.revision);
   }
-  command(type: 'window.collapseRequested' | 'note.newRequested' | 'window.settingsRequested'): void {
+  command(type: 'window.collapseRequested' | 'note.newRequested' | 'window.settingsRequested' | 'window.searchRequested' | 'note.imagePasteRequested'): void {
     if (this.noteId === emptyId || this.editor.isComposing()) return;
     this.publish();
     this.send(type, {}, this.editor.getDraft().revision);
+  }
+
+  appearance(color: string, topmost: boolean): void {
+    if (this.noteId === emptyId || this.editor.isComposing()) return;
+    this.publish();
+    this.send('window.appearanceChanged', { color, topmost }, this.editor.getDraft().revision);
   }
 
   private publish(): void {
@@ -67,12 +75,21 @@ export class EditorConnection {
       if (!(keys(message.payload, ['markdown']) || keys(message.payload, ['markdown', 'title'])) || typeof message.payload.markdown !== 'string' || (Object.hasOwn(message.payload, 'title') && typeof message.payload.title !== 'string')) return;
       if (message.noteId === this.noteId && (message.revision < current.revision || current.dirty)) return;
       this.loading = true;
+      const previousNote = this.noteId;
       try {
         this.noteId = message.noteId;
         this.sentRevision = message.revision;
+        const keepPreview = message.noteId === previousNote && this.editor.getMode() === 'preview';
         this.editor.load(message.noteId, message.payload.markdown, message.revision, message.payload.title as string | undefined);
+        if (keepPreview) this.editor.setMode('preview');
       } finally { this.loading = false; }
       this.status('앱 연결됨 · 자동 저장 사용');
+    } else if (message.noteId === this.noteId && message.type === 'ui.appearance') {
+      const { color, topmost } = message.payload;
+      if (keys(message.payload, ['color', 'topmost']) && typeof color === 'string' && noteColors.includes(color) && typeof topmost === 'boolean')
+        window.dispatchEvent(new CustomEvent('devpostit-appearance', { detail: { color, topmost } }));
+    } else if (message.noteId === this.noteId && message.type === 'note.imageSaved') {
+      if (keys(message.payload, ['markdown']) && typeof message.payload.markdown === 'string' && savedImage.test(message.payload.markdown)) this.editor.insertText(message.payload.markdown);
     } else if (message.noteId === this.noteId && message.revision === current.revision) {
       if (message.type === 'note.saved' && keys(message.payload, [])) {
         this.editor.markSaved(message.revision);

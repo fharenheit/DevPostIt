@@ -185,7 +185,7 @@ test('데이터 폴더 버튼은 앱 안에서만 보이고 경로 없이 열기
     Object.assign(window, { sent, chrome: { webview: { postMessage: (message: unknown) => sent.push(message), addEventListener: () => undefined } } });
   });
   await page.reload();
-  await expect(page.locator('.setting-row:visible')).toHaveCount(4);
+  await expect(page.locator('.setting-row:visible')).toHaveCount(5);
   await page.getByRole('button', { name: '폴더 열기', exact: true }).click();
   expect(await page.evaluate(() => (window as unknown as { sent: unknown[] }).sent)).toEqual([{ protocolVersion: 1, type: 'settings.openDataFolder' }]);
   expect(await fontSizes(page, '#settings')).toEqual(['14px']);

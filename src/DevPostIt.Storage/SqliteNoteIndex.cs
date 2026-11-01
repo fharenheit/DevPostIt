@@ -47,6 +47,27 @@ public sealed class SqliteNoteIndex : INoteIndexDeletionWriter
         finally { gate.Release(); }
     }
 
+    // 시작할 때 파일 기준으로 맞춥니다. Markdown이 정본이므로 인덱스에만 남은 항목은 지웁니다.
+    public async Task SynchronizeAsync(IReadOnlyCollection<Note> notes, CancellationToken cancellationToken)
+    {
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            await using var connection = await OpenAsync(databasePath, cancellationToken);
+            using var transaction = connection.BeginTransaction();
+            using (var clear = connection.CreateCommand())
+            {
+                clear.Transaction = transaction;
+                clear.CommandText = "DELETE FROM notes_fts; DELETE FROM notes;";
+                await clear.ExecuteNonQueryAsync(cancellationToken);
+            }
+            foreach (var note in notes) await UpsertAsync(connection, transaction, note, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            transaction.Commit();
+        }
+        finally { gate.Release(); }
+    }
+
     public async Task<IReadOnlyList<Guid>> SearchAsync(string query, int limit, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(query);

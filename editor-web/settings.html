@@ -7,7 +7,9 @@
     <div class="setting-row"><span>글자 크기</span><div class="text-size" role="group" aria-label="전체 글자 크기"><button id="smaller" aria-label="글자 작게" title="모든 글자를 한 단계 작게">−</button><output id="text-size" aria-label="기준 글자 크기">15</output><button id="larger" aria-label="글자 크게" title="모든 글자를 한 단계 크게">+</button></div></div>
     <label class="setting-row"><span>편집 글꼴</span><select id="font"><option value="d2">D2 Ligature</option><option value="jetbrains">JetBrains Mono</option><option value="system">시스템 고정폭</option></select></label>
     <label class="setting-row"><span>합자 사용</span><input id="ligatures" type="checkbox" checked></label>
-    <div class="setting-row" id="data-folder-row" hidden><span>메모·DB 폴더</span><button id="open-data-folder" type="button" title="Markdown 메모(notes)와 SQLite 검색 DB(.hunmin)가 있는 폴더를 엽니다">폴더 열기</button></div>
+    <div class="setting-row" id="data-folder-row" hidden><span>메모·DB 폴더</span><div class="setting-actions"><button id="open-data-folder" type="button" title="Markdown 메모(notes)와 SQLite 검색 DB(.hunmin)가 있는 폴더를 엽니다">폴더 열기</button><button id="change-data-folder" type="button" title="메모와 검색 DB를 저장할 폴더를 바꿉니다" hidden>폴더 변경</button></div></div>
+    <p id="data-folder-path" hidden></p>
+    <label class="setting-row" id="start-in-tray-row" hidden><span>트레이로만 시작</span><input id="start-in-tray" type="checkbox"></label>
   </main>
   <script type="module" src="/src/settings.ts"></script>
 </body>

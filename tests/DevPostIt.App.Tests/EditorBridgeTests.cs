@@ -141,6 +141,67 @@ public class EditorBridgeTests
     public void OpenDataFolderRequestRejectsOversizedMessage() =>
         Assert.False(SettingsMessage.IsOpenDataFolder(new string(' ', 2048) + """{"protocolVersion":1,"type":"settings.openDataFolder"}""", EditorOrigin.SettingsPage));
 
+    [Theory]
+    [InlineData("""{"protocolVersion":1,"type":"settings.changeDataFolder"}""", true)]
+    [InlineData("""{"protocolVersion":1,"type":"settings.changeDataFolder","path":"C:\\x"}""", false)]
+    public void ChangeDataFolderCarriesNoPath(string json, bool expected) => Assert.Equal(expected, SettingsMessage.IsChangeDataFolder(json, EditorOrigin.SettingsPage));
+
+    [Theory]
+    [InlineData("""{"protocolVersion":1,"type":"settings.startInTray","value":true}""", true, true)]
+    [InlineData("""{"protocolVersion":1,"type":"settings.startInTray","value":false}""", true, false)]
+    [InlineData("""{"protocolVersion":1,"type":"settings.startInTray","value":"yes"}""", false, false)]
+    [InlineData("""{"protocolVersion":1,"type":"settings.startInTray"}""", false, false)]
+    public void StartInTrayNeedsBoolean(string json, bool accepted, bool value)
+    {
+        Assert.Equal(accepted, SettingsMessage.TryReadStartInTray(json, EditorOrigin.SettingsPage, out var read));
+        Assert.Equal(value, read);
+        Assert.False(SettingsMessage.TryReadStartInTray(json, EditorOrigin.Page, out _));
+    }
+
+    [Fact]
+    public void SearchMessagesAcceptOnlySearchPageAndValidFields()
+    {
+        Assert.True(SearchMessage.TryReadQuery("""{"protocolVersion":1,"type":"search.query","query":"메모"}""", EditorOrigin.SearchPage, out var query));
+        Assert.Equal("메모", query);
+        Assert.False(SearchMessage.TryReadQuery("""{"protocolVersion":1,"type":"search.query","query":"메모"}""", EditorOrigin.SettingsPage, out _));
+        Assert.False(SearchMessage.TryReadQuery("""{"protocolVersion":1,"type":"search.query","query":1}""", EditorOrigin.SearchPage, out _));
+        Assert.False(SearchMessage.TryReadQuery($$"""{"protocolVersion":1,"type":"search.query","query":"{{new string('a', 201)}}"}""", EditorOrigin.SearchPage, out _));
+        var id = Guid.NewGuid();
+        Assert.True(SearchMessage.TryReadOpen($$"""{"protocolVersion":1,"type":"search.open","id":"{{id}}"}""", EditorOrigin.SearchPage, out var read));
+        Assert.Equal(id, read);
+        Assert.False(SearchMessage.TryReadOpen("""{"protocolVersion":1,"type":"search.open","id":"C:\x"}""", EditorOrigin.SearchPage, out _));
+        Assert.False(SearchMessage.TryReadOpen($$"""{"protocolVersion":1,"type":"search.open","id":"{{Guid.Empty}}"}""", EditorOrigin.SearchPage, out _));
+    }
+
+    [Theory]
+    [InlineData("https://devpostit-assets.local/0123456789abcdef0123456789abcdef/fedcba9876543210fedcba9876543210.png", true)]
+    [InlineData("https://devpostit-assets.local/../secret.png", false)]
+    [InlineData("https://devpostit-assets.local/0123456789abcdef0123456789abcdef/a.svg", false)]
+    [InlineData("http://devpostit-assets.local/0123456789abcdef0123456789abcdef/fedcba9876543210fedcba9876543210.png", false)]
+    [InlineData("https://example.com/0123456789abcdef0123456789abcdef/fedcba9876543210fedcba9876543210.png", false)]
+    public void NoteAssetsAreRestricted(string uri, bool expected) => Assert.Equal(expected, EditorOrigin.IsNoteAsset(uri));
+
+    [Theory]
+    [InlineData("yellow", true, true)]
+    [InlineData("blue", false, true)]
+    [InlineData("red", false, false)]
+    public async Task AppearanceMessageAllowsOnlyKnownColors(string color, bool topmost, bool accepted)
+    {
+        var bridge = new EditorBridge(Id, 7);
+        var message = Change(7) with { Type = "window.appearanceChanged", Payload = JsonSerializer.SerializeToElement(new { color, topmost }) };
+        if (accepted) Assert.Null(await bridge.HandleAsync(message, default));
+        else await Assert.ThrowsAsync<EditorProtocolException>(() => bridge.HandleAsync(message, default));
+    }
+
+    [Fact]
+    public async Task RevisionCanFollowExternalReload()
+    {
+        var bridge = new EditorBridge(Id, 7);
+        bridge.SyncRevision(8);
+        await Assert.ThrowsAsync<EditorProtocolException>(() => bridge.HandleAsync(Change(8), default));
+        Assert.NotNull(await bridge.HandleAsync(Change(9), default));
+    }
+
     [Fact]
     public void AssetsStayOnTrustedOrigin()
     {

@@ -11,6 +11,8 @@ public sealed class NoteService(INoteRepository repository, IDraftJournal journa
     private readonly SemaphoreSlim opening = new(1, 1);
     private bool disposed;
     public event Action<NoteSaveState>? StateChanged;
+    public event Action<ExternalChange>? ExternalChanged;
+    public bool IsOpen(Guid id) => sessions.ContainsKey(id);
 
     public async Task<NoteSaveState> OpenAsync(Guid id, CancellationToken cancellationToken)
     {
@@ -121,6 +123,66 @@ public sealed class NoteService(INoteRepository repository, IDraftJournal journa
         {
             if (!session.Deleted && session.State.HasUnsavedChanges && !session.State.RecoveryPending) Schedule(session);
             session.Gate.Release();
+        }
+    }
+
+    // 파일이 앱 밖에서 바뀌었을 때 호출합니다. 저장하지 않은 입력이 있으면 외부 내용을 별도 메모로 보존한 뒤 입력을 이어서 저장합니다.
+    public async Task ReconcileWithDiskAsync(Guid id, Func<Note, CancellationToken, Task<string>> preserveExternal, CancellationToken cancellationToken)
+    {
+        if (!sessions.TryGetValue(id, out var session)) return;
+        NoteSaveState? notification = null;
+        ExternalChange? change = null;
+        await session.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (session.Deleted || session.State.RecoveryPending) return;
+            var disk = await repository.GetAsync(id, cancellationToken).ConfigureAwait(false);
+            if (disk is null)
+            {
+                if (session.MissingReported) return;
+                session.MissingReported = true;
+                const string missing = "파일이 앱 밖에서 삭제되었습니다. 이 창의 내용은 복구 기록에 보존합니다.";
+                StopTimer(session);
+                if (session.State.HasUnsavedChanges && session.JournalRevision != session.State.Revision) await WriteJournalAsync(session, cancellationToken).ConfigureAwait(false);
+                session.State = session.State with { Status = NoteSaveStatus.Failed, Error = missing };
+                notification = session.State;
+                change = new(id, ExternalChangeKind.Missing, session.State, missing);
+                return;
+            }
+            session.MissingReported = false;
+            var fingerprint = NoteFingerprint.Compute(disk);
+            if (fingerprint == session.BaseFingerprint) return;
+            if (!session.State.HasUnsavedChanges)
+            {
+                StopTimer(session);
+                var revision = session.State.Revision + 1;
+                session.BaseFingerprint = fingerprint;
+                session.State = session.State with { Note = disk, Revision = revision, SavedRevision = revision, Status = NoteSaveStatus.Clean, IndexPending = true, Error = null };
+                try
+                {
+                    await index.UpsertAsync(disk, cancellationToken).ConfigureAwait(false);
+                    session.State = session.State with { IndexPending = false };
+                }
+                catch (Exception) { /* 파생 인덱스는 다음 저장 때 다시 맞춥니다. */ }
+                notification = session.State;
+                change = new(id, ExternalChangeKind.Reloaded, session.State, null);
+                return;
+            }
+            var preserved = await preserveExternal(disk, cancellationToken).ConfigureAwait(false);
+            session.BaseFingerprint = fingerprint;
+            await WriteJournalAsync(session, cancellationToken).ConfigureAwait(false);
+            session.State = session.State with { Status = NoteSaveStatus.Pending, Error = null };
+            Schedule(session);
+            notification = session.State;
+            change = new(id, ExternalChangeKind.ConflictPreserved, session.State, $"파일이 앱 밖에서 바뀌어 그 내용을 ‘{preserved}’ 메모로 보존했습니다.");
+        }
+        finally
+        {
+            session.Gate.Release();
+            if (notification is not null) Notify(notification);
+            if (change is not null) foreach (var subscriber in ExternalChanged?.GetInvocationList() ?? [])
+                try { ((Action<ExternalChange>)subscriber)(change); }
+                catch (Exception) { /* 표시 계층의 예외가 저장 결과를 바꾸지 않게 합니다. */ }
         }
     }
 
@@ -263,6 +325,7 @@ public sealed class NoteService(INoteRepository repository, IDraftJournal journa
     private sealed class Session(NoteSaveState state, string baseFingerprint)
     {
         public bool Deleted;
+        public bool MissingReported;
         public readonly SemaphoreSlim Gate = new(1, 1);
         public readonly List<Task> Jobs = [];
         public NoteSaveState State = state;

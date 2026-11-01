@@ -1,16 +1,23 @@
 import { Editor } from './editor';
 import { fonts, readFontSettings } from './fonts';
-import { connectEditor, type EditorConnection } from './bridge';
+import { connectEditor, noteColors, type EditorConnection } from './bridge';
 import { formatToolbarHtml } from './format-toolbar';
 import type { MarkdownAction } from './markdown-format';
 import './style.css';
 
 declare global { interface Window { hunminEditor: Editor } }
+const colorNames: Record<string, string> = { yellow: '노랑', green: '초록', blue: '파랑', pink: '분홍', purple: '보라', gray: '회색' };
+const pinIcon = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 2h4l-.5 5 2 2.5h-7l2-2.5zM8 9.5V14"/></svg>';
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <section class="workspace" aria-label="Markdown 편집기">
     <header class="note-header">
       <div class="document-heading"><h1 title="더블클릭하면 이름을 변경합니다">나의 첫 메모</h1></div>
       <div class="modes" role="group" aria-label="보기 방식"><button id="source-mode" aria-pressed="true">소스 편집</button><button id="preview-mode" aria-pressed="false">미리보기</button></div>
+      <div class="note-actions">
+        <button type="button" id="pin" aria-pressed="false" aria-label="항상 위" title="항상 위">${pinIcon}</button>
+        <button type="button" id="note-color" aria-label="메모 색상" title="메모 색상" aria-expanded="false"><span class="swatch"></span></button>
+        <div id="color-menu" role="group" aria-label="메모 색상 선택" hidden>${noteColors.map(color => `<button type="button" data-color="${color}" aria-label="${colorNames[color]}" aria-pressed="false" title="${colorNames[color]}"><span class="swatch"></span></button>`).join('')}</div>
+      </div>
     </header>
     ${formatToolbarHtml}
     <dialog id="rename-dialog"><form id="rename-form"><h2>이름 변경</h2><label for="note-name">메모 이름</label><input id="note-name" maxlength="200" required><p id="rename-error" role="status"></p><div class="dialog-actions"><button type="button" id="rename-cancel">취소</button><button type="submit" class="primary">확인</button></div></form></dialog>
@@ -104,3 +111,44 @@ window.addEventListener('keydown', event => {
 window.addEventListener('keydown', event => {
   if (event.ctrlKey && event.key === ',') { event.preventDefault(); connection?.command('window.settingsRequested'); }
 });
+editor.imagePasteRequested = () => {
+  if (connection) connection.command('note.imagePasteRequested');
+  else document.querySelector('#host-status')!.textContent = '이미지 붙여넣기는 앱에서 사용할 수 있습니다.';
+};
+window.addEventListener('keydown', event => {
+  if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'f') { event.preventDefault(); connection?.command('window.searchRequested'); }
+}, true);
+
+const pin = document.querySelector<HTMLButtonElement>('#pin')!;
+const colorButton = document.querySelector<HTMLButtonElement>('#note-color')!;
+const colorMenu = document.querySelector<HTMLElement>('#color-menu')!;
+let appearance = { color: 'yellow', topmost: false };
+function renderAppearance(): void {
+  document.documentElement.dataset.noteColor = appearance.color;
+  pin.setAttribute('aria-pressed', String(appearance.topmost));
+  colorMenu.querySelectorAll<HTMLButtonElement>('button').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.color === appearance.color)));
+}
+function closeColorMenu(): void { colorMenu.hidden = true; colorButton.setAttribute('aria-expanded', 'false'); }
+pin.addEventListener('click', () => {
+  appearance = { ...appearance, topmost: !appearance.topmost };
+  renderAppearance();
+  connection?.appearance(appearance.color, appearance.topmost);
+});
+colorButton.addEventListener('click', () => {
+  colorMenu.hidden = !colorMenu.hidden;
+  colorButton.setAttribute('aria-expanded', String(!colorMenu.hidden));
+});
+colorMenu.addEventListener('click', event => {
+  const color = (event.target as Element).closest<HTMLButtonElement>('button')?.dataset.color;
+  if (!color) return;
+  appearance = { ...appearance, color };
+  renderAppearance();
+  closeColorMenu();
+  connection?.appearance(appearance.color, appearance.topmost);
+});
+window.addEventListener('keydown', event => { if (event.key === 'Escape') closeColorMenu(); });
+window.addEventListener('devpostit-appearance', event => {
+  appearance = (event as CustomEvent<{ color: string; topmost: boolean }>).detail;
+  renderAppearance();
+});
+renderAppearance();

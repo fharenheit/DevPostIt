@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="ko">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>메모 검색</title></head>
+<body>
+  <main id="search" aria-label="메모 검색">
+    <input id="search-query" type="search" aria-label="검색어" placeholder="제목·본문·태그 검색" maxlength="200" autofocus>
+    <p id="search-status" role="status"></p>
+    <ul id="search-results"></ul>
+  </main>
+  <script type="module" src="/src/search.ts"></script>
+</body>
+</html>

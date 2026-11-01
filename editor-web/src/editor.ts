@@ -70,6 +70,7 @@ export class Editor {
   private generation = 0;
   private mode: EditorMode = 'source';
   private highlightRun = 0;
+  imagePasteRequested?: () => void;
 
   constructor(
     private readonly source: HTMLElement,
@@ -88,6 +89,19 @@ export class Editor {
       renderWhitespace: 'selection', tabSize: 2, quickSuggestions: false,
       unicodeHighlight: { ambiguousCharacters: false, invisibleCharacters: false },
     });
+    const shortcut = (keys: number, action: MarkdownAction) => this.view.addCommand(keys, () => this.applyFormat(action));
+    shortcut(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyB, 'bold');
+    shortcut(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyI, 'italic');
+    shortcut(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyX, 'strike');
+    shortcut(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyE, 'code');
+    shortcut(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyK, 'link');
+    shortcut(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Digit1, 'h1');
+    shortcut(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Digit2, 'h2');
+    shortcut(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Digit3, 'h3');
+    preview.addEventListener('change', event => {
+      const box = event.target as HTMLInputElement;
+      if (box.matches('input[type=checkbox][data-line]')) this.toggleTask(Number(box.dataset.line));
+    });
     this.view.onDidChangeModelContent(() => {
       if (!this.model) return;
       const value = this.model.getValue(monaco.editor.EndOfLinePreference.TextDefined, true);
@@ -103,6 +117,13 @@ export class Editor {
       const selection = this.editableSelection();
       const html = event.clipboardData?.getData('text/html');
       const rows = selection && html ? tableFromClipboardHtml(html) : null;
+      if (selection && !rows && !event.clipboardData?.getData('text/plain') && Array.from(event.clipboardData?.items ?? []).some(item => item.type.startsWith('image/'))) {
+        // 이미지 내용은 메시지 크기 제한을 넘을 수 있어 앱이 클립보드에서 직접 읽습니다.
+        event.preventDefault();
+        event.stopPropagation();
+        this.imagePasteRequested?.();
+        return;
+      }
       if (!selection || !rows) return;
       event.preventDefault();
       event.stopPropagation();
@@ -150,6 +171,7 @@ export class Editor {
     this.highlightRun++;
     if (mode === 'preview') {
       this.preview.innerHTML = renderMarkdown(this.draft.markdown);
+      this.addCopyButtons();
       void this.highlightPreview(this.highlightRun);
     }
     this.source.hidden = mode !== 'source';
@@ -163,6 +185,7 @@ export class Editor {
     monaco.editor.remeasureFonts();
   }
 
+  getMode(): EditorMode { return this.mode; }
   getDraft(): Draft { return { ...this.draft }; }
   getTitle(): string { return this.title; }
   rename(title: string): void {
@@ -191,6 +214,44 @@ export class Editor {
       this.notify();
       return '코드를 정리했습니다.';
     } catch (error) { return error instanceof CodeBlockError ? error.message : '정리하지 못했습니다. 블록의 언어·문법과 닫는 울타리를 확인해 주세요.'; }
+  }
+  insertText(text: string): void {
+    const selection = this.editableSelection();
+    if (!selection) return;
+    this.applyPlan({ edits: [{ range: selection, text }], selection: { startLine: selection.startLine, startColumn: selection.startColumn + text.length, endLine: selection.startLine, endColumn: selection.startColumn + text.length } });
+  }
+  // 미리보기의 체크박스를 누르면 원문의 해당 줄만 고칩니다. 줄이 할 일 항목이 아니면 화면만 원문에 맞춥니다.
+  private toggleTask(line: number): void {
+    const model = this.model;
+    const scroll = this.preview.scrollTop;
+    if (model && Number.isInteger(line) && line >= 0 && line < model.getLineCount() && !this.composing) {
+      const text = model.getLineContent(line + 1);
+      const match = /^(\s*(?:>\s*)*(?:[-*+]|\d+[.)])\s+\[)([ xX])\]/.exec(text);
+      if (match) {
+        const column = match[1].length + 1;
+        this.view.pushUndoStop();
+        this.view.executeEdits('task-checkbox', [{ range: new monaco.Range(line + 1, column, line + 1, column + 1), text: match[2] === ' ' ? 'x' : ' ' }]);
+        this.view.pushUndoStop();
+      }
+    }
+    this.setMode('preview');
+    this.preview.scrollTop = scroll;
+  }
+  private addCopyButtons(): void {
+    for (const code of this.preview.querySelectorAll<HTMLElement>('pre > code')) {
+      const text = (code.textContent ?? '').replace(/\r?\n$/, '');
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'copy-code';
+      button.textContent = '복사';
+      button.setAttribute('aria-label', '코드 복사');
+      button.addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText(text); button.textContent = '복사됨'; }
+        catch { button.textContent = '복사 실패'; }
+        window.setTimeout(() => { button.textContent = '복사'; }, 1500);
+      });
+      code.parentElement!.append(button);
+    }
   }
   applyFormat(action: MarkdownAction): void {
     const selection = this.editableSelection();

@@ -25,4 +25,6 @@ public record NoteSaveState(Note Note, long Revision, long SavedRevision, NoteSa
 {
     public bool HasUnsavedChanges => Revision != SavedRevision;
 }
+public enum ExternalChangeKind { Reloaded, ConflictPreserved, Missing }
+public record ExternalChange(Guid NoteId, ExternalChangeKind Kind, NoteSaveState State, string? Message);
 public sealed class NoteSaveConflictException(string message) : IOException(message);

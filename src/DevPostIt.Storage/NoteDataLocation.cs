@@ -11,7 +11,8 @@ public static class NoteDataLocation
     // 이전 위치의 메모를 복사하고 검증한 뒤 한 번에 새 위치로 옮깁니다. 실패하면 새 위치를 만들지 않으며 원본은 항상 그대로 둡니다.
     public static bool MigrateLegacy(string legacyRoot, string targetRoot)
     {
-        if (Directory.Exists(targetRoot) || !Directory.Exists(Path.Combine(legacyRoot, "notes"))) return false;
+        var emptyTarget = Directory.Exists(targetRoot) && !Directory.EnumerateFileSystemEntries(targetRoot).Any();
+        if ((Directory.Exists(targetRoot) && !emptyTarget) || !Directory.Exists(Path.Combine(legacyRoot, "notes"))) return false;
         using var lease = new DataDirectoryLease(legacyRoot);
         var staging = targetRoot + ".migrating";
         if (Directory.Exists(staging)) Directory.Delete(staging, true);
@@ -22,6 +23,7 @@ public static class NoteDataLocation
                 var source = Path.Combine(legacyRoot, name);
                 if (Directory.Exists(source)) CopyVerified(source, Path.Combine(staging, name));
             }
+            if (emptyTarget) Directory.Delete(targetRoot);
             Directory.Move(staging, targetRoot);
             return true;
         }
@@ -30,6 +32,13 @@ public static class NoteDataLocation
             if (Directory.Exists(staging)) Directory.Delete(staging, true);
             throw;
         }
+    }
+
+    public static bool Overlaps(string first, string second)
+    {
+        var a = Path.TrimEndingDirectorySeparator(Path.GetFullPath(first)) + Path.DirectorySeparatorChar;
+        var b = Path.TrimEndingDirectorySeparator(Path.GetFullPath(second)) + Path.DirectorySeparatorChar;
+        return a.StartsWith(b, StringComparison.OrdinalIgnoreCase) || b.StartsWith(a, StringComparison.OrdinalIgnoreCase);
     }
 
     private static void CopyVerified(string source, string destination)
