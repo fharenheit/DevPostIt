@@ -18,7 +18,7 @@ $env:DOTNET_CLI_HOME = "$PWD/.tools/cli"
 $env:PATH = "$PWD/.tools/dotnet;$PWD/.tools/node/node-v24.22.1-win-x64;$env:PATH"
 ```
 
-UI 기본 글자 크기는 15px, Monaco 본문은 13px입니다. 트레이의 ‘설정’(또는 Ctrl+,)에서 `+`·`−`로 전체 크기를 함께 조절합니다. 글꼴 제어는 메모 화면에 표시하지 않습니다. UI는 10~24px, 편집기는 UI보다 2px 작게 유지합니다. 글꼴(D2 Ligature·JetBrains Mono), 합자, 크기 설정은 재실행 후에도 기억합니다.
+UI 기본 글자 크기는 15px, Monaco 본문은 13px입니다. 트레이의 ‘설정’(또는 메모에서 Ctrl+,)으로 여는 별도 설정 창에서 `+`·`−`로 전체 크기를 함께 조절합니다. 글꼴 제어는 메모 화면에 표시하지 않습니다. UI는 10~24px, 편집기는 UI보다 2px 작게 유지합니다. 글꼴(D2 Ligature·JetBrains Mono), 합자, 크기 설정은 재실행 후에도 기억합니다.
 
 설정은 `%LOCALAPPDATA%/DevPostIt/WebView2` 프로필의 로컬 저장소에 보관하며 열린 다른 메모에도 적용합니다. 메모는 문서 폴더의 `DevPostIt/notes/Inbox/`에 개별 Markdown 파일로 저장합니다. 변경을 복구 저널에 기록한 뒤 마지막 입력에서 500ms 후 자동 저장하며 Ctrl+S와 정상 종료 시에도 저장합니다. 크래시 후 초안이 있으면 복구 여부를 묻습니다.
 
