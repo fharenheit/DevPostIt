@@ -25,7 +25,7 @@ export class Editor {
   ) {
     this.view = monaco.editor.create(source, {
       language: 'markdown', theme: 'vs', automaticLayout: true,
-      minimap: { enabled: false }, wordWrap: 'on', fontSize: 16, lineHeight: 27,
+      minimap: { enabled: false }, wordWrap: 'on', fontSize: 14, lineHeight: 24,
       padding: { top: 24, bottom: 24 }, scrollBeyondLastLine: false,
       ariaLabel: 'Markdown 본문', editContext: false,
       links: false,
@@ -88,5 +88,9 @@ export class Editor {
   }
 
   getDraft(): Draft { return { ...this.draft }; }
+  setTextSize(size: number): void {
+    this.view.updateOptions({ fontSize: size, lineHeight: Math.round(size * 1.7) });
+    this.view.layout();
+  }
   private notify(): void { this.changed(this.mode, this.getDraft()); }
 }

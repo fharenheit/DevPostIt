@@ -4,15 +4,18 @@ export const fonts = {
   system: 'Consolas, "D2 Ligature", monospace',
 } as const;
 export type FontKey = keyof typeof fonts;
-export type FontSettings = { font: FontKey; ligatures: boolean };
-const key = 'hunmin.editor.fonts.v1';
+export type FontSettings = { font: FontKey; ligatures: boolean; size: number };
+const key = 'devpostit.editor.preferences.v1';
 
 export function readFontSettings(): FontSettings {
   try {
-    const value = JSON.parse(localStorage.getItem(key) ?? 'null');
-    if (value && Object.hasOwn(fonts, value.font) && typeof value.ligatures === 'boolean') return value;
+    const value = JSON.parse(localStorage.getItem(key) ?? localStorage.getItem('hunmin.editor.fonts.v1') ?? 'null');
+    if (value && Object.hasOwn(fonts, value.font) && typeof value.ligatures === 'boolean') {
+      const size = Number.isInteger(value.size) && value.size >= 10 && value.size <= 24 ? value.size : 14;
+      return { font: value.font, ligatures: value.ligatures, size };
+    }
   } catch { /* 저장 설정이 없거나 손상되었으면 기본값으로 복구합니다. */ }
-  return { font: 'd2', ligatures: true };
+  return { font: 'd2', ligatures: true, size: 14 };
 }
 
 export function saveFontSettings(settings: FontSettings): void {
