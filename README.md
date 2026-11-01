@@ -36,10 +36,10 @@ Claude에서도 이어서 개발할 수 있도록 [공통 작업 지침](AGENTS.
 
 ## 릴리즈 빌드
 
-Windows x64용 단일 exe는 저장소 루트에서 만듭니다. .NET을 함께 포함하므로 별도 설치가 필요 없고 WebView2 Runtime만 있으면 실행됩니다. 잠금 파일은 RID 없는 개발 복원 기준이므로 이 명령에서는 쓰지 않습니다.
+Windows x64용 단일 exe는 저장소 루트에서 만듭니다. .NET을 함께 포함하므로 별도 설치가 필요 없고 WebView2 Runtime만 있으면 실행됩니다. 이 빌드의 패키지 잠금 파일은 `obj` 아래에 따로 만들어져 저장소의 잠금 파일을 바꾸지 않습니다.
 
 ```powershell
-dotnet publish src/DevPostIt.App -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeAllContentForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:RestorePackagesWithLockFile=false -o .tools/release/publish
+dotnet publish src/DevPostIt.App -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeAllContentForSelfExtract=true -p:EnableCompressionInSingleFile=true -o .tools/release/publish
 ```
 
 버전은 `src/DevPostIt.App/DevPostIt.App.csproj`의 `Version`에 있습니다.
