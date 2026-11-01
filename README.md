@@ -2,6 +2,11 @@
 
 Windows용 WPF + WebView2 Markdown 메모 앱입니다. Monaco 소스 편집기와 미리보기, 코드 블록 정리, 이름 변경, 여러 메모의 자동 저장·복구, 트레이와 작은 포스트잇 아이콘을 제공합니다. SQLite 검색 인덱스를 사용하며 중앙 검색 화면과 외부 파일 감시는 후속 단계입니다.
 
+<p align="center">
+  <img src="docs/images/source-editing.png" alt="소스 편집 화면" width="45%">
+  <img src="docs/images/preview.png" alt="미리보기 화면" width="45%">
+</p>
+
 필수 도구는 .NET SDK 10.0.403, Node.js 24.22.1/npm 11.19.1 및 WebView2 Runtime입니다. SDK와 패키지 버전은 매니페스트 및 잠금 파일로 고정합니다. WPF 빌드가 웹 편집기 제작 빌드와 실행 폴더 복사를 수행하므로 개발 서버를 별도로 띄우지 않아도 됩니다.
 
 ```powershell
