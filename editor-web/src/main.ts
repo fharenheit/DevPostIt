@@ -1,5 +1,6 @@
 import { Editor } from './editor';
 import { fonts, readFontSettings, saveFontSettings, type FontKey } from './fonts';
+import { connectEditor, type EditorConnection } from './bridge';
 import './style.css';
 
 declare global { interface Window { hunminEditor: Editor } }
@@ -12,16 +13,18 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
     </div>
     <div class="document-heading"><span class="document-icon">MD</span><div><h1>나의 첫 메모</h1><p>Markdown으로 작성하고 미리보기로 확인하세요.</p></div></div>
     <div class="editor-area"><div id="source"></div><article id="preview" class="preview" aria-label="Markdown 미리보기" hidden></article></div>
-    <footer><span id="status" role="status">편집 준비</span><span>변경 내용은 이 창에서만 유지됩니다.</span></footer>
+    <footer><span id="status" role="status">편집 준비</span><span id="host-status" role="status">변경 내용은 이 창에서만 유지됩니다.</span></footer>
   </section>`;
 
 const sourceButton = document.querySelector<HTMLButtonElement>('#source-mode')!;
 const previewButton = document.querySelector<HTMLButtonElement>('#preview-mode')!;
 const status = document.querySelector<HTMLElement>('#status')!;
+let connection: EditorConnection | undefined;
 const editor = new Editor(document.querySelector('#source')!, document.querySelector('#preview')!, (mode, draft) => {
   sourceButton.setAttribute('aria-pressed', String(mode === 'source'));
   previewButton.setAttribute('aria-pressed', String(mode === 'preview'));
   status.textContent = `${draft.dirty ? '편집됨' : '원문 유지'} · ${draft.markdown.length.toLocaleString('ko-KR')}자`;
+  connection?.changed();
 });
 sourceButton.addEventListener('click', () => editor.setMode('source'));
 previewButton.addEventListener('click', () => editor.setMode('preview'));
@@ -38,7 +41,7 @@ function applyFont(): void {
   const font = fontSelect.value as FontKey;
   const enabled = ligatures.checked;
   document.documentElement.style.fontSize = `${textSize}px`;
-  editor.setTextSize(textSize);
+  editor.setTextSize(textSize - 2);
   document.querySelector('#text-size')!.textContent = String(textSize);
   smaller.disabled = textSize <= 10;
   larger.disabled = textSize >= 24;
@@ -55,3 +58,11 @@ larger.addEventListener('click', () => { textSize = Math.min(24, textSize + 1); 
 applyFont();
 editor.load('welcome', '# 오늘의 메모\n\n작은 생각도, 잊기 전에 남겨 두세요.\n\n## 오늘 할 일\n\n- [ ] 아이디어 정리하기\n- [x] 첫 메모 시작하기\n\n> 원문은 그대로, 보기만 편하게.\n\n```ts\nconst note = "안녕하세요";\nconst ready = count >= 1;\n```\n', 0);
 window.hunminEditor = editor;
+connection = connectEditor(editor, message => { document.querySelector('#host-status')!.textContent = message; });
+window.addEventListener('keydown', event => {
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+    event.preventDefault();
+    if (connection) connection.requestSave();
+    else document.querySelector('#host-status')!.textContent = '파일 저장은 앱 연결 후 지원됩니다.';
+  }
+});

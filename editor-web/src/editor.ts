@@ -25,7 +25,7 @@ export class Editor {
   ) {
     this.view = monaco.editor.create(source, {
       language: 'markdown', theme: 'vs', automaticLayout: true,
-      minimap: { enabled: false }, wordWrap: 'on', fontSize: 14, lineHeight: 24,
+      minimap: { enabled: false }, wordWrap: 'on', fontSize: 13, lineHeight: 22,
       padding: { top: 24, bottom: 24 }, scrollBeyondLastLine: false,
       ariaLabel: 'Markdown 본문', editContext: false,
       links: false,
@@ -51,6 +51,7 @@ export class Editor {
         const requested = this.pendingMode;
         this.pendingMode = null;
         if (requested) this.setMode(requested);
+        else this.notify();
       }, 0);
     });
   }
@@ -88,6 +89,14 @@ export class Editor {
   }
 
   getDraft(): Draft { return { ...this.draft }; }
+  isComposing(): boolean { return this.composing; }
+  markSaved(revision: number): void {
+    if (revision !== this.draft.revision || !this.model || this.composing) return;
+    this.original = this.draft.markdown;
+    this.modelBaseline = this.model.getValue(monaco.editor.EndOfLinePreference.TextDefined, true);
+    this.draft = { ...this.draft, dirty: false };
+    this.notify();
+  }
   setTextSize(size: number): void {
     this.view.updateOptions({ fontSize: size, lineHeight: Math.round(size * 1.7) });
     this.view.layout();

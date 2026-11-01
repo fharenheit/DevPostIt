@@ -3,10 +3,15 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:HunminNotes.App"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
         mc:Ignorable="d"
-        Title="훈민 노트" Height="450" Width="800">
+        Title="DevPostIt" Height="850" Width="1200" MinHeight="560" MinWidth="780"
+        Loaded="WindowLoaded" Closed="WindowClosed" Background="#F1F4F2">
     <Grid>
-
+        <wv2:WebView2 x:Name="EditorView" />
+        <Border x:Name="Loading" Background="#F1F4F2">
+            <TextBlock x:Name="LoadingText" Text="DevPostIt 편집기를 여는 중입니다…" FontSize="14"
+                       TextWrapping="Wrap" MaxWidth="600" HorizontalAlignment="Center" VerticalAlignment="Center" />
+        </Border>
     </Grid>
 </Window>
