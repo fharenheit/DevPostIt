@@ -33,7 +33,7 @@ for (const [width, height, size] of [[304, 320, 24], [304, 320, 15], [480, 640, 
     const scroll = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, height: document.documentElement.scrollHeight }));
     expect(scroll.width).toBeLessThanOrEqual(width);
     expect(scroll.height).toBeLessThanOrEqual(height);
-    for (const selector of ['h1', '#source-mode', '#preview-mode', '#code-language', '#format-code', '#status']) {
+    for (const selector of ['h1', '#source-mode', '#preview-mode', '#note-images', '#code-language', '#format-code', '#status']) {
       const rect = await box(page, selector);
       expect(rect.left, selector).toBeGreaterThanOrEqual(0);
       expect(rect.right, selector).toBeLessThanOrEqual(width);

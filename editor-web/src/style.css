@@ -59,10 +59,16 @@ button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); o
 :root[data-note-color=pink] { --paper-header: #fbdde8; }
 :root[data-note-color=purple] { --paper-header: #e6dff7; }
 :root[data-note-color=gray] { --paper-header: #e8e6e1; }
-.modes { order: 2; display: flex; gap: 2px; border-radius: 7px; padding: 2px; background: var(--paper-sunken); }
+.modes { display: flex; gap: 2px; border-radius: 7px; padding: 2px; background: var(--paper-sunken); }
 .modes button { border: none; background: transparent; border-radius: 5px; color: var(--ink-muted); padding: .15rem .6rem; font-size: .875rem; }
 .modes button:hover { color: var(--ink); }
 .modes button[aria-pressed=true] { background: var(--paper); color: var(--ink); font-weight: 600; box-shadow: 0 1px 3px #4a3f1a26; }
+.view-tools { order: 2; display: flex; align-items: center; gap: 4px; max-width: 100%; }
+/* 좁은 창에서는 보기 전환의 여백을 줄여 글자가 두 줄로 접히지 않게 합니다. */
+@media (max-width: 360px) { .modes button { padding-inline: .25rem; white-space: nowrap; } }
+#note-images { flex-shrink: 0; display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: none; border-radius: 4px; background: transparent; color: var(--ink); }
+#note-images:hover { background: var(--paper-sunken); }
+#note-images svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
 .document-heading { flex: 1 1 5rem; min-width: 0; }
 h1 { margin: 0; font-size: 1.0625rem; font-weight: 600; letter-spacing: -0.3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: default; }
 /* 아이콘은 글자가 아니므로 크기를 고정합니다. 낮은 창에서는 본문 높이를 위해 줄바꿈 대신 가로로 스크롤합니다. */
@@ -155,7 +161,7 @@ dialog p:empty { display: none; }
   :root { font-size: 11pt !important; }
   html, body, #app, .workspace, .editor-area, #preview { height: auto !important; overflow: visible !important; display: block; }
   .note-header { background: none; border: none; padding: 0 0 .5rem; }
-  .note-actions, .modes, .format-toolbar, .note-bar, .copy-code, dialog { display: none !important; }
+  .note-actions, .modes, #note-images, .format-toolbar, .note-bar, .copy-code, dialog { display: none !important; }
   h1 { white-space: normal; overflow: visible; }
   .preview { padding: 0; font-size: 11pt; }
   .preview > * { max-width: none; }

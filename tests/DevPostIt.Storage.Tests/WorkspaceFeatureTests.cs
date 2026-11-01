@@ -86,6 +86,20 @@ public sealed class WorkspaceFeatureTests : IDisposable
     }
 
     [Fact]
+    public async Task ImageFolderIsWhereImagesAreSavedAndExistsBeforeTheFirstImage()
+    {
+        await using var workspace = await NoteWorkspace.OpenAsync(root, default);
+        var note = workspace.Notes.Single();
+        var folder = workspace.EnsureImageFolder(note.Id);
+        Assert.True(Directory.Exists(folder));
+        Assert.Empty(Directory.GetFiles(folder));
+        await workspace.SaveImageAsync(note.Id, [1, 2, 3], default);
+        Assert.Single(Directory.GetFiles(folder));
+        Assert.Equal(folder, workspace.EnsureImageFolder(note.Id));
+        Assert.Throws<KeyNotFoundException>(() => workspace.EnsureImageFolder(Guid.NewGuid()));
+    }
+
+    [Fact]
     public async Task SearchFindsNotesThatWereNeverOpened()
     {
         Guid id;

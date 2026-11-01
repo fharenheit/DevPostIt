@@ -322,6 +322,11 @@ internal static class Program
         await pdfWindow.InsertImageAsync(samplePng);
         await UntilAsync(async () => await imageEditor.ExecuteScriptAsync("window.hunminEditor.getDraft().markdown") != beforeInsert);
         Check(await imageEditor.ExecuteScriptAsync("window.hunminEditor.getMode()") == "\"source\"", "캡처 삽입 시 소스 편집으로 전환");
+        string? openedImages = null;
+        pdfWindow.ImageFolderOpener = path => openedImages = path;
+        await imageEditor.ExecuteScriptAsync("document.querySelector('#note-images').click()");
+        await UntilAsync(async () => { await Task.Yield(); return openedImages is not null; });
+        Check(Path.GetDirectoryName(openedImages) == Path.GetFullPath(Path.Combine(root, "data", "notes", "assets")) && Directory.GetFiles(openedImages!, "*.png").Length > 0, "이미지 폴더 버튼이 이 메모의 이미지 폴더를 염");
         var pdfPath = Path.Combine(root, "note.pdf");
         pdfWindow.PdfPathPicker = _ => pdfPath;
         var pdfEditor = (WebView2)pdfWindow.FindName("EditorView");

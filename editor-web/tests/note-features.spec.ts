@@ -235,7 +235,7 @@ test('인쇄 화면은 제목과 본문만 남기고 긴 문서를 자르지 않
   await openEditor(page, `# 긴 문서\n\n${body}\n\n\`\`\`ts\nconst a = 1;\n\`\`\`\n`);
   await mode(page, 'preview');
   await page.emulateMedia({ media: 'print' });
-  for (const selector of ['.note-actions', '.modes', '.format-toolbar', '.note-bar', '.copy-code']) await expect(page.locator(selector).first()).toBeHidden();
+  for (const selector of ['.note-actions', '.modes', '#note-images', '.format-toolbar', '.note-bar', '.copy-code']) await expect(page.locator(selector).first()).toBeHidden();
   await expect(page.locator('h1').first()).toBeVisible();
   await expect(page.locator('.workspace')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   const height = await page.evaluate(() => document.documentElement.scrollHeight);
@@ -303,4 +303,24 @@ test('설정 페이지의 캡처 전 대기를 앱에 알린다', async ({ page 
   await expect(page.getByLabel('캡처 전 대기')).toHaveValue('3');
   await page.getByLabel('캡처 전 대기').selectOption('5');
   expect((await sent(page)).at(-1)).toEqual({ protocolVersion: 1, type: 'settings.captureDelay', value: 5 });
+});
+
+test('미리보기 오른쪽의 이미지 폴더 버튼은 앱에 폴더 열기를 요청하고 본문을 바꾸지 않는다', async ({ page }) => {
+  await page.setViewportSize({ width: 480, height: 640 });
+  await hosted(page);
+  await send(page, 'note.load', 7, { markdown: '본문' });
+  const preview = (await page.locator('#preview-mode').boundingBox())!;
+  const images = (await page.getByRole('button', { name: '이미지 폴더 열기', exact: true }).boundingBox())!;
+  expect(images.x).toBeGreaterThanOrEqual(preview.x + preview.width);
+  expect(Math.abs((images.y + images.height / 2) - (preview.y + preview.height / 2))).toBeLessThanOrEqual(2);
+  expect(images.x + images.width).toBeLessThanOrEqual(480);
+  await page.locator('#note-images').click();
+  await expect.poll(async () => (await sent(page)).at(-1)).toMatchObject({ type: 'note.openImagesRequested', revision: 7, payload: {} });
+  expect(await markdown(page)).toBe('본문');
+});
+
+test('브라우저 단독 실행의 이미지 폴더 버튼은 앱이 필요하다고 알린다', async ({ page }) => {
+  await openEditor(page, '본문');
+  await page.locator('#note-images').click();
+  await expect(page.locator('#host-status')).toContainText('이미지 폴더는 앱에서');
 });

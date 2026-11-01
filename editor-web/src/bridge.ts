@@ -35,7 +35,7 @@ export class EditorConnection {
     const draft = this.editor.getDraft();
     this.send('note.saveRequested', { markdown: draft.markdown, title: this.editor.getTitle() }, draft.revision);
   }
-  command(type: 'window.collapseRequested' | 'note.newRequested' | 'window.settingsRequested' | 'window.searchRequested' | 'note.imagePasteRequested' | 'note.exportPdfRequested' | 'window.captureRequested'): void {
+  command(type: 'window.collapseRequested' | 'note.newRequested' | 'window.settingsRequested' | 'window.searchRequested' | 'note.imagePasteRequested' | 'note.exportPdfRequested' | 'window.captureRequested' | 'note.openImagesRequested'): void {
     if (this.noteId === emptyId || this.editor.isComposing()) return;
     this.publish();
     this.send(type, {}, this.editor.getDraft().revision);

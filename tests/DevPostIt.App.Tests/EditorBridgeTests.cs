@@ -237,7 +237,7 @@ public class EditorBridgeTests
                     Assert.True(System.Text.RegularExpressions.Regex.IsMatch(sentence.TrimEnd('.'), "(니다|십시오)$"), $"합니다체가 아닙니다: {sentence}");
         }
         var text = string.Join('\n', HelpContent.Sections.SelectMany(section => section.Paragraphs.Prepend(section.Title)));
-        foreach (var topic in new[] { "휴지통", "백업", "복원", "검색", "PDF", "찾기", "바꾸기", "단축키", "미리보기", "글꼴", "업데이트", "표", "이미지", "항상 위", "데이터 폴더", "캡처" })
+        foreach (var topic in new[] { "휴지통", "백업", "복원", "검색", "PDF", "찾기", "바꾸기", "단축키", "미리보기", "글꼴", "업데이트", "표", "이미지", "항상 위", "데이터 폴더", "캡처", "이미지 폴더" })
             Assert.Contains(topic, text);
     }
 
@@ -268,6 +268,16 @@ public class EditorBridgeTests
         Assert.Equal(accepted, SettingsMessage.TryReadCaptureDelay(json, EditorOrigin.SettingsPage, out var seconds));
         Assert.Equal(value, seconds);
         Assert.False(SettingsMessage.TryReadCaptureDelay(json, EditorOrigin.Page, out _));
+    }
+
+    [Fact]
+    public async Task OpenImagesRequestCarriesNothingAndChecksRevision()
+    {
+        var bridge = new EditorBridge(Id, 7);
+        var request = Change(7) with { Type = "note.openImagesRequested", Payload = JsonSerializer.SerializeToElement(new { }) };
+        Assert.Null(await bridge.HandleAsync(request, default));
+        await Assert.ThrowsAsync<EditorProtocolException>(() => bridge.HandleAsync(request with { Revision = 6 }, default));
+        await Assert.ThrowsAsync<EditorProtocolException>(() => bridge.HandleAsync(request with { Payload = JsonSerializer.SerializeToElement(new { path = "C:\\Windows" }) }, default));
     }
 
     [Fact]

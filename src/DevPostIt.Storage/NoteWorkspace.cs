@@ -201,6 +201,16 @@ public sealed class NoteWorkspace : IAsyncDisposable
     }
     private (string File, string Record) TrashPaths(Guid id) => (Path.Combine(trashRoot, $"{id:N}.md"), Path.Combine(trashRoot, $"{id:N}.json"));
 
+    // 이 메모의 이미지 폴더입니다. 이미지가 아직 없어도 열 수 있도록 만들어 둡니다.
+    public string EnsureImageFolder(Guid id)
+    {
+        if (!notes.ContainsKey(id)) throw new KeyNotFoundException("메모를 찾지 못했습니다.");
+        var directory = Path.Combine(assetsRoot, id.ToString("N"));
+        StoragePathGuard.RejectLinks(directory);
+        Directory.CreateDirectory(directory);
+        return directory;
+    }
+
     // 붙여넣은 이미지를 메모별 폴더에 저장하고, 메모 파일 기준 상대 경로의 Markdown을 돌려줍니다.
     public async Task<string> SaveImageAsync(Guid id, byte[] png, CancellationToken cancellationToken)
     {
@@ -208,9 +218,7 @@ public sealed class NoteWorkspace : IAsyncDisposable
         if (png.Length is 0 or > maxBytes) throw new InvalidDataException("이미지는 20MB까지 붙여넣을 수 있습니다.");
         if (!notes.TryGetValue(id, out var note)) throw new KeyNotFoundException("메모를 찾지 못했습니다.");
         var name = $"{Guid.NewGuid():N}.png";
-        var directory = Path.Combine(assetsRoot, id.ToString("N"));
-        StoragePathGuard.RejectLinks(directory);
-        Directory.CreateDirectory(directory);
+        var directory = EnsureImageFolder(id);
         var temporary = Path.Combine(directory, name + ".tmp");
         await File.WriteAllBytesAsync(temporary, png, cancellationToken);
         File.Move(temporary, Path.Combine(directory, name));

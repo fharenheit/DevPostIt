@@ -56,6 +56,7 @@ public partial class MainWindow : Window
     public event Action? SearchRequested;
     public event Action? CaptureRequested;
     internal Func<string, string?> PdfPathPicker { get; set; } = PickPdfPath;
+    internal Action<string> ImageFolderOpener { get; set; } = path => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(path) { UseShellExecute = true })?.Dispose();
     internal string? PendingPreferences { get; set; }
     internal Func<byte[]?> ClipboardImageReader { get; set; } = ClipboardPng;
     public event Action<string, bool>? AppearanceChanged;
@@ -200,6 +201,7 @@ public partial class MainWindow : Window
             else if (result.Message.Type == "window.searchRequested") SearchRequested?.Invoke();
             else if (result.Message.Type == "window.captureRequested") CaptureRequested?.Invoke();
             else if (result.Message.Type == "note.exportPdfRequested") await ExportPdfAsync();
+            else if (result.Message.Type == "note.openImagesRequested") ImageFolderOpener(await Task.Run(() => workspace.EnsureImageFolder(noteId)));
             else if (result.Message.Type == "window.appearanceChanged")
             {
                 var color = result.Message.Payload.GetProperty("color").GetString()!;

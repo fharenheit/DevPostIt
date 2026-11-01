@@ -8,13 +8,17 @@ import './style.css';
 declare global { interface Window { hunminEditor: Editor } }
 const colorNames: Record<string, string> = { yellow: '노랑', green: '초록', blue: '파랑', pink: '분홍', purple: '보라', gray: '회색' };
 const pdfIcon = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2v8M5 7l3 3 3-3M3 13h10"/></svg>';
+const folderIcon = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4h4l1.5 1.5H14V13H2z"/></svg>';
 const captureIcon = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 5.5h3l1-2h4l1 2h3v7.5H2zM8 7a2.2 2.2 0 1 1 0 4.4A2.2 2.2 0 0 1 8 7z"/></svg>';
 const pinIcon = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 2h4l-.5 5 2 2.5h-7l2-2.5zM8 9.5V14"/></svg>';
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <section class="workspace" aria-label="Markdown 편집기">
     <header class="note-header">
       <div class="document-heading"><h1 title="더블클릭하면 이름을 변경합니다">나의 첫 메모</h1></div>
-      <div class="modes" role="group" aria-label="보기 방식"><button id="source-mode" aria-pressed="true">소스 편집</button><button id="preview-mode" aria-pressed="false">미리보기</button></div>
+      <div class="view-tools">
+        <div class="modes" role="group" aria-label="보기 방식"><button id="source-mode" aria-pressed="true">소스 편집</button><button id="preview-mode" aria-pressed="false">미리보기</button></div>
+        <button type="button" id="note-images" aria-label="이미지 폴더 열기" title="이 메모의 이미지 폴더 열기">${folderIcon}</button>
+      </div>
       <div class="note-actions">
         <button type="button" id="capture" aria-label="화면 캡처" title="화면 캡처 (Ctrl+Shift+C)">${captureIcon}</button>
         <button type="button" id="save-pdf" aria-label="PDF로 저장" title="PDF로 저장">${pdfIcon}</button>
@@ -203,3 +207,8 @@ document.querySelector('#capture')!.addEventListener('click', requestCapture);
 window.addEventListener('keydown', event => {
   if (event.ctrlKey && event.shiftKey && !event.altKey && event.key.toLowerCase() === 'c') { event.preventDefault(); event.stopPropagation(); requestCapture(); }
 }, true);
+
+document.querySelector('#note-images')!.addEventListener('click', () => {
+  if (connection) connection.command('note.openImagesRequested');
+  else document.querySelector('#host-status')!.textContent = '이미지 폴더는 앱에서 열 수 있습니다.';
+});
