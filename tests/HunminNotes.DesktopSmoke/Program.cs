@@ -1,7 +1,9 @@
 using System.Text.Json;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Interop;
 using HunminNotes.App;
 using HunminNotes.Core;
 using HunminNotes.Storage;
@@ -88,6 +90,38 @@ internal static class Program
         Check(first.IsVisible && !application.Windows.OfType<CollapsedNoteWindow>().Any(), "같은 창 클릭 복원");
         Check(ReferenceEquals(first, manager.ShowNote(first.NoteId)), "중복 창 방지");
         Check(JsonSerializer.Deserialize<string>(await editor.ExecuteScriptAsync("window.hunminEditor.getTitle()")) == "접기 복원 검증", "복원 후 편집 내용 보존");
+        SendMessage(new WindowInteropHelper(first).Handle, 0x00A3, 2, 0);
+        await UntilAsync(() => Task.FromResult(application.Windows.OfType<CollapsedNoteWindow>().Count() == 1));
+        Check(!first.IsVisible, "제목 표시줄 더블클릭으로 아이콘 접기");
+        icon = application.Windows.OfType<CollapsedNoteWindow>().Single();
+        icon.Activate();
+        await application.Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.ContextIdle);
+        var (left, top) = (icon.Left, icon.Top);
+        var grip = icon.PointToScreen(new System.Windows.Point(12, 12));
+        GetCursorPos(out var cursor);
+        try
+        {
+            await Task.Run(() =>
+            {
+                SetCursorPos((int)grip.X, (int)grip.Y); Thread.Sleep(150);
+                mouse_event(LeftDown, 0, 0, 0, 0); Thread.Sleep(100);
+                for (var step = 1; step <= 20; step++) { SetCursorPos((int)grip.X + 6 * step, (int)grip.Y + 4 * step); Thread.Sleep(20); }
+                Thread.Sleep(100);
+                mouse_event(LeftUp, 0, 0, 0, 0); Thread.Sleep(200);
+            });
+            await UntilAsync(() => Task.FromResult(icon.Left > left + 20 && icon.Top > top + 10));
+            Check(icon.IsVisible && !first.IsVisible, "접힌 아이콘 실제 드래그 이동은 복원하지 않음");
+            var moved = icon.PointToScreen(new System.Windows.Point(12, 12));
+            await Task.Run(() =>
+            {
+                SetCursorPos((int)moved.X, (int)moved.Y); Thread.Sleep(150);
+                mouse_event(LeftDown, 0, 0, 0, 0); Thread.Sleep(50);
+                mouse_event(LeftUp, 0, 0, 0, 0); Thread.Sleep(100);
+            });
+            await UntilAsync(() => Task.FromResult(first.IsVisible));
+        }
+        finally { SetCursorPos(cursor.X, cursor.Y); }
+        Check(!application.Windows.OfType<CollapsedNoteWindow>().Any(), "옮긴 아이콘 클릭 복원");
         tray.Menu.Show(new System.Drawing.Point(120, 120));
         Check(tray.Menu.Items.OfType<Forms.ToolStripMenuItem>().Any(item => item.Text == "메모 목록"), "트레이 메모 목록");
         tray.Menu.Items.OfType<Forms.ToolStripMenuItem>().Single(item => item.Text == "설정").PerformClick();
@@ -151,6 +185,12 @@ internal static class Program
         Check(manager.ShowNote(first.NoteId) is null, "종료된 저장소를 다시 열지 않음");
         using var released = new DataDirectoryLease(System.IO.Path.Combine(root, "data"));
     }
+    private const uint LeftDown = 0x0002, LeftUp = 0x0004;
+    private struct CursorPoint { public int X, Y; }
+    [DllImport("user32.dll")] private static extern IntPtr SendMessage(IntPtr handle, int message, nint wParam, nint lParam);
+    [DllImport("user32.dll")] private static extern bool GetCursorPos(out CursorPoint point);
+    [DllImport("user32.dll")] private static extern bool SetCursorPos(int x, int y);
+    [DllImport("user32.dll")] private static extern void mouse_event(uint flags, int x, int y, uint data, nuint extra);
     private static async Task ReadyAsync(MainWindow window) => await UntilAsync(() => Task.FromResult(((Border)window.FindName("Loading")).Visibility == Visibility.Collapsed));
     private static async Task UntilAsync(Func<Task<bool>> condition)
     {

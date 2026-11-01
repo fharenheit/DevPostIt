@@ -31,7 +31,6 @@ public partial class MainWindow : Window
 
     private TaskCompletionSource<bool>? closeCompletion;
     private bool settingsRequested;
-    private bool renameRequested;
     private bool preserveOnClose = true;
     internal Func<MessageBoxResult>? DeleteConfirmation { get; set; }
     internal Func<Task>? InitializationDelay { get; set; }
@@ -80,7 +79,7 @@ public partial class MainWindow : Window
         if (message == 0x00A3 && wParam.ToInt64() == 2 && CanCollapse)
         {
             handled = true;
-            Dispatcher.BeginInvoke(new Action(ShowRename));
+            Dispatcher.BeginInvoke(new Action(() => { if (CanCollapse) WindowState = WindowState.Minimized; }));
         }
         return IntPtr.Zero;
     }
@@ -112,11 +111,6 @@ public partial class MainWindow : Window
     {
         if (bridge is null || Loading.Visibility != Visibility.Collapsed) { settingsRequested = true; return; }
         Send("ui.openSettings", new { }, bridge.Revision);
-    }
-    public void ShowRename()
-    {
-        if (bridge is null || Loading.Visibility != Visibility.Collapsed) { renameRequested = true; return; }
-        Send("ui.openRename", new { }, bridge.Revision);
     }
 
     private void WindowLoaded(object sender, RoutedEventArgs e) => initialization ??= InitializeEditorAsync();
@@ -203,7 +197,6 @@ public partial class MainWindow : Window
                 else if (state.HasUnsavedChanges) Send("note.conflict", new { message = "복구 초안을 자동 저장하는 중입니다." }, state.Revision);
                 Loading.Visibility = Visibility.Collapsed;
                 if (settingsRequested) { settingsRequested = false; ShowSettings(); }
-                if (renameRequested) { renameRequested = false; ShowRename(); }
             }
             else if (result.Message.Type == "window.collapseRequested") CollapseRequested?.Invoke(this);
             else if (result.Message.Type == "note.newRequested") NewNoteRequested?.Invoke();

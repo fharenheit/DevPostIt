@@ -29,7 +29,10 @@ public sealed class CollapsedNoteWindow : Window
         button.PreviewMouseMove += (_, e) =>
         {
             if (e.LeftButton != MouseButtonState.Pressed || dragged || (e.GetPosition(this) - start).Length < 5) return;
-            dragged = true; e.Handled = true; DragMove();
+            dragged = true; e.Handled = true;
+            // 버튼이 마우스 캡처를 잡고 있으면 창 이동이 시작되지 않습니다.
+            button.ReleaseMouseCapture();
+            DragMove();
         };
         button.Click += (_, _) => { if (!dragged) restore(); };
         Content = button;

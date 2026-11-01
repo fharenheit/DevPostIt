@@ -59,7 +59,6 @@ function openRename(): void {
   renameDialog.showModal();
 }
 document.querySelector('h1')!.addEventListener('dblclick', openRename);
-window.addEventListener('devpostit-rename', openRename);
 document.querySelector('#rename-cancel')!.addEventListener('click', () => renameDialog.close());
 document.querySelector('#rename-form')!.addEventListener('submit', event => {
   event.preventDefault();
