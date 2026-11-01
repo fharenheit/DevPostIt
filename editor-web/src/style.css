@@ -145,6 +145,8 @@ dialog p:empty { display: none; }
   h1 { white-space: normal; overflow: visible; }
   .preview { padding: 0; }
   .preview > * { max-width: none; }
+  .preview table { margin-inline: 0; }
+  :root, body, .workspace { background: #fff; }
   .preview pre { white-space: pre-wrap; break-inside: avoid; }
   .preview pre code { white-space: pre-wrap; }
 }

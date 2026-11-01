@@ -237,6 +237,7 @@ test('인쇄 화면은 제목과 본문만 남기고 긴 문서를 자르지 않
   await page.emulateMedia({ media: 'print' });
   for (const selector of ['.note-actions', '.modes', '.format-toolbar', '.note-bar', '.copy-code']) await expect(page.locator(selector).first()).toBeHidden();
   await expect(page.locator('h1').first()).toBeVisible();
+  await expect(page.locator('.workspace')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   const height = await page.evaluate(() => document.documentElement.scrollHeight);
   expect(height).toBeGreaterThan(3000);
   const pdf = await page.pdf({ printBackground: true });
