@@ -33,3 +33,13 @@ Windows 제목 표시줄에는 항상 ‘Post It for Developer’를 표시합�
 검증 결과는 `docs/development/`에 기록합니다. 추가 기능 검증은 [코드 정리·트레이 검증](docs/development/FORMATTING_TRAY.md), 브라우저 편집기를 별도로 실행하는 방법은 [편집기 안내](editor-web/README.md)를 참고하세요.
 
 Claude에서도 이어서 개발할 수 있도록 [공통 작업 지침](AGENTS.md), [Claude 진입 문서](CLAUDE.md), [현재 상태 인계](docs/development/HANDOFF.md)를 제공합니다. 시작 방법은 [Claude 작업 안내](docs/development/CLAUDE_SETUP.md)를 참고하세요.
+
+## 릴리즈 빌드
+
+Windows x64용 단일 exe는 저장소 루트에서 만듭니다. .NET을 함께 포함하므로 별도 설치가 필요 없고 WebView2 Runtime만 있으면 실행됩니다. 잠금 파일은 RID 없는 개발 복원 기준이므로 이 명령에서는 쓰지 않습니다.
+
+```powershell
+dotnet publish src/DevPostIt.App -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeAllContentForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:RestorePackagesWithLockFile=false -o .tools/release/publish
+```
+
+버전은 `src/DevPostIt.App/DevPostIt.App.csproj`의 `Version`에 있습니다.
