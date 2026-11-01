@@ -59,3 +59,4 @@ dialog::backdrop { background: #183d3455; }
 dialog input { display: block; width: 100%; margin: .7rem 0; padding: .5rem; font: inherit; box-sizing: border-box; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1rem; }
 #rename { margin-left: auto; flex-shrink: 0; }
+.code-tools select, .code-tools button, #rename, #new-note, dialog button { font: inherit; }

@@ -15,6 +15,7 @@ export class Editor {
   private title = '나의 첫 메모';
   private originalTitle = this.title;
   private modelBaseline = '';
+  private readonly rawVersions = new Map<number, string>();
   private draft: Draft = { markdown: '', revision: 0, dirty: false };
   private composing = false;
   private pendingMode: EditorMode | null = null;
@@ -39,7 +40,7 @@ export class Editor {
       if (!this.model) return;
       const value = this.model.getValue(monaco.editor.EndOfLinePreference.TextDefined, true);
       // Undo로 모델의 최초 값에 복귀하면 BOM·혼합 줄바꿈을 포함한 원문을 돌려줍니다.
-      const markdown = value === this.modelBaseline ? this.original : value;
+      const markdown = this.rawVersions.get(this.model.getAlternativeVersionId()) ?? (value === this.modelBaseline ? this.original : value);
       if (markdown !== this.draft.markdown) {
         this.draft = { markdown, revision: this.draft.revision + 1, dirty: markdown !== this.original || this.title !== this.originalTitle };
         this.notify();
@@ -70,6 +71,8 @@ export class Editor {
     const firstNewline = /\r\n|\n/.exec(markdown)?.[0];
     this.model.setEOL(firstNewline === '\r\n' ? monaco.editor.EndOfLineSequence.CRLF : monaco.editor.EndOfLineSequence.LF);
     this.modelBaseline = this.model.getValue(monaco.editor.EndOfLinePreference.TextDefined, true);
+    this.rawVersions.clear();
+    this.rawVersions.set(this.model.getAlternativeVersionId(), markdown);
     this.draft = { markdown, revision, dirty: false };
     this.view.setModel(this.model);
     previous?.dispose();
@@ -106,13 +109,18 @@ export class Editor {
     if (!this.model || this.mode !== 'source' || this.composing) return '소스 편집에서 조합을 마친 뒤 실행해 주세요.';
     const model = this.model;
     const version = model.getVersionId();
+    const raw = this.draft.markdown;
     try {
-      const edit = await formatBlock(model.getValue(), (this.view.getPosition()?.lineNumber ?? 1) - 1, language);
+      const edit = await formatBlock(raw, (this.view.getPosition()?.lineNumber ?? 1) - 1, language);
       if (this.model !== model || model.isDisposed() || model.getVersionId() !== version || this.composing || this.mode !== 'source') return '편집 내용이 바뀌어 정리를 취소했습니다.';
-      const start = model.getPositionAt(edit.start), end = model.getPositionAt(edit.end);
+      this.rawVersions.set(model.getAlternativeVersionId(), raw);
       this.view.pushUndoStop();
-      this.view.executeEdits('format-code', [{ range: new monaco.Range(start.lineNumber, start.column, end.lineNumber, end.column), text: edit.text }]);
+      this.view.executeEdits('format-code', [{ range: new monaco.Range(edit.startLine, 1, edit.endLine, 1), text: edit.text }]);
       this.view.pushUndoStop();
+      const markdown = raw.slice(0, edit.start) + edit.text + raw.slice(edit.end);
+      this.rawVersions.set(model.getAlternativeVersionId(), markdown);
+      this.draft = { ...this.draft, markdown, dirty: markdown !== this.original || this.title !== this.originalTitle };
+      this.notify();
       return '코드를 정리했습니다.';
     } catch (error) { return error instanceof CodeBlockError ? error.message : '정리하지 못했습니다. 블록의 언어·문법과 닫는 울타리를 확인해 주세요.'; }
   }

@@ -24,7 +24,14 @@ public sealed class EditorBridge(Guid noteId, long revision)
             if (message.NoteId != Guid.Empty || message.Revision != 0) throw new EditorProtocolException("잘못된 준비 메시지입니다.");
             return Task.FromResult<NoteChange?>(null);
         }
-        if (message.Type is not ("note.changed" or "note.saveRequested") || message.NoteId != noteId || noteId == Guid.Empty)
+        if (message.NoteId != noteId || noteId == Guid.Empty) throw new EditorProtocolException("잘못된 메모 ID입니다.");
+        if (message.Type is "window.collapseRequested" or "note.newRequested")
+        {
+            Fields(message.Payload);
+            if (message.Revision != Revision) throw new EditorProtocolException("창 요청 리비전이 일치하지 않습니다.");
+            return Task.FromResult<NoteChange?>(null);
+        }
+        if (message.Type is not ("note.changed" or "note.saveRequested"))
             throw new EditorProtocolException("허용하지 않는 메시지 또는 메모 ID입니다.");
         if (message.Payload.TryGetProperty("title", out _)) Fields(message.Payload, "markdown", "title");
         else Fields(message.Payload, "markdown");

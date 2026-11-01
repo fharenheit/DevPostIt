@@ -127,6 +127,20 @@ public class EditorBridgeTests
     }
 
     [Fact]
+    public async Task WindowCommandsRequireCurrentNoteRevisionAndEmptyPayload()
+    {
+        foreach (var type in new[] { "window.collapseRequested", "note.newRequested" })
+        {
+            var bridge = new EditorBridge(Id, 7);
+            var message = Change() with { Type = type, Revision = 7, Payload = JsonSerializer.SerializeToElement(new { }) };
+            Assert.Null((await bridge.ReceiveAsync(Serialize(message), EditorOrigin.Page, default)).Change);
+            Assert.Equal(7, bridge.Revision);
+            await Assert.ThrowsAsync<EditorProtocolException>(() => bridge.ReceiveAsync(Serialize(message with { Revision = 6 }), EditorOrigin.Page, default));
+            await Assert.ThrowsAsync<EditorProtocolException>(() => bridge.ReceiveAsync(Serialize(message with { Payload = JsonSerializer.SerializeToElement(new { path = "x" }) }), EditorOrigin.Page, default));
+        }
+    }
+
+    [Fact]
     public async Task CancelledMessageDoesNotChangeRevision()
     {
         using var source = new CancellationTokenSource();

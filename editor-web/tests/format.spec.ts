@@ -64,3 +64,15 @@ test('비동기 정리 중 메모를 전환하면 계산 결과를 적용하지 
   });
   expect((await draft(page)).markdown).toBe('다른 메모');
 });
+
+test('혼합 줄바꿈의 앞뒤 원문을 정리와 실행 취소에서 정확히 보존한다', async ({ page }) => {
+  const original = '앞\r\n```json\n{"a":1}\n```\n뒤\n';
+  await openEditor(page, original);
+  await atLine(page, 3);
+  await page.getByRole('button', { name: '코드 정리', exact: true }).click();
+  await expect(page.locator('#format-status')).toContainText('정리했습니다');
+  expect((await draft(page)).markdown).toBe('앞\r\n```json\n{ "a": 1 }\n```\n뒤\n');
+  await atLine(page, 3);
+  await page.keyboard.press('Control+z');
+  expect((await draft(page)).markdown).toBe(original);
+});

@@ -2,6 +2,27 @@ import { test, expect, type Page } from '@playwright/test';
 import { replaceText, mode, draft } from './helpers';
 
 const id = '018f5df0-7e6c-7ad0-a8c1-9b67490da11b';
+test('제목 더블클릭으로 현재 메모의 접기 요청을 보낸다', async ({ page }) => {
+  await hosted(page);
+  await send(page);
+  await page.locator('h1').dblclick();
+  await expect.poll(async () => (await messages(page)).at(-1)?.type).toBe('window.collapseRequested');
+  expect((await messages(page)).at(-1)?.noteId).toBe(id);
+});
+
+test('트레이 설정 요청은 대화상자를 열고 글자 크기는 다른 창에도 적용된다', async ({ page, context }) => {
+  await hosted(page);
+  await send(page);
+  const other = await context.newPage();
+  await other.goto('/');
+  await other.waitForFunction(() => Boolean(window.hunminEditor));
+  await send(page, 'ui.openSettings', 7, {});
+  await expect(page.getByRole('dialog', { name: '설정', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: '글자 크게', exact: true }).click();
+  await expect(other.locator('#text-size')).toHaveText('16');
+  await page.getByRole('button', { name: '닫기', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: '설정', exact: true })).not.toBeVisible();
+});
 test('메모 제목 로드·이름 변경·취소와 본문을 같은 리비전으로 전달한다', async ({ page }) => {
   await hosted(page);
   await send(page, 'note.load', 7, { markdown: '원본', title: '첫 이름' });

@@ -26,6 +26,12 @@ public sealed class MarkdownNoteRepository : INoteRepository
     }
 
     public Task SaveAsync(Note note, CancellationToken cancellationToken) => SaveCoreAsync(note, cancellationToken, false);
+    public async Task<IReadOnlyList<Note>> ListAsync(CancellationToken cancellationToken)
+    {
+        await gate.WaitAsync(cancellationToken);
+        try { return await ScanAsync(cancellationToken); }
+        finally { gate.Release(); }
+    }
 
     private async Task SaveCoreAsync(Note note, CancellationToken cancellationToken, bool importing)
     {

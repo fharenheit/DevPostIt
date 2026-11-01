@@ -2,10 +2,11 @@ import { Editor } from './editor';
 import { fonts, readFontSettings, saveFontSettings, type FontKey } from './fonts';
 import { connectEditor, type EditorConnection } from './bridge';
 import './style.css';
+import { installSettings } from './settings';
 
 declare global { interface Window { hunminEditor: Editor } }
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
-  <header class="app-header"><div class="brand"><span class="brand-mark">DP</span><div><strong>DevPostIt</strong><small>생각을 쓰고, 원문 그대로.</small></div></div><span class="stage">Markdown 노트</span></header>
+  <header class="app-header"><div class="brand"><span class="brand-mark">DP</span><div><strong>DevPostIt</strong><small>생각을 쓰고, 원문 그대로.</small></div></div><button id="new-note">새 메모</button><span class="stage">Markdown 노트</span></header>
   <section class="workspace" aria-label="Markdown 편집기">
     <div class="toolbar">
       <div class="modes" role="group" aria-label="보기 방식"><button id="source-mode" aria-pressed="true">소스 편집</button><button id="preview-mode" aria-pressed="false">미리보기</button></div>
@@ -31,6 +32,8 @@ const editor = new Editor(document.querySelector('#source')!, document.querySele
 });
 sourceButton.addEventListener('click', () => editor.setMode('source'));
 previewButton.addEventListener('click', () => editor.setMode('preview'));
+document.querySelector('h1')!.addEventListener('dblclick', () => connection?.command('window.collapseRequested'));
+document.querySelector('#new-note')!.addEventListener('click', () => connection?.command('note.newRequested'));
 const renameDialog = document.querySelector<HTMLDialogElement>('#rename-dialog')!;
 document.querySelector('#rename')!.addEventListener('click', () => {
   document.querySelector<HTMLInputElement>('#note-name')!.value = editor.getTitle();
@@ -62,7 +65,7 @@ const larger = document.querySelector<HTMLButtonElement>('#larger')!;
 let textSize = settings.size;
 fontSelect.value = settings.font;
 ligatures.checked = settings.ligatures;
-function applyFont(): void {
+function applyFont(persist = true): void {
   const font = fontSelect.value as FontKey;
   const enabled = ligatures.checked;
   document.documentElement.style.fontSize = `${textSize}px`;
@@ -71,13 +74,19 @@ function applyFont(): void {
   smaller.disabled = textSize <= 10;
   larger.disabled = textSize >= 24;
   editor.setFont(fonts[font], enabled);
-  saveFontSettings({ font, ligatures: enabled, size: textSize });
+  if (persist) saveFontSettings({ font, ligatures: enabled, size: textSize });
   if (font !== 'system') void document.fonts.load(`16px "${font === 'd2' ? 'D2 Ligature' : 'JetBrains Mono'}"`).then(() => {
     editor.setFont(fonts[fontSelect.value as FontKey], ligatures.checked);
   });
 }
-fontSelect.addEventListener('change', applyFont);
-ligatures.addEventListener('change', applyFont);
+fontSelect.addEventListener('change', () => applyFont());
+ligatures.addEventListener('change', () => applyFont());
+window.addEventListener('storage', () => {
+  const settings = readFontSettings();
+  fontSelect.value = settings.font; ligatures.checked = settings.ligatures; textSize = settings.size;
+  applyFont(false);
+});
+installSettings();
 smaller.addEventListener('click', () => { textSize = Math.max(10, textSize - 1); applyFont(); });
 larger.addEventListener('click', () => { textSize = Math.min(24, textSize + 1); applyFont(); });
 applyFont();

@@ -132,6 +132,7 @@ public sealed class NoteService(INoteRepository repository, IDraftJournal journa
     public async Task<NoteSaveState> ResolveRecoveryAsync(Guid id, bool restore, CancellationToken cancellationToken)
     {
         var session = GetSession(id);
+        NoteSaveState? notification = null;
         await session.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
@@ -150,9 +151,9 @@ public sealed class NoteService(INoteRepository repository, IDraftJournal journa
                 session.BaseFingerprint = NoteFingerprint.Compute(disk);
                 session.JournalPending = false;
             }
-            return session.State;
+            return notification = session.State;
         }
-        finally { session.Gate.Release(); }
+        finally { session.Gate.Release(); if (notification is not null) Notify(notification); }
     }
 
     private async Task WriteJournalAsync(Session session, CancellationToken cancellationToken)

@@ -17,7 +17,7 @@ async function plugins(parser: string): Promise<Plugin[]> {
   if (parser === 'css') return [await import('prettier/plugins/postcss')];
   return [parser === 'typescript' ? await import('prettier/plugins/typescript') : await import('prettier/plugins/babel'), await import('prettier/plugins/estree')];
 }
-export async function formatBlock(source: string, line: number, language?: string): Promise<{ start: number; end: number; text: string }> {
+export async function formatBlock(source: string, line: number, language?: string): Promise<{ start: number; end: number; startLine: number; endLine: number; text: string }> {
   const token = markdown.parse(source, {}).find(token => token.type === 'fence' && token.map && line >= token.map[0] && line < token.map[1]);
   if (!token?.map || token.level !== 0) throw new CodeBlockError('최상위 코드 블록 안에 커서를 놓아 주세요.');
   const lines = source.split('\n');
@@ -28,8 +28,8 @@ export async function formatBlock(source: string, line: number, language?: strin
   const parser = aliases[(language || token.info.trim().split(/\s/)[0]).toLowerCase()];
   if (!parser) throw new CodeBlockError('지원하는 코드 언어를 선택하거나 블록에 표시해 주세요.');
   const result = await format(token.content, { parser, plugins: await plugins(parser), tabWidth: 2, printWidth: 100, endOfLine: 'lf' });
-  const eol = source.includes('\r\n') ? '\r\n' : '\n';
+  const eol = lines[first].endsWith('\r') ? '\r\n' : '\n';
   const text = result.trimEnd().split('\n').map(line => opening[1] + line).join(eol) + eol;
   const offset = (line: number) => lines.slice(0, line).reduce((count, text) => count + text.length + 1, 0);
-  return { start: offset(first + 1), end: offset(last - 1), text };
+  return { start: offset(first + 1), end: offset(last - 1), startLine: first + 2, endLine: last, text };
 }
