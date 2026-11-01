@@ -53,6 +53,7 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
             window.CollapseRequested += Collapse;
             window.NewNoteRequested += async () => await RunAsync(CreateAsync);
             window.SettingsRequested += ShowSettings;
+            window.CaptureRequested += () => _ = RunAsync(StartObjectCaptureAsync);
             window.Activated += (_, _) => lastActive = window;
             window.SearchRequested += ShowSearch;
             window.AppearanceChanged += (color, topmost) => { state.Color = color; state.Topmost = topmost; RememberSoon(); };
@@ -125,7 +126,7 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
         }
         about.Activate();
     }
-    // 시험 구현: 메모 창을 숨기고 개체를 고르면 최근 메모에 넣습니다.
+    // 메모 창을 숨기고 요소나 영역을 고르면 최근 메모에 넣습니다.
     public async Task StartObjectCaptureAsync()
     {
         if (exiting || capture is not null) return;
@@ -143,8 +144,9 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
             Restore,
             ObjectCaptureHooks);
         foreach (var window in hidden) window.Hide();
-        // 숨기는 효과가 끝난 뒤 시작해 메모 창이 검색에 잡히지 않게 합니다.
-        await Task.Delay(200);
+        // 숨기는 효과가 끝난 뒤 시작해 메모 창이 검색에 잡히지 않게 합니다. 대기 시간에는 메뉴 등을 열 수 있습니다.
+        var delay = CaptureGeometry.DelaySeconds.Contains(settingsStore.Current.CaptureDelaySeconds) ? settingsStore.Current.CaptureDelaySeconds : 0;
+        await Task.Delay(TimeSpan.FromMilliseconds(200 + delay * 1000));
         capture?.Start();
     }
     internal void CancelObjectCapture() => capture?.Cancel();

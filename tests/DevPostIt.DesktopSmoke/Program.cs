@@ -161,6 +161,7 @@ internal static class Program
         Check(tray.Menu.Items.OfType<Forms.ToolStripMenuItem>().Any(item => item.Text == "메모 목록"), "트레이 메모 목록");
         Check(tray.Menu.Items.OfType<Forms.ToolStripMenuItem>().Any(item => item.Text == "정보"), "트레이 정보 메뉴");
         Check(tray.Menu.Items.OfType<Forms.ToolStripMenuItem>().Any(item => item.Text == "도움말"), "트레이 도움말 메뉴");
+        Check(tray.Menu.Items.OfType<Forms.ToolStripMenuItem>().Any(item => item.Text == "화면 캡처"), "트레이 화면 캡처 메뉴");
         tray.Menu.Items.OfType<Forms.ToolStripMenuItem>().Single(item => item.Text == "설정").PerformClick();
         tray.Menu.Close();
         var settings = application.Windows.OfType<SettingsWindow>().Single();
@@ -307,7 +308,8 @@ internal static class Program
         Check(!manager.IsObjectCapturing && pdfWindow.IsVisible == visibleBefore, "개체 캡처 취소 시 메모 창 복원");
         await application.Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.ContextIdle);
         Check(application.Windows.OfType<Window>().All(window => window.Width > 1 || window is CollapsedNoteWindow), "개체 캡처 강조 창 정리");
-        var hit = await Task.Run(() => ObjectCaptureSession.HitTest((int)pdfWindow.Left + 100, (int)pdfWindow.Top + 100, 0));
+        var (hitX, hitY) = ((int)pdfWindow.Left + 100, (int)pdfWindow.Top + 100);
+        var hit = await Task.Run(() => ObjectCaptureSession.HitTest(hitX, hitY, 0));
         Check(hit is null || hit.Value.Width >= 4, "요소 검색 호출");
         var capturedPng = ObjectCaptureSession.CapturePng(new DevPostIt.EditorHost.ScreenRect((int)pdfWindow.Left, (int)pdfWindow.Top, 30, 20));
         using (var capturedStream = new MemoryStream(capturedPng))

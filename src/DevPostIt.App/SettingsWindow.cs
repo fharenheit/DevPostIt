@@ -71,6 +71,11 @@ public sealed class SettingsWindow : Window
             store.Current.AutoUpdate = autoUpdate;
             store.Save();
         }
+        else if (SettingsMessage.TryReadCaptureDelay(json, source, out var captureDelay) && store is not null)
+        {
+            store.Current.CaptureDelaySeconds = captureDelay;
+            store.Save();
+        }
         else if (SettingsMessage.IsChangeDataFolder(json, source) && canChangeFolder) ChangeDataFolder(core);
         else if (SettingsMessage.IsBackup(json, source)) _ = BackupAsync(core);
         else if (SettingsMessage.IsRestore(json, source)) _ = RestoreAsync(core);
@@ -144,6 +149,6 @@ public sealed class SettingsWindow : Window
     private void SendState(CoreWebView2 core, string? pending)
     {
         var next = pending ?? (store?.Current.PendingMigrationFrom is not null ? store.Current.DataRoot : null);
-        core.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "settings.state", dataFolder, pendingFolder = next, startInTray = store?.Current.StartInTray ?? false, canChangeFolder, autoUpdate = store?.Current.AutoUpdate ?? true, canUpdate = manager.CanUpdate, version = DesktopNoteManager.CurrentVersion.ToString(3) }, Json));
+        core.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "settings.state", dataFolder, pendingFolder = next, startInTray = store?.Current.StartInTray ?? false, canChangeFolder, autoUpdate = store?.Current.AutoUpdate ?? true, captureDelay = store?.Current.CaptureDelaySeconds ?? 0, canUpdate = manager.CanUpdate, version = DesktopNoteManager.CurrentVersion.ToString(3) }, Json));
     }
 }

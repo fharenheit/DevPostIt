@@ -237,7 +237,7 @@ public class EditorBridgeTests
                     Assert.True(System.Text.RegularExpressions.Regex.IsMatch(sentence.TrimEnd('.'), "(니다|십시오)$"), $"합니다체가 아닙니다: {sentence}");
         }
         var text = string.Join('\n', HelpContent.Sections.SelectMany(section => section.Paragraphs.Prepend(section.Title)));
-        foreach (var topic in new[] { "휴지통", "백업", "복원", "검색", "PDF", "찾기", "바꾸기", "단축키", "미리보기", "글꼴", "업데이트", "표", "이미지", "항상 위", "데이터 폴더" })
+        foreach (var topic in new[] { "휴지통", "백업", "복원", "검색", "PDF", "찾기", "바꾸기", "단축키", "미리보기", "글꼴", "업데이트", "표", "이미지", "항상 위", "데이터 폴더", "캡처" })
             Assert.Contains(topic, text);
     }
 
@@ -247,6 +247,37 @@ public class EditorBridgeTests
     [InlineData(1900, 1000, 500, 500, 1900, 1000, 20, 80)]
     public void CaptureRectIsClampedToScreen(double x, double y, double width, double height, int ex, int ey, int ew, int eh) =>
         Assert.Equal(new ScreenRect(ex, ey, ew, eh), CaptureGeometry.ClampToScreen(x, y, width, height, new ScreenRect(0, 0, 1920, 1080)));
+
+    [Theory]
+    [InlineData(10, 10, 110, 60)]
+    [InlineData(110, 60, 10, 10)]
+    [InlineData(110, 10, 10, 60)]
+    public void DragRectIsSameInAnyDirection(int startX, int startY, int endX, int endY) =>
+        Assert.Equal(new ScreenRect(10, 10, 100, 50), CaptureGeometry.FromDrag(startX, startY, endX, endY, new ScreenRect(0, 0, 1920, 1080)));
+
+    [Fact]
+    public void TinyDragIsRejected() => Assert.Null(CaptureGeometry.FromDrag(10, 10, 12, 12, new ScreenRect(0, 0, 1920, 1080)));
+
+    [Theory]
+    [InlineData("""{"protocolVersion":1,"type":"settings.captureDelay","value":5}""", true, 5)]
+    [InlineData("""{"protocolVersion":1,"type":"settings.captureDelay","value":0}""", true, 0)]
+    [InlineData("""{"protocolVersion":1,"type":"settings.captureDelay","value":7}""", false, 0)]
+    [InlineData("""{"protocolVersion":1,"type":"settings.captureDelay","value":"5"}""", false, 0)]
+    public void CaptureDelayAllowsOnlyListedValues(string json, bool accepted, int value)
+    {
+        Assert.Equal(accepted, SettingsMessage.TryReadCaptureDelay(json, EditorOrigin.SettingsPage, out var seconds));
+        Assert.Equal(value, seconds);
+        Assert.False(SettingsMessage.TryReadCaptureDelay(json, EditorOrigin.Page, out _));
+    }
+
+    [Fact]
+    public async Task CaptureRequestCarriesNothingAndChecksRevision()
+    {
+        var bridge = new EditorBridge(Id, 7);
+        var request = Change(7) with { Type = "window.captureRequested", Payload = JsonSerializer.SerializeToElement(new { }) };
+        Assert.Null(await bridge.HandleAsync(request, default));
+        await Assert.ThrowsAsync<EditorProtocolException>(() => bridge.HandleAsync(request with { Revision = 6 }, default));
+    }
 
     [Fact]
     public void CaptureRectWorksOnMonitorsLeftOfPrimary() =>

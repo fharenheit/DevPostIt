@@ -268,3 +268,39 @@ test('설정 페이지의 백업·복원·업데이트 요청에는 경로가 �
   await page.evaluate(() => (window as any).fromHost({ type: 'settings.status', message: '메모 3개를 백업했습니다' }));
   await expect(page.locator('#settings-status')).toHaveText('메모 3개를 백업했습니다');
 });
+
+test('캡처 버튼과 Ctrl+Shift+C는 앱에 캡처를 요청하고 본문을 바꾸지 않는다', async ({ page }) => {
+  await hosted(page);
+  await send(page, 'note.load', 7, { markdown: '본문' });
+  await page.getByRole('button', { name: '화면 캡처', exact: true }).click();
+  await expect.poll(async () => (await sent(page)).at(-1)).toMatchObject({ type: 'window.captureRequested', revision: 7, payload: {} });
+  const count = (await sent(page)).length;
+  await page.locator('#source .monaco-editor').click({ position: { x: 130, y: 20 } });
+  await page.keyboard.press('Control+Shift+c');
+  await expect.poll(async () => (await sent(page)).length).toBe(count + 1);
+  expect((await sent(page)).at(-1).type).toBe('window.captureRequested');
+  expect(await markdown(page)).toBe('본문');
+});
+
+test('브라우저 단독 실행의 캡처 버튼은 앱이 필요하다고 알린다', async ({ page }) => {
+  await openEditor(page, '본문');
+  await page.getByRole('button', { name: '화면 캡처', exact: true }).click();
+  await expect(page.locator('#host-status')).toContainText('앱에서');
+});
+
+test('설정 페이지의 캡처 전 대기를 앱에 알린다', async ({ page }) => {
+  await page.addInitScript(() => {
+    const messages: unknown[] = [];
+    let receive: ((event: { data: unknown }) => void) | undefined;
+    Object.assign(window, {
+      chrome: { webview: { postMessage: (message: unknown) => messages.push(message), addEventListener: (_type: string, handler: typeof receive) => { receive = handler; } } },
+      hostMessages: messages,
+      fromHost: (message: unknown) => receive?.({ data: message }),
+    });
+  });
+  await page.goto('/settings.html');
+  await page.evaluate(() => (window as any).fromHost({ type: 'settings.state', dataFolder: 'C:\\data', captureDelay: 3, autoUpdate: true, canUpdate: false, version: '0.3.0' }));
+  await expect(page.getByLabel('캡처 전 대기')).toHaveValue('3');
+  await page.getByLabel('캡처 전 대기').selectOption('5');
+  expect((await sent(page)).at(-1)).toEqual({ protocolVersion: 1, type: 'settings.captureDelay', value: 5 });
+});

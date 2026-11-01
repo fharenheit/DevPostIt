@@ -8,6 +8,7 @@ import './style.css';
 declare global { interface Window { hunminEditor: Editor } }
 const colorNames: Record<string, string> = { yellow: '노랑', green: '초록', blue: '파랑', pink: '분홍', purple: '보라', gray: '회색' };
 const pdfIcon = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2v8M5 7l3 3 3-3M3 13h10"/></svg>';
+const captureIcon = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 5.5h3l1-2h4l1 2h3v7.5H2zM8 7a2.2 2.2 0 1 1 0 4.4A2.2 2.2 0 0 1 8 7z"/></svg>';
 const pinIcon = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 2h4l-.5 5 2 2.5h-7l2-2.5zM8 9.5V14"/></svg>';
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <section class="workspace" aria-label="Markdown 편집기">
@@ -15,6 +16,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
       <div class="document-heading"><h1 title="더블클릭하면 이름을 변경합니다">나의 첫 메모</h1></div>
       <div class="modes" role="group" aria-label="보기 방식"><button id="source-mode" aria-pressed="true">소스 편집</button><button id="preview-mode" aria-pressed="false">미리보기</button></div>
       <div class="note-actions">
+        <button type="button" id="capture" aria-label="화면 캡처" title="화면 캡처 (Ctrl+Shift+C)">${captureIcon}</button>
         <button type="button" id="save-pdf" aria-label="PDF로 저장" title="PDF로 저장">${pdfIcon}</button>
         <button type="button" id="pin" aria-pressed="false" aria-label="항상 위" title="항상 위">${pinIcon}</button>
         <button type="button" id="note-color" aria-label="메모 색상" title="메모 색상" aria-expanded="false"><span class="swatch"></span></button>
@@ -192,3 +194,12 @@ window.addEventListener('devpostit-pdf-finished', () => {
   modeBeforePdf = null;
   savePdf.disabled = false;
 });
+
+function requestCapture(): void {
+  if (connection) connection.command('window.captureRequested');
+  else document.querySelector('#host-status')!.textContent = '화면 캡처는 앱에서 사용할 수 있습니다.';
+}
+document.querySelector('#capture')!.addEventListener('click', requestCapture);
+window.addEventListener('keydown', event => {
+  if (event.ctrlKey && event.shiftKey && !event.altKey && event.key.toLowerCase() === 'c') { event.preventDefault(); event.stopPropagation(); requestCapture(); }
+}, true);

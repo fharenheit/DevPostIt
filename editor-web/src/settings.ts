@@ -87,7 +87,9 @@ if (host) {
   change.addEventListener('click', () => host.postMessage({ protocolVersion: 1, type: 'settings.changeDataFolder' }));
   const autoUpdate = document.querySelector<HTMLInputElement>('#auto-update')!;
   const status = document.querySelector<HTMLElement>('#settings-status')!;
-  for (const row of ['#backup-row', '#update-row']) document.querySelector<HTMLElement>(row)!.hidden = false;
+  const captureDelay = document.querySelector<HTMLSelectElement>('#capture-delay')!;
+  captureDelay.addEventListener('change', () => host.postMessage({ protocolVersion: 1, type: 'settings.captureDelay', value: Number(captureDelay.value) }));
+  for (const row of ['#backup-row', '#update-row', '#capture-delay-row']) document.querySelector<HTMLElement>(row)!.hidden = false;
   document.querySelector('#backup')!.addEventListener('click', () => host.postMessage({ protocolVersion: 1, type: 'settings.backup' }));
   document.querySelector('#restore')!.addEventListener('click', () => host.postMessage({ protocolVersion: 1, type: 'settings.restore' }));
   document.querySelector('#check-update')!.addEventListener('click', () => host.postMessage({ protocolVersion: 1, type: 'settings.checkUpdate' }));
@@ -104,7 +106,7 @@ if (host) {
       bodySelect.value = settings.bodyFont;
       return;
     }
-    const data = event.data as { type?: unknown; message?: unknown; dataFolder?: unknown; pendingFolder?: unknown; startInTray?: unknown; canChangeFolder?: unknown; autoUpdate?: unknown; canUpdate?: unknown; version?: unknown } | null;
+    const data = event.data as { type?: unknown; message?: unknown; dataFolder?: unknown; pendingFolder?: unknown; startInTray?: unknown; canChangeFolder?: unknown; autoUpdate?: unknown; canUpdate?: unknown; version?: unknown; captureDelay?: unknown } | null;
     if (data?.type === 'settings.status' && typeof data.message === 'string') {
       status.hidden = false;
       status.textContent = data.message;
@@ -116,6 +118,7 @@ if (host) {
     startInTray.checked = data.startInTray === true;
     change.hidden = data.canChangeFolder !== true;
     autoUpdate.checked = data.autoUpdate !== false;
+    if (typeof data.captureDelay === 'number') captureDelay.value = String(data.captureDelay);
     document.querySelector<HTMLElement>('#auto-update-row')!.hidden = data.canUpdate !== true;
     if (typeof data.version === 'string') document.querySelector('#app-version')!.textContent = `버전 ${data.version}`;
   });

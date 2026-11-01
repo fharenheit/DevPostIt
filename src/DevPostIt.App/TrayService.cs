@@ -14,11 +14,14 @@ public sealed class TrayService : IDisposable
     private readonly Forms.NotifyIcon tray;
     private readonly Forms.ContextMenuStrip menu = new();
     private readonly Drawing.Icon icon = NoteIcon.Create();
+    private readonly GlobalHotkey hotkey;
+    internal bool IsHotkeyRegistered => hotkey.IsRegistered;
     public void Notify(string message) => tray.ShowBalloonTip(5000, "메모", message.Length > 200 ? message[..200] : message, Forms.ToolTipIcon.Warning);
     public TrayService(DesktopNoteManager manager, NoteWorkspace workspace, Dispatcher dispatcher)
     {
         void Run(Func<Task> action) => dispatcher.BeginInvoke(new Action(() => _ = DesktopNoteManager.RunAsync(action)));
         tray = new Forms.NotifyIcon { Text = "메모장", Icon = icon, ContextMenuStrip = menu, Visible = true };
+        hotkey = new GlobalHotkey(() => Run(manager.StartObjectCaptureAsync));
         tray.MouseClick += (_, e) => { if (e.Button == Forms.MouseButtons.Left) Run(manager.CreateAsync); };
         manager.UpdateFound += update => dispatcher.BeginInvoke(new Action(() => tray.ShowBalloonTip(5000, "메모", $"새 버전 {update.Version}이 있습니다. 트레이 메뉴에서 설치할 수 있습니다.", Forms.ToolTipIcon.Info)));
         menu.Opening += (_, _) =>
@@ -27,11 +30,7 @@ public sealed class TrayService : IDisposable
             menu.Items.Clear();
             menu.Items.Add("새 메모", null, (_, _) => Run(manager.CreateAsync));
             menu.Items.Add("메모 검색", null, (_, _) => manager.ShowSearch());
-            menu.Items.Add("개체 캡처 (시험)", null, (_, _) =>
-            {
-                tray.ShowBalloonTip(3000, "개체 캡처", "요소를 클릭하면 메모에 넣습니다. 휠: 상위·하위 요소, Esc나 우클릭: 취소", Forms.ToolTipIcon.Info);
-                Run(manager.StartObjectCaptureAsync);
-            });
+            menu.Items.Add("화면 캡처", null, (_, _) => Run(manager.StartObjectCaptureAsync));
             var notes = new Forms.ToolStripMenuItem("메모 목록");
             var all = workspace.Notes;
             foreach (var note in all.Take(MaxListedNotes)) notes.DropDownItems.Add(Label(note.Title), null, (_, _) => manager.ShowNote(note.Id));
@@ -81,5 +80,5 @@ public sealed class TrayService : IDisposable
         return menu;
     }
     private static bool Confirm(string message) => MessageBox.Show(message, "휴지통", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) == MessageBoxResult.Yes;
-    public void Dispose() { tray.Visible = false; tray.Dispose(); menu.Dispose(); icon.Dispose(); }
+    public void Dispose() { hotkey.Dispose(); tray.Visible = false; tray.Dispose(); menu.Dispose(); icon.Dispose(); }
 }

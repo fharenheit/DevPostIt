@@ -12,6 +12,14 @@ public static class SettingsMessage
     public static bool IsBackup(string json, string source) => Read(json, source, "settings.backup", 2, _ => true);
     public static bool IsRestore(string json, string source) => Read(json, source, "settings.restore", 2, _ => true);
     public static bool IsCheckUpdate(string json, string source) => Read(json, source, "settings.checkUpdate", 2, _ => true);
+    public static bool TryReadCaptureDelay(string json, string source, out int seconds)
+    {
+        var read = 0;
+        var accepted = Read(json, source, "settings.captureDelay", 3, root =>
+            root.TryGetProperty("value", out var item) && item.ValueKind == JsonValueKind.Number && item.TryGetInt32(out read) && CaptureGeometry.DelaySeconds.Contains(read));
+        seconds = accepted ? read : 0;
+        return accepted;
+    }
     public static bool TryReadStartInTray(string json, string source, out bool value) => TryReadFlag(json, source, "settings.startInTray", out value);
     public static bool TryReadAutoUpdate(string json, string source, out bool value) => TryReadFlag(json, source, "settings.autoUpdate", out value);
     private static bool TryReadFlag(string json, string source, string type, out bool value)
