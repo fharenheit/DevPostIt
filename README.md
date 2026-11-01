@@ -78,7 +78,7 @@ Windows에 로그인할 때 앱이 시작되게 하려면 현재 사용자의 �
 ```powershell
 $target = "$env:LOCALAPPDATA\Programs\DevPostIt\DevPostIt.exe"
 New-Item -ItemType Directory -Force (Split-Path $target) | Out-Null
-Copy-Item .\DevPostIt-0.2.0-win-x64.exe $target
+Copy-Item .\DevPostIt-0.3.0-win-x64.exe $target
 $startup = [Environment]::GetFolderPath('Startup')
 $shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut("$startup\DevPostIt.lnk")
 $shortcut.TargetPath = $target
