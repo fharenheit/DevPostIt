@@ -55,6 +55,13 @@ public sealed class EditorBridge(Guid noteId, long revision)
             if (message.Revision != Revision) throw new EditorProtocolException("창 요청 리비전이 일치하지 않습니다.");
             return Task.FromResult<NoteChange?>(null);
         }
+        if (message.Type == "note.renameRequested")
+        {
+            Fields(message.Payload, "title");
+            if (ReadTitle(message.Payload) is null) throw new EditorProtocolException("메모 이름이 없습니다.");
+            if (message.Revision != Revision) throw new EditorProtocolException("창 요청 리비전이 일치하지 않습니다.");
+            return Task.FromResult<NoteChange?>(null);
+        }
         if (message.Type == "window.appearanceChanged")
         {
             Fields(message.Payload, "color", "topmost");

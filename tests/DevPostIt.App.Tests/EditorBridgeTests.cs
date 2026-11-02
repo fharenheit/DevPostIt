@@ -547,4 +547,18 @@ public class EditorBridgeTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => bridge.ReceiveAsync(Serialize(Change()), EditorOrigin.Page, source.Token));
         Assert.Equal(7, bridge.Revision);
     }
+
+    [Fact]
+    public async Task RenameRequestNeedsAValidTitleAndTheCurrentRevision()
+    {
+        var bridge = new EditorBridge(Id, 7);
+        var request = Change(7) with { Type = "note.renameRequested", Payload = JsonSerializer.SerializeToElement(new { title = "북마크" }) };
+        Assert.Null(await bridge.HandleAsync(request, default));
+        Assert.Equal(7, bridge.Revision);
+        await Assert.ThrowsAsync<EditorProtocolException>(() => bridge.HandleAsync(request with { Revision = 6 }, default));
+        await Assert.ThrowsAsync<EditorProtocolException>(() => bridge.HandleAsync(request with { Payload = JsonSerializer.SerializeToElement(new { title = "" }) }, default));
+        await Assert.ThrowsAsync<EditorProtocolException>(() => bridge.HandleAsync(request with { Payload = JsonSerializer.SerializeToElement(new { title = 3 }) }, default));
+        await Assert.ThrowsAsync<EditorProtocolException>(() => bridge.HandleAsync(request with { Payload = JsonSerializer.SerializeToElement(new { }) }, default));
+        await Assert.ThrowsAsync<EditorProtocolException>(() => bridge.HandleAsync(request with { Payload = JsonSerializer.SerializeToElement(new { title = "이름", path = "C:/a.md" }) }, default));
+    }
 }

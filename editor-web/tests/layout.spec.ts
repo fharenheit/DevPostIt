@@ -143,12 +143,12 @@ test('편집기와 미리보기는 메모지 배경을 함께 쓰고 편집기 �
   await expect(page.locator('#preview')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
 });
 
-test('넓은 창의 미리보기는 읽기 좋은 폭으로 가운데에 놓고 좁은 창에서는 넘치지 않는다', async ({ page }) => {
+test('넓은 창의 미리보기는 창 폭을 쓰고 좁은 창에서는 넘치지 않는다', async ({ page }) => {
   await openAt(page, 1200, 850);
   await mode(page, 'preview');
   const wide = await box(page, '#preview h1');
-  expect(wide.width).toBeLessThanOrEqual(760);
-  expect(wide.left).toBeGreaterThan(100);
+  expect(wide.width).toBeGreaterThan(1100);
+  expect(wide.left).toBeLessThanOrEqual(24);
   await page.setViewportSize({ width: 304, height: 320 });
   const narrow = await box(page, '#preview h1');
   expect(narrow.right).toBeLessThanOrEqual(304);

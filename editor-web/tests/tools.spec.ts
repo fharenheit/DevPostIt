@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page, type Locator } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { applyHolidayData, holidaysOf } from '../src/korean-holidays';
 import { fromOutline, toOutline, type MapNode } from '../src/mindmap-core';
@@ -509,6 +509,13 @@ async function openCalendar(page: Page, view: string) {
   await page.locator(`#cal-views [data-view="${view}"]`).click();
   await expect(page.locator(`#cal-views [data-view="${view}"]`)).toHaveAttribute('aria-pressed', 'true');
 }
+// 저장 응답으로 달력을 다시 그리는 순간에는 요소가 없어 위치가 비어 있을 수 있습니다.
+async function boxOf(locator: Locator) {
+  let box: Awaited<ReturnType<Locator['boundingBox']>> = null;
+  await expect.poll(async () => (box = await locator.boundingBox())).not.toBeNull();
+  return box!;
+}
+
 async function createEvent(page: Page, title: string) {
   await page.getByRole('textbox', { name: '제목' }).fill(title);
   await page.getByRole('button', { name: '저장', exact: true }).click();
@@ -584,13 +591,13 @@ test.describe('달력', () => {
     await createEvent(page, '집중');
     const event = page.locator('.cal-event', { hasText: '집중' });
     await expect(event).toContainText('10:00~12:00');
-    const eventBox = (await event.boundingBox())!;
+    const eventBox = await boxOf(event);
     await page.mouse.move(eventBox.x + 10, eventBox.y + 10);
     await page.mouse.down();
     await page.mouse.move(eventBox.x + 10, eventBox.y + 10 + 48, { steps: 4 });
     await page.mouse.up();
     await expect(page.locator('.cal-event', { hasText: '집중' })).toContainText('11:00~13:00');
-    const after = (await page.locator('.cal-event', { hasText: '집중' }).locator('.cal-resize').boundingBox())!;
+    const after = await boxOf(page.locator('.cal-event', { hasText: '집중' }).locator('.cal-resize'));
     await page.mouse.move(after.x + 5, after.y + 3);
     await page.mouse.down();
     await page.mouse.move(after.x + 5, after.y + 3 + 48, { steps: 4 });

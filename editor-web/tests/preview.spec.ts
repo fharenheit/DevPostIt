@@ -40,3 +40,17 @@ test('표 칸에서도 코드와 이스케이프한 br, 다른 HTML은 글자로
   await expect(page.locator('#preview td b')).toHaveCount(0);
   await expect(page.locator('#preview td').nth(4)).toHaveText('<b>굵게</b>');
 });
+
+test('창이 넓으면 미리보기 내용도 함께 넓어진다', async ({ page }) => {
+  await page.setViewportSize({ width: 1400, height: 800 });
+  await openEditor(page, '# 제목\n\n' + '넓은 문단 '.repeat(200) + '\n\n```\ncode\n```\n');
+  await mode(page, 'preview');
+  const preview = page.locator('#preview');
+  const width = await preview.evaluate(element => { const style = getComputedStyle(element); return element.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight); });
+  expect(width).toBeGreaterThan(1200);
+  for (const selector of ['h1', 'p', 'pre']) expect((await page.locator(`#preview ${selector}`).boundingBox())!.width).toBeCloseTo(width, 0);
+  await page.setViewportSize({ width: 500, height: 800 });
+  const narrow = (await page.locator('#preview p').boundingBox())!.width;
+  expect(narrow).toBeLessThan(500);
+  expect(await preview.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+});

@@ -233,6 +233,16 @@ public partial class MainWindow : Window
                 if (LinkConfirmation(url)) LinkOpener(url);
             }
             else if (result.Message.Type == "note.openImagesRequested") ImageFolderOpener(await Task.Run(() => workspace.EnsureImageFolder(noteId)));
+            else if (result.Message.Type == "note.renameRequested")
+            {
+                var title = EditorBridge.ReadTitle(result.Message.Payload)!;
+                try
+                {
+                    await Task.Run(() => workspace.RenameFileAsync(noteId, title, CancellationToken.None));
+                    Send("note.renamed", new { title }, bridge.Revision);
+                }
+                catch (Exception error) { Send("note.renameRejected", new { message = error.Message }, bridge.Revision); }
+            }
             else if (result.Message.Type == "window.appearanceChanged")
             {
                 var color = result.Message.Payload.GetProperty("color").GetString()!;

@@ -86,6 +86,21 @@ public sealed class NoteWorkspace : IAsyncDisposable
         }
         finally { creation.Release(); }
     }
+    // 메모 이름에 맞춰 파일 이름을 바꿉니다. 제목은 편집기가 이어서 저장합니다. 파일이 옮겨진 뒤 제목을 저장하기 전에 꺼져도 메모는 보존됩니다.
+    public async Task<NoteSaveState> RenameFileAsync(Guid id, string title, CancellationToken cancellationToken)
+    {
+        var name = NoteTitle.Normalize(title);
+        await creation.WaitAsync(cancellationToken);
+        try
+        {
+            var state = await OpenNoteAsync(id, cancellationToken);
+            if (notes.Values.Any(note => note.Id != id && string.Equals(note.Title, name, StringComparison.OrdinalIgnoreCase)))
+                throw new NoteNameConflictException($"같은 이름의 메모가 이미 있습니다: {name}");
+            var folder = state.Note.RelativePath.LastIndexOf('/') is var slash and >= 0 ? state.Note.RelativePath[..(slash + 1)] : "";
+            return await Service.RelocateAsync(id, folder + NoteFileName.For(name, id), cancellationToken);
+        }
+        finally { creation.Release(); }
+    }
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken)
     {
         await OpenNoteAsync(id, cancellationToken);

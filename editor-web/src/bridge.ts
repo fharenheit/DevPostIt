@@ -17,6 +17,7 @@ export class EditorConnection {
   private sentRevision = -1;
   private loading = false;
   private queued = false;
+  private renaming = false;
 
   constructor(private readonly editor: Editor, private readonly transport: WebView, private readonly status: (message: string) => void) {
     transport.addEventListener('message', event => this.receive(event.data));
@@ -57,6 +58,13 @@ export class EditorConnection {
     if (this.noteId === emptyId || this.editor.isComposing()) return;
     this.publish();
     this.send('window.appearanceChanged', { color, topmost }, this.editor.getDraft().revision);
+  }
+
+  // 파일 이름은 앱이 중복을 확인하고 바꿉니다. 제목은 그 응답을 받은 뒤에 바꿉니다.
+  rename(title: string): void {
+    if (this.noteId === emptyId || this.editor.isComposing()) return;
+    this.publish();
+    this.renaming = this.send('note.renameRequested', { title }, this.editor.getDraft().revision);
   }
 
   private publish(): void {
@@ -109,6 +117,16 @@ export class EditorConnection {
       const { color, topmost } = message.payload;
       if (keys(message.payload, ['color', 'topmost']) && typeof color === 'string' && noteColors.includes(color) && typeof topmost === 'boolean')
         window.dispatchEvent(new CustomEvent('devpostit-appearance', { detail: { color, topmost } }));
+    } else if (message.noteId === this.noteId && this.renaming && message.type === 'note.renamed') {
+      if (!keys(message.payload, ['title']) || typeof message.payload.title !== 'string') return;
+      this.renaming = false;
+      try { this.editor.rename(message.payload.title); }
+      catch { return; }
+      window.dispatchEvent(new CustomEvent('devpostit-rename-result', { detail: {} }));
+    } else if (message.noteId === this.noteId && this.renaming && message.type === 'note.renameRejected') {
+      if (!keys(message.payload, ['message']) || typeof message.payload.message !== 'string') return;
+      this.renaming = false;
+      window.dispatchEvent(new CustomEvent('devpostit-rename-result', { detail: { message: message.payload.message } }));
     } else if (message.noteId === this.noteId && message.type === 'note.imageSaved') {
       if (keys(message.payload, ['markdown']) && typeof message.payload.markdown === 'string' && savedImage.test(message.payload.markdown)) this.editor.insertText(message.payload.markdown);
     } else if (message.noteId === this.noteId && message.type === 'note.assetsChanged' && keys(message.payload, [])) {

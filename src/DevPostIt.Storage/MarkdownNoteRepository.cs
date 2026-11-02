@@ -5,7 +5,7 @@ namespace DevPostIt.Storage;
 
 public sealed class DuplicateNoteIdException(Guid id) : IOException($"중복 메모 ID: {id}");
 
-public sealed class MarkdownNoteRepository : INoteDeletionRepository
+public sealed class MarkdownNoteRepository : INoteDeletionRepository, INoteRelocationRepository
 {
     private readonly string rootPath;
     private readonly FrontmatterCodec codec = new();
@@ -37,6 +37,26 @@ public sealed class MarkdownNoteRepository : INoteDeletionRepository
             RejectLinks(full);
             cancellationToken.ThrowIfCancellationRequested();
             File.Delete(full);
+        }
+        finally { gate.Release(); }
+    }
+    public async Task MoveAsync(Guid id, string relativePath, CancellationToken cancellationToken)
+    {
+        var (relative, full) = Resolve(relativePath);
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            var notes = await ScanAsync(cancellationToken);
+            var note = notes.SingleOrDefault(existing => existing.Id == id) ?? throw new KeyNotFoundException("메모를 찾지 못했습니다.");
+            var (_, source) = Resolve(note.RelativePath);
+            // 대소문자만 바꾸는 경우 대상이 자기 자신입니다.
+            if (File.Exists(full) && !string.Equals(source, full, StringComparison.OrdinalIgnoreCase))
+                throw new NoteNameConflictException($"같은 이름의 파일이 이미 있습니다: {Path.GetFileName(relative)}");
+            cancellationToken.ThrowIfCancellationRequested();
+            RejectLinks(source);
+            RejectLinks(full);
+            Directory.CreateDirectory(Path.GetDirectoryName(full)!);
+            File.Move(source, full, overwrite: false);
         }
         finally { gate.Release(); }
     }

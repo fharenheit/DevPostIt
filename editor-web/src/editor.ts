@@ -13,6 +13,12 @@ import { formatBlock, CodeBlockError } from './code-format';
 
 export type EditorMode = 'source' | 'preview';
 export type Draft = { markdown: string; revision: number; dirty: boolean };
+export function normalizeTitle(title: string): string {
+  const value = title.trim();
+  if (!value || value.length > 200 || /[\u0000-\u001f\u007f-\u009f]/.test(value)) throw new Error('메모 이름은 줄바꿈 없이 1~200자로 입력하세요.');
+  return value;
+}
+
 export class Editor {
   private readonly view: monaco.editor.IStandaloneCodeEditor;
   private model: monaco.editor.ITextModel | null = null;
@@ -184,8 +190,7 @@ export class Editor {
   getDraft(): Draft { return { ...this.draft }; }
   getTitle(): string { return this.title; }
   rename(title: string): void {
-    const value = title.trim();
-    if (!value || value.length > 200 || /[\u0000-\u001f\u007f-\u009f]/.test(value)) throw new Error('메모 이름은 줄바꿈 없이 1~200자로 입력하세요.');
+    const value = normalizeTitle(title);
     if (value === this.title) return;
     this.title = value;
     this.draft = { ...this.draft, revision: this.draft.revision + 1, dirty: this.title !== this.originalTitle || this.draft.markdown !== this.original };

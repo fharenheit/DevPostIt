@@ -1,4 +1,4 @@
-import { Editor } from './editor';
+import { Editor, normalizeTitle } from './editor';
 import { applyTypography, defaultTextSize, editorTextSize, fontStack, maxTextSize, minTextSize, readFontSettings, saveFontSettings } from './fonts';
 import { connectEditor, noteColors, type EditorConnection } from './bridge';
 import { formatToolbarHtml } from './format-toolbar';
@@ -85,8 +85,18 @@ document.querySelector('h1')!.addEventListener('dblclick', openRename);
 document.querySelector('#rename-cancel')!.addEventListener('click', () => renameDialog.close());
 document.querySelector('#rename-form')!.addEventListener('submit', event => {
   event.preventDefault();
-  try { editor.rename(document.querySelector<HTMLInputElement>('#note-name')!.value); renameDialog.close(); }
+  document.querySelector('#rename-error')!.textContent = '';
+  try {
+    const title = normalizeTitle(document.querySelector<HTMLInputElement>('#note-name')!.value);
+    if (connection) connection.rename(title);
+    else { editor.rename(title); renameDialog.close(); }
+  }
   catch (error) { document.querySelector('#rename-error')!.textContent = (error as Error).message; }
+});
+window.addEventListener('devpostit-rename-result', event => {
+  const { message } = (event as CustomEvent<{ message?: string }>).detail;
+  if (message) document.querySelector('#rename-error')!.textContent = message;
+  else renameDialog.close();
 });
 async function formatCode(): Promise<void> {
   formatting = true;

@@ -84,6 +84,12 @@ internal static class Program
         await editor.ExecuteScriptAsync("window.hunminEditor.rename('접기 복원 검증')");
         await UntilAsync(async () => (await workspace.Service.GetStateAsync(first.NoteId, default)).Note.Title == "접기 복원 검증");
         Check(first.Title == "Post It for Developer", "이름을 바꿔도 창 제목 유지");
+        const string renameScript = "document.querySelector('h1').dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); document.querySelector('#note-name').value = {0}; document.querySelector('#rename-form').requestSubmit();";
+        await editor.ExecuteScriptAsync(renameScript.Replace("{0}", JsonSerializer.Serialize("접기 복원 검증 파일")));
+        await UntilAsync(async () => (await workspace.Service.GetStateAsync(first.NoteId, default)) is { Note.RelativePath: "Inbox/접기 복원 검증 파일.md", Note.Title: "접기 복원 검증 파일" });
+        Check(File.Exists(Path.Combine(root, "data", "notes", "Inbox", "접기 복원 검증 파일.md")) && !File.Exists(Path.Combine(root, "data", "notes", firstNote.RelativePath)), "이름 변경 대화상자로 파일 이름 변경");
+        await editor.ExecuteScriptAsync(renameScript.Replace("{0}", JsonSerializer.Serialize("접기 복원 검증")));
+        await UntilAsync(async () => (await workspace.Service.GetStateAsync(first.NoteId, default)) is { Note.RelativePath: "Inbox/접기 복원 검증.md", Note.Title: "접기 복원 검증" });
         first.WindowState = WindowState.Minimized;
         await UntilAsync(() => Task.FromResult(application.Windows.OfType<CollapsedNoteWindow>().Count() == 1));
         var icon = application.Windows.OfType<CollapsedNoteWindow>().Single();

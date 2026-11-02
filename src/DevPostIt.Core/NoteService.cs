@@ -186,6 +186,34 @@ public sealed class NoteService(INoteRepository repository, IDraftJournal journa
         }
     }
 
+    // 파일을 옮기고 세션의 기준 지문과 복구 기록을 새 경로에 맞춥니다. 저장 전 입력은 그대로 유지합니다.
+    public async Task<NoteSaveState> RelocateAsync(Guid id, string relativePath, CancellationToken cancellationToken)
+    {
+        if (repository is not INoteRelocationRepository relocations) throw new NotSupportedException("이 저장소는 파일 이동을 지원하지 않습니다.");
+        var session = GetSession(id);
+        NoteSaveState? notification = null;
+        await session.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (session.Deleted) throw new KeyNotFoundException("삭제된 메모입니다.");
+            if (session.State.RecoveryPending) throw new InvalidOperationException("복구 내용을 먼저 선택하세요.");
+            if (session.State.Note.RelativePath == relativePath) return session.State;
+            var disk = await repository.GetAsync(id, cancellationToken).ConfigureAwait(false);
+            if (disk is null || NoteFingerprint.Compute(disk) != session.BaseFingerprint)
+                throw new NoteSaveConflictException("파일이 앱 밖에서 바뀌어 이름을 바꾸지 못했습니다. 잠시 후 다시 시도하세요.");
+            await relocations.MoveAsync(id, relativePath, cancellationToken).ConfigureAwait(false);
+            session.BaseFingerprint = NoteFingerprint.Compute(disk with { RelativePath = relativePath });
+            session.State = session.State with { Note = session.State.Note with { RelativePath = relativePath } };
+            notification = session.State;
+            // 이동은 끝났으므로 후속 처리가 실패해도 이름 변경을 되돌리지 않습니다. 다음 저장과 시작 때 다시 맞춥니다.
+            try { await index.UpsertAsync(session.State.Note, cancellationToken).ConfigureAwait(false); }
+            catch (Exception) { session.State = session.State with { IndexPending = true }; notification = session.State; }
+            if (session.JournalPending) await WriteJournalAsync(session, CancellationToken.None).ConfigureAwait(false);
+            return session.State;
+        }
+        finally { session.Gate.Release(); if (notification is not null) Notify(notification); }
+    }
+
     private async Task<NoteSaveState> FlushCoreAsync(Session session, long? expectedRevision, CancellationToken cancellationToken)
     {
         NoteSaveState? notification = null;

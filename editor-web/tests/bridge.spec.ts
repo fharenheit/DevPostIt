@@ -37,6 +37,13 @@ test('메모 제목 로드·이름 변경·취소와 본문을 같은 리비전�
   await page.locator('h1').dblclick();
   await page.getByLabel('메모 이름', { exact: true }).fill('  회의 기록  ');
   await page.getByRole('button', { name: '확인', exact: true }).click();
+  // 앱이 파일 이름을 바꾸고 응답하기 전에는 제목을 바꾸지 않습니다.
+  await expect.poll(async () => (await messages(page)).at(-1)?.type).toBe('note.renameRequested');
+  expect((await messages(page)).at(-1).payload).toEqual({ title: '회의 기록' });
+  await expect(page.locator('h1')).toHaveText('첫 이름');
+  await expect(page.locator('#rename-dialog')).toBeVisible();
+  await send(page, 'note.renamed', 7, { title: '회의 기록' });
+  await expect(page.locator('#rename-dialog')).toBeHidden();
   await expect(page.locator('h1')).toHaveText('회의 기록');
   await expect.poll(async () => (await messages(page)).at(-1)?.payload.title).toBe('회의 기록');
   const change = (await messages(page)).at(-1);
@@ -50,6 +57,48 @@ test('메모 제목 로드·이름 변경·취소와 본문을 같은 리비전�
   await expect(page.locator('h1')).toHaveText('회의 기록');
   expect((await draft(page)).revision).toBe(8);
 });
+test('같은 이름이면 앱의 안내를 표시하고 제목과 초안을 바꾸지 않는다', async ({ page }) => {
+  await hosted(page);
+  await send(page, 'note.load', 7, { markdown: '원본', title: '첫 이름' });
+  await page.locator('h1').dblclick();
+  await page.getByLabel('메모 이름', { exact: true }).fill('다른 메모');
+  await page.getByRole('button', { name: '확인', exact: true }).click();
+  await expect.poll(async () => (await messages(page)).at(-1)?.type).toBe('note.renameRequested');
+  await send(page, 'note.renameRejected', 7, { message: '같은 이름의 메모가 이미 있습니다: 다른 메모' });
+  await expect(page.locator('#rename-error')).toHaveText('같은 이름의 메모가 이미 있습니다: 다른 메모');
+  await expect(page.locator('#rename-dialog')).toBeVisible();
+  await expect(page.locator('h1')).toHaveText('첫 이름');
+  expect(await draft(page)).toMatchObject({ revision: 7, dirty: false });
+});
+
+test('잘못된 이름은 앱에 보내지 않고 같은 이름도 파일 이름을 맞추도록 요청한다', async ({ page }) => {
+  await hosted(page);
+  await send(page, 'note.load', 7, { markdown: '원본', title: '첫 이름' });
+  await page.locator('h1').dblclick();
+  await page.locator('#note-name').evaluate(input => { (input as HTMLInputElement).removeAttribute('maxlength'); (input as HTMLInputElement).value = '가'.repeat(201); });
+  await page.getByRole('button', { name: '확인', exact: true }).click();
+  await expect(page.locator('#rename-error')).toContainText('1~200자');
+  expect((await messages(page)).filter(message => message.type === 'note.renameRequested')).toHaveLength(0);
+  await page.getByLabel('메모 이름', { exact: true }).fill('첫 이름');
+  await page.getByRole('button', { name: '확인', exact: true }).click();
+  await expect.poll(async () => (await messages(page)).at(-1)?.type).toBe('note.renameRequested');
+  await send(page, 'note.renamed', 7, { title: '첫 이름' });
+  await expect(page.locator('#rename-dialog')).toBeHidden();
+  expect(await draft(page)).toMatchObject({ revision: 7, dirty: false });
+});
+
+test('앱이 보낸 이름 변경 응답의 형식이 틀리면 무시한다', async ({ page }) => {
+  await hosted(page);
+  await send(page, 'note.load', 7, { markdown: '원본', title: '첫 이름' });
+  await page.locator('h1').dblclick();
+  await send(page, 'note.renamed', 7, { title: 3 });
+  await send(page, 'note.renamed', 7, { title: '이름', extra: true });
+  await send(page, 'note.renameRejected', 7, {});
+  await expect(page.locator('h1')).toHaveText('첫 이름');
+  await expect(page.locator('#rename-dialog')).toBeVisible();
+  await expect(page.locator('#rename-error')).toHaveText('');
+});
+
 async function hosted(page: Page) {
   await page.addInitScript(() => {
     const messages: unknown[] = [];
