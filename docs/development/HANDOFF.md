@@ -26,6 +26,53 @@ Smart App Control이 새로 빌드한 하네스 DLL을 가끔 차단합니다(0x
 
 Java WASM과 파서는 앱에 포함합니다. Monaco 청크 크기와 Java 런타임의 일반 eval 분기에 대한 번들 경고는 기존 경고입니다. 웹 파일은 Mermaid와 언어별 정리 도구로 약 27MB입니다.
 
+## macOS 버전 진행 상황
+
+사용자가 승인한 작업입니다. 설계는 [MACOS_DESIGN.md](MACOS_DESIGN.md)이고 결정은 13절에 있습니다. Developer ID 없음, Windows 검증 환경 있음, Apple Silicon 먼저, 창이 있으면 Dock과 메뉴 막대를 표시하고 없으면 메뉴 막대 아이콘만 둡니다.
+
+| 단계 | 상태 |
+| --- | --- |
+| 0. 관문 | **진행 중.** 실제 한글 IME 시험 결과를 사용자에게서 아직 받지 못했습니다. GitHub Actions도 없습니다 |
+| 1. 이식성 | macOS에서는 통과. Windows에서는 아직 실행하지 않았습니다 |
+| 2~6 | 시작 전. **IME 관문을 통과해야 2단계로 넘어갑니다.** 실패하면 CEF 안을 다시 검토합니다 |
+
+### 다음에 할 일
+
+1. 사용자에게 IME 결과를 묻습니다. 시험 항목은 메모의 조합 중 Enter, 방향키·Backspace, ⌘Z/⌘⇧Z, 제목 이름 변경, 마인드맵 바로 입력, 할 일 Enter입니다. 기록 파일이 있다는 것만으로 통과로 판단하지 않습니다.
+2. Windows에서 `dotnet test DevPostIt.sln`을 실행합니다. `DevPostIt.Storage`의 `StoragePathGuard`, `NoteFileName`, `SqliteNoteIndex`, `MarkdownNoteRepository`, `NoteBackup`이 바뀌어 Windows 동작에도 영향이 있을 수 있습니다.
+3. GitHub Actions(windows, macos)를 작성합니다.
+4. 관문을 통과하면 2단계 `DevPostIt.Desktop` 분리를 시작합니다. WPF 변경은 Windows에서 시험한 뒤 병합합니다.
+
+### 이 Mac의 준비 상태
+
+- Xcode를 설치했지만 라이선스에 동의하지 않아 `git` 등이 거부됩니다. 사용자가 터미널에서 `sudo xcodebuild -license`를 실행해야 합니다. 3단계의 `macos` 워크로드에 필요합니다. 동의 전에는 명령 앞에 `DEVELOPER_DIR=/Library/Developer/CommandLineTools`를 붙이면 Command Line Tools의 `git`을 쓸 수 있습니다.
+- `.tools`(Git 제외)에 .NET, Node, Playwright가 있습니다. `DevPostIt.sln`의 WPF 프로젝트는 macOS에서 빌드되지 않으므로 `DevPostIt.Mac.slnf`를 씁니다.
+
+```zsh
+export DOTNET_ROOT="$PWD/.tools/dotnet" DOTNET_CLI_HOME="$PWD/.tools/cli" DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1
+export PATH="$PWD/.tools/dotnet:$PWD/.tools/node/node-v24.22.1-darwin-arm64/bin:$PATH"
+export PLAYWRIGHT_BROWSERS_PATH="$PWD/.tools/playwright"
+dotnet test DevPostIt.Mac.slnf --no-restore
+(cd editor-web && EDITOR_BROWSER=webkit npm test)   # EDITOR_BROWSER가 없으면 Chromium
+```
+
+### macOS에서 확인한 결과 (2026-11-02)
+
+- .NET: Core 18, EditorHost(`DevPostIt.App.Tests`) 144, Storage 234 모두 통과.
+- 웹 개발 모드 379개: Chromium 통과 337, 실패 42. WebKit 통과 323, 실패 56.
+  - 공통 실패 42개는 Windows에서 통과하던 시험이라 OS 차이로 보며, Ctrl/⌘ 차이가 유력합니다. 실패 메시지를 하나씩 확인하지는 않았습니다.
+  - WebKit에서만 실패한 14개는 4단계에서 분류합니다: `bridge.spec.ts:159`, `font-settings.spec.ts:8,115,148,167`, `fonts.spec.ts:4,19`, `ime.spec.ts:4`, `note-features.spec.ts:44,233`, `preview-tools.spec.ts:65,81,173,186`. `ime.spec.ts:4`(CDP)와 `note-features.spec.ts`의 2개(클립보드 권한, PDF)는 시험 도구의 한계일 수 있습니다. `bridge.spec.ts:159`(한글 조합 중간값)는 먼저 확인합니다.
+- 실제 WKWebView(macOS 26.6.2, 작은 시험 페이지)에서 확인한 내용은 설계 문서 5절에 있습니다. 제작 번들에서 `.NET` 호스트로 실행한 적은 없습니다.
+
+### IME 시험 도구
+
+시험 도구 `ime-gate`(Swift)는 세션 임시 폴더에 두어 저장소에 없고, 다음 세션에서 없을 수 있습니다. 다시 만들 때의 조건입니다.
+
+- `editor-web/dist`의 `index.html`(브리지 흉내 포함), `mindmap.html`, `todo.html`을 WKWebView 창 셋으로 띄웁니다.
+- 비영구 웹 저장소를 쓰고 사용자 메모를 건드리지 않으며 합성 입력을 보내지 않습니다.
+- 조합 이벤트와 메모 본문(리비전 포함), 이름 변경, 페이지 메시지를 파일에 기록해 사용자의 관찰과 비교합니다.
+- Command Line Tools의 `swiftc`는 `-sdk /Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk`가 필요했습니다.
+
 ## 다음 후보
 
 코드 서명, CI 빌드, 설치 패키지, 태그·폴더 관리 화면, 가져오는 Markdown의 참조 이미지 복사, 단축키 설정, 캡처 대상 메모 선택. 사용자가 지정한 작업을 우선하고 이 목록을 일괄 구현하지 마세요.
