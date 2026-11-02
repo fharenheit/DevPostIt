@@ -16,3 +16,27 @@ test('위험 HTML·링크·원격 이미지를 실행하지 않고 원문을 보
   expect(requests).toEqual([]);
   expect((await draft(page)).markdown).toBe(markdown);
 });
+
+test('표 칸의 br은 줄바꿈으로 표시하고 원문은 그대로 둔다', async ({ page }) => {
+  const markdown = '| 항목 | 설명 |\n| --- | --- |\n| 첫 줄<br>둘째 줄<br/>셋째 줄<BR />넷째 줄 | **굵게<br>굵게** |\n\n위<br>아래';
+  await openEditor(page, markdown);
+  await mode(page, 'preview');
+  const cells = page.locator('#preview td');
+  await expect(cells.nth(0).locator('br')).toHaveCount(3);
+  expect(await cells.nth(0).evaluate(element => (element as HTMLElement).innerText.split('\n'))).toEqual(['첫 줄', '둘째 줄', '셋째 줄', '넷째 줄']);
+  await expect(cells.nth(1).locator('strong br')).toHaveCount(1);
+  await expect(page.locator('#preview p')).toHaveText('위<br>아래');
+  expect((await draft(page)).markdown).toBe(markdown);
+});
+
+test('표 칸에서도 코드와 이스케이프한 br, 다른 HTML은 글자로 둔다', async ({ page }) => {
+  await openEditor(page, '| 값 |\n| --- |\n| `<br>` |\n| \\<br> |\n| &lt;br> |\n| <br onclick="window.attacked=true"> |\n| <b>굵게</b> |');
+  await mode(page, 'preview');
+  await expect(page.locator('#preview td br')).toHaveCount(0);
+  await expect(page.locator('#preview td code')).toHaveText('<br>');
+  await expect(page.locator('#preview td').nth(1)).toHaveText('<br>');
+  await expect(page.locator('#preview td').nth(2)).toHaveText('<br>');
+  await expect(page.locator('#preview td').nth(3)).toHaveText('<br onclick="window.attacked=true">');
+  await expect(page.locator('#preview td b')).toHaveCount(0);
+  await expect(page.locator('#preview td').nth(4)).toHaveText('<b>굵게</b>');
+});

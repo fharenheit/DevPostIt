@@ -51,6 +51,24 @@ markdown.core.ruler.after('inline', 'task-checkboxes', state => {
     token.children.unshift(checkbox);
   }
 });
+// 표 칸은 한 줄로 적어야 하므로 줄바꿈 표시인 <br>만 받습니다. 코드, 이스케이프한 글자, 다른 HTML은 글자로 둡니다.
+markdown.core.ruler.after('inline', 'table-line-breaks', state => {
+  state.tokens.forEach((token, index) => {
+    if (token.type !== 'inline' || !/^t[dh]_open$/.test(state.tokens[index - 1]?.type ?? '')) return;
+    token.children = (token.children ?? []).flatMap(child => {
+      if (child.type !== 'text') return [child];
+      return child.content.split(/<br\s*\/?>/i).flatMap((content, at) => {
+        const text = new state.Token('text', '', 0);
+        text.content = content;
+        text.level = child.level;
+        if (at === 0) return [text];
+        const line = new state.Token('hardbreak', 'br', 0);
+        line.level = child.level;
+        return [line, text];
+      });
+    });
+  });
+});
 
 export function renderMarkdown(source: string): string {
   return DOMPurify.sanitize(markdown.render(source), {
