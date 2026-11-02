@@ -46,7 +46,7 @@ const ruff = once(() => import('@wasm-fmt/ruff_fmt/vite'));
 const gofmt = once(() => import('@wasm-fmt/gofmt/vite'));
 const shfmt = once(() => import('@wasm-fmt/shfmt/vite'));
 const clang = once(() => import('@wasm-fmt/clang-format/vite'));
-const clangStyle = (file: string) => file.endsWith('.cs') ? '{BasedOnStyle: Microsoft}' : '{BasedOnStyle: Google, IndentWidth: 4, ColumnLimit: 100}';
+const clangStyle = (file: string, indent = 4) => file.endsWith('.cs') ? `{BasedOnStyle: Microsoft, IndentWidth: ${indent}}` : `{BasedOnStyle: Google, IndentWidth: ${indent}, ColumnLimit: 100}`;
 async function plugins(parser: string): Promise<Plugin[]> {
   if (parser === 'java') {
     const { Parser } = await import('web-tree-sitter');
@@ -66,21 +66,22 @@ async function plugins(parser: string): Promise<Plugin[]> {
   if (parser === 'vue' || parser === 'angular') return [await import('prettier/plugins/html'), await import('prettier/plugins/angular'), await import('prettier/plugins/babel'), await import('prettier/plugins/estree'), await import('prettier/plugins/postcss')];
   return [parser === 'typescript' ? await import('prettier/plugins/typescript') : await import('prettier/plugins/babel'), await import('prettier/plugins/estree')];
 }
-async function formatWith(source: string, parser: string): Promise<string> {
-  if (parser === 'python') return (await ruff()).format(source);
+// indent를 주지 않으면 각 도구의 기본값을 씁니다. gofmt는 탭만 씁니다.
+async function formatWith(source: string, parser: string, indent?: number): Promise<string> {
+  if (parser === 'python') return (await ruff()).format(source, undefined, indent ? { indent_width: indent } : undefined);
   if (parser === 'go') return (await gofmt()).format(source);
-  if (parser === 'shell') return (await shfmt()).format(source);
-  if (parser.startsWith('clang:')) { const file = parser.slice('clang:'.length); return (await clang()).format(source, file, clangStyle(file)); }
+  if (parser === 'shell') return (await shfmt()).format(source, undefined, indent ? { indent } : undefined);
+  if (parser.startsWith('clang:')) { const file = parser.slice('clang:'.length); return (await clang()).format(source, file, clangStyle(file, indent)); }
   if (parser.startsWith('sql:')) {
     const { format: formatSql } = await import('sql-formatter');
-    return formatSql(source, { language: parser.slice('sql:'.length) as 'sql', tabWidth: 2 });
+    return formatSql(source, { language: parser.slice('sql:'.length) as 'sql', tabWidth: indent ?? 2 });
   }
-  return format(source, { parser, plugins: await plugins(parser), tabWidth: 2, printWidth: 100, endOfLine: 'lf', ...(parser === 'xml' ? { xmlWhitespaceSensitivity: 'ignore' } : parser === 'php' ? { phpVersion: '8.4' } : {}) });
+  return format(source, { parser, plugins: await plugins(parser), tabWidth: indent ?? 2, printWidth: 100, endOfLine: 'lf', ...(parser === 'xml' ? { xmlWhitespaceSensitivity: 'ignore' } : parser === 'php' ? { phpVersion: '8.4' } : {}) });
 }
-export async function formatSource(source: string, language: string): Promise<string> {
+export async function formatSource(source: string, language: string, indent?: number): Promise<string> {
   const parser = aliases[language];
   if (!parser) throw new CodeBlockError(sourceLanguages.some(item => item.value === language) ? noFormatter : '지원하지 않는 언어입니다.');
-  return formatWith(source, parser);
+  return formatWith(source, parser, indent);
 }
 export async function formatBlock(source: string, line: number, language?: string): Promise<{ start: number; end: number; startLine: number; endLine: number; text: string }> {
   const token = markdown.parse(source, {}).find(token => token.type === 'fence' && token.map && line >= token.map[0] && line < token.map[1]);

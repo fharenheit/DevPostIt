@@ -17,11 +17,11 @@ async function formatAs(page: Page, language: string, text: string) {
 
 for (const [language, source, expected] of [
   ['json', '{"a":1,"b":[2,3]}', '{ "a": 1, "b": [2, 3] }\n'],
-  ['java', 'class Main{public static void main(String[] args){System.out.println("한글");}}', 'class Main {\n\n  public static void main(String[] args) {\n    System.out.println("한글");\n  }\n}\n'],
+  ['java', 'class Main{public static void main(String[] args){System.out.println("한글");}}', 'class Main {\n\n    public static void main(String[] args) {\n        System.out.println("한글");\n    }\n}\n'],
   ['js', 'const a={b:1};', 'const a = { b: 1 };\n'],
   ['ts', 'const a:number=1;', 'const a: number = 1;\n'],
   ['yaml', 'a: [1,2]', 'a: [1, 2]\n'],
-  ['css', 'a{color:red}', 'a {\n  color: red;\n}\n'],
+  ['css', 'a{color:red}', 'a {\n    color: red;\n}\n'],
 ] as const) {
   test(`${language} 소스 전체를 포맷한다`, async ({ page }) => {
     await open(page);
@@ -86,9 +86,9 @@ test('포맷은 한 번의 실행 취소로 되돌리고 단축키로도 실행�
 test('입력의 줄바꿈 형식을 유지한다', async ({ page }) => {
   await open(page);
   await formatAs(page, 'css', 'a{color:red}\r\nb{color:blue}\r\n');
-  await expect.poll(() => rawValue(page)).toBe('a {\r\n  color: red;\r\n}\r\nb {\r\n  color: blue;\r\n}\r\n');
+  await expect.poll(() => rawValue(page)).toBe('a {\r\n    color: red;\r\n}\r\nb {\r\n    color: blue;\r\n}\r\n');
   await formatAs(page, 'css', 'a{color:red}\nb{color:blue}\n');
-  await expect.poll(() => rawValue(page)).toBe('a {\n  color: red;\n}\nb {\n  color: blue;\n}\n');
+  await expect.poll(() => rawValue(page)).toBe('a {\n    color: red;\n}\nb {\n    color: blue;\n}\n');
 });
 
 test('포맷 중에 입력이 바뀌면 입력을 덮어쓰지 않는다', async ({ page }) => {
@@ -143,4 +143,101 @@ test('좁은 창에서도 도구가 넘치지 않고 편집기가 남은 공간�
     const box = (await page.locator(selector).boundingBox())!;
     expect(box.x + box.width).toBeLessThanOrEqual(420);
   }
+});
+
+const indentInput = (page: Page) => page.getByLabel('들여쓰기 간격');
+
+test('들여쓰기 간격의 기본값은 4이다', async ({ page }) => {
+  await open(page);
+  await expect(indentInput(page)).toHaveValue('4');
+  await formatAs(page, 'css', 'a{color:red}');
+  await expect.poll(() => value(page)).toBe('a {\n    color: red;\n}\n');
+});
+
+for (const [language, source, expected] of [
+  ['java', 'class A{int b=1;}', 'class A {\n\n  int b = 1;\n}\n'],
+  ['css', 'a{color:red}', 'a {\n  color: red;\n}\n'],
+  ['python', 'def f():\n    return 1', 'def f():\n  return 1\n'],
+  ['cpp', 'int main(){int a=0;return a;}', 'int main() {\n  int a = 0;\n  return a;\n}\n'],
+  ['csharp', 'class A{int b;}', 'class A\n{\n  int b;\n}\n'],
+  ['sql', 'select a from t', 'select\n  a\nfrom\n  t\n'],
+  ['xml', '<a><b>1</b></a>', '<a>\n  <b>1</b>\n</a>\n'],
+  ['shell', 'if true; then\necho a\nfi', 'if true; then\n  echo a\nfi\n'],
+] as const) {
+  test(`${language}에 입력한 들여쓰기 간격을 적용한다`, async ({ page }) => {
+    await open(page);
+    await indentInput(page).fill('2');
+    await formatAs(page, language, source);
+    await expect(page.locator('#formatter-status')).toContainText('포맷했습니다');
+    const result = await value(page);
+    expect(result.endsWith('\n') ? result : result + '\n').toBe(expected);
+  });
+}
+
+test('들여쓰기 간격은 큰 값도 적용하고 다시 열어도 기억한다', async ({ page }) => {
+  await open(page);
+  await indentInput(page).fill('8');
+  await formatAs(page, 'css', 'a{color:red}');
+  await expect.poll(() => value(page)).toBe('a {\n        color: red;\n}\n');
+  await page.reload();
+  await page.waitForFunction(() => Boolean(window.hunminFormatter));
+  await expect(indentInput(page)).toHaveValue('8');
+});
+
+test('들여쓰기 간격에는 숫자만 들어간다', async ({ page }) => {
+  await open(page);
+  const input = indentInput(page);
+  await input.fill('');
+  await input.pressSequentially('a1-.e2');
+  await expect(input).toHaveValue('12');
+  await input.fill('한글');
+  await expect(input).toHaveValue('');
+  await input.fill('3５');
+  await expect(input).toHaveValue('3');
+  await expect(input).toHaveAttribute('inputmode', 'numeric');
+});
+
+for (const wrong of ['', '0', '17', '99']) {
+  test(`들여쓰기 간격 '${wrong}'이면 포맷하지 않고 범위를 알린다`, async ({ page }) => {
+    await open(page);
+    await indentInput(page).fill(wrong);
+    await formatAs(page, 'css', 'a{color:red}');
+    await expect(page.locator('#formatter-status')).toContainText('1~16');
+    expect(await value(page)).toBe('a{color:red}');
+  });
+}
+
+test('잘못 저장된 들여쓰기 간격은 기본값으로 돌아간다', async ({ page }) => {
+  await open(page);
+  await page.evaluate(() => localStorage.setItem('devpostit.formatter.indent.v1', '99'));
+  await page.reload();
+  await page.waitForFunction(() => Boolean(window.hunminFormatter));
+  await expect(indentInput(page)).toHaveValue('4');
+});
+
+test('Go는 탭을 유지하고 편집기의 탭 너비로 간격을 보여 준다', async ({ page }) => {
+  await open(page);
+  await indentInput(page).fill('2');
+  await formatAs(page, 'go', 'package a\nfunc f(){\nreturn\n}');
+  await expect(page.locator('#formatter-status')).toContainText('포맷했습니다');
+  expect(await value(page)).toContain('\treturn');
+  expect(await page.evaluate(() => (window as any).hunminFormatter.getTabSize())).toBe(2);
+});
+
+test('입력한 간격이 편집기의 탭 너비에도 적용되고 Enter로 포맷한다', async ({ page }) => {
+  await open(page);
+  await indentInput(page).fill('6');
+  expect(await page.evaluate(() => (window as any).hunminFormatter.getTabSize())).toBe(6);
+  await page.getByLabel('언어').selectOption('css');
+  await page.evaluate(() => window.hunminFormatter.setValue('a{color:red}'));
+  await indentInput(page).press('Enter');
+  await expect.poll(() => value(page)).toBe('a {\n      color: red;\n}\n');
+});
+
+test('좁은 창에서 들여쓰기 입력도 넘치지 않는다', async ({ page }) => {
+  await page.setViewportSize({ width: 420, height: 320 });
+  await open(page);
+  const box = (await indentInput(page).boundingBox())!;
+  expect(box.x + box.width).toBeLessThanOrEqual(420);
+  expect(box.width).toBeGreaterThanOrEqual(30);
 });

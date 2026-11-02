@@ -156,6 +156,7 @@ dialog p:empty { display: none; }
 .formatter-bar { flex-shrink: 0; display: flex; flex-wrap: wrap; align-items: center; gap: .25rem .5rem; padding: .4rem .75rem; border-bottom: 1px solid var(--line); background: var(--paper-header); }
 .formatter-bar, .formatter-bar * { font-size: 14px; }
 .formatter-bar select, .formatter-bar button { padding: .15rem .5rem; border: 1px solid var(--line-strong); border-radius: .3rem; background: var(--paper); color: var(--ink); }
+#formatter-indent { width: 3rem; padding: .15rem .35rem; border: 1px solid var(--line-strong); border-radius: .3rem; background: var(--paper); color: var(--ink); text-align: center; }
 .formatter-bar button:hover:not(:disabled) { background: var(--paper-sunken); }
 #formatter-status { flex: 1 1 8rem; min-width: 0; max-height: 2.8em; overflow: auto; overflow-wrap: anywhere; color: var(--ink-muted); }
 #formatter-code { flex: 1; min-height: 0; }

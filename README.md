@@ -32,7 +32,7 @@
 - Monaco가 지원하는 모든 언어와 JSON의 코드 블록 하이라이트 (소스 편집, 미리보기)
 - 코드 정리: JSON, JSON5, YAML, XML, Java, JavaScript, JSX, Flow, TypeScript, TSX, HTML, Vue, Angular, Handlebars, CSS, SCSS, Less, GraphQL, Markdown, MDX, C, C++, C#, Objective-C, Protobuf, Python, Go, PHP, Shell, SQL, MySQL, PostgreSQL, Redshift
 - Rust, Scala, Ruby, R 등 정리 도구가 없는 언어는 색 구분만 지원
-- 소스코드 포맷터: 메모와 별개인 Monaco 창에서 언어를 골라 소스 전체 포맷 (저장하지 않음)
+- 소스코드 포맷터: 메모와 별개인 Monaco 창에서 언어와 들여쓰기 간격(기본 4)을 골라 소스 전체 포맷 (저장하지 않음)
 
 **붙여넣기**
 

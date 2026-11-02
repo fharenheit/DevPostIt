@@ -15,15 +15,15 @@ async function formatAs(page: Page, language: string, text: string) {
 const samples = [
   ['python', 'def f( a ):\n  return a', 'def f(a):\n    return a'],
   ['go', 'package main\nfunc main(){}', 'func main() {}'],
-  ['sql', 'select a,b from t', 'select\n  a,\n  b\nfrom\n  t'],
-  ['mysql', 'select `a` from t', 'select\n  `a`\nfrom\n  t'],
-  ['pgsql', 'select a::int from t', 'select\n  a::int\nfrom\n  t'],
+  ['sql', 'select a,b from t', 'select\n    a,\n    b\nfrom\n    t'],
+  ['mysql', 'select `a` from t', 'select\n    `a`\nfrom\n    t'],
+  ['pgsql', 'select a::int from t', 'select\n    a::int\nfrom\n    t'],
   ['c', 'int main(){return 0;}', 'int main() {'],
   ['cpp', 'int main(){std::cout<<1;}', 'std::cout << 1;'],
   ['csharp', 'class A{void F(){}}', 'class A\n{'],
   ['objective-c', '@interface A:NSObject\n@end', '@interface A : NSObject'],
   ['proto', 'message A{int32 b=1;}', 'int32 b = 1;'],
-  ['xml', '<a><b>1</b></a>', '<a>\n  <b>1</b>\n</a>'],
+  ['xml', '<a><b>1</b></a>', '<a>\n    <b>1</b>\n</a>'],
   ['shell', 'if true;then echo a;fi', 'if true; then'],
   ['php', '<?php echo  1;', '<?php echo 1;'],
 ] as const;
@@ -35,7 +35,15 @@ for (const [language, source, expected] of samples) {
     expect(await formatted(page)).toContain(expected);
   });
 }
-for (const [language, source, expected] of samples.filter(([language]) => ['python', 'go', 'sql', 'cpp', 'csharp', 'xml'].includes(language))) {
+// 메모의 코드 정리는 들여쓰기 입력이 없고 각 도구의 기본값을 씁니다.
+for (const [language, source, expected] of [
+  ['python', 'def f( a ):\n  return a', 'def f(a):\n    return a'],
+  ['go', 'package main\nfunc main(){}', 'func main() {}'],
+  ['sql', 'select a,b from t', 'select\n  a,\n  b\nfrom\n  t'],
+  ['cpp', 'int main(){std::cout<<1;}', 'std::cout << 1;'],
+  ['csharp', 'class A{void F(){}}', 'class A\n{'],
+  ['xml', '<a><b>1</b></a>', '<a>\n  <b>1</b>\n</a>'],
+] as const) {
   test(`메모의 ${language} 코드 블록을 정리한다`, async ({ page }) => {
     await openEditor(page, `\`\`\`${language}\n${source}\n\`\`\`\n`);
     await page.locator('#source .monaco-editor').click({ position: { x: 100, y: 40 } });
