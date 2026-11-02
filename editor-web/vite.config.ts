@@ -7,7 +7,7 @@ export default defineConfig(({ command }) => ({
     exclude: ['@wasm-fmt/clang-format', '@wasm-fmt/gofmt', '@wasm-fmt/ruff_fmt', '@wasm-fmt/shfmt'],
     include: ['sql-formatter', '@prettier/plugin-xml', '@prettier/plugin-php/standalone', 'mermaid'],
   },
-  build: { rollupOptions: { input: { main: 'index.html', settings: 'settings.html', search: 'search.html', formatter: 'formatter.html' } } },
+  build: { rollupOptions: { input: { main: 'index.html', settings: 'settings.html', search: 'search.html', formatter: 'formatter.html', mindmap: 'mindmap.html', todo: 'todo.html', calendar: 'calendar.html' } } },
   plugins: [{
     name: 'local-editor-csp',
     transformIndexHtml(html) {

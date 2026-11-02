@@ -6,6 +6,9 @@ public static class EditorOrigin
     public const string SettingsPage = "https://devpostit.local/settings.html";
     public const string SearchPage = "https://devpostit.local/search.html";
     public const string FormatterPage = "https://devpostit.local/formatter.html";
+    public const string MindMapPage = "https://devpostit.local/mindmap.html";
+    public const string TodoPage = "https://devpostit.local/todo.html";
+    public const string CalendarPage = "https://devpostit.local/calendar.html";
     public const string AssetHost = "devpostit-assets.local";
     public static bool IsTrustedPage(string source) => IsLocalResource(source) &&
         Uri.TryCreate(source, UriKind.Absolute, out var uri) && uri.AbsolutePath == "/index.html" &&
@@ -23,6 +26,12 @@ public static class EditorOrigin
     public static bool IsFormatterPage(string source) => IsLocalResource(source) &&
         Uri.TryCreate(source, UriKind.Absolute, out var uri) && uri.AbsolutePath == "/formatter.html" &&
         uri.Query.Length == 0 && uri.Fragment.Length == 0;
+
+    public static bool IsMindMapPage(string source) => IsLocalPage(source, "/mindmap.html");
+    public static bool IsTodoPage(string source) => IsLocalPage(source, "/todo.html");
+    public static bool IsCalendarPage(string source) => IsLocalPage(source, "/calendar.html");
+    private static bool IsLocalPage(string source, string path) => IsLocalResource(source) &&
+        Uri.TryCreate(source, UriKind.Absolute, out var uri) && uri.AbsolutePath == path && uri.Query.Length == 0 && uri.Fragment.Length == 0;
 
     public static bool IsNoteAsset(string source) => Uri.TryCreate(source, UriKind.Absolute, out var uri) &&
         uri.Scheme == Uri.UriSchemeHttps && uri.Host == AssetHost && uri.Port == 443 && uri.UserInfo.Length == 0 &&

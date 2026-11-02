@@ -45,6 +45,7 @@ public partial class App : System.Windows.Application
             workspace.StartWatching();
             manager.RestoreSession();
             manager.StartUpdateChecks();
+            manager.StartReminders();
         }
         catch (Exception error)
         {

@@ -15,6 +15,7 @@ public sealed class TrayService : IDisposable
     private readonly Forms.ContextMenuStrip menu = new();
     private readonly Drawing.Icon icon = NoteIcon.Create();
     private readonly GlobalHotkey hotkey;
+    private string? pendingReminderKind;
     internal bool IsHotkeyRegistered => hotkey.IsRegistered;
     public void Notify(string message) => tray.ShowBalloonTip(5000, "메모", message.Length > 200 ? message[..200] : message, Forms.ToolTipIcon.Warning);
     public TrayService(DesktopNoteManager manager, NoteWorkspace workspace, Dispatcher dispatcher)
@@ -24,6 +25,12 @@ public sealed class TrayService : IDisposable
         hotkey = new GlobalHotkey(() => Run(manager.StartObjectCaptureAsync));
         tray.MouseClick += (_, e) => { if (e.Button == Forms.MouseButtons.Left) Run(manager.CreateAsync); };
         manager.UpdateFound += update => dispatcher.BeginInvoke(new Action(() => tray.ShowBalloonTip(5000, "메모", $"새 버전 {update.Version}이 있습니다. 트레이 메뉴에서 설치할 수 있습니다.", Forms.ToolTipIcon.Info)));
+        manager.ReminderDue += reminder => dispatcher.BeginInvoke(new Action(() =>
+        {
+            pendingReminderKind = reminder.Kind;
+            tray.ShowBalloonTip(10000, reminder.Kind == "todo" ? "할 일 알림" : "일정 알림", reminder.Title.Length > 200 ? reminder.Title[..200] : reminder.Title, Forms.ToolTipIcon.Info);
+        }));
+        tray.BalloonTipClicked += (_, _) => { if (pendingReminderKind == "todo") manager.ShowTodo(); else if (pendingReminderKind == "event") manager.ShowCalendar(); pendingReminderKind = null; };
         menu.Opening += (_, _) =>
         {
             foreach (var old in menu.Items.Cast<Forms.ToolStripItem>().ToArray()) old.Dispose();
@@ -32,6 +39,9 @@ public sealed class TrayService : IDisposable
             menu.Items.Add("메모 검색", null, (_, _) => manager.ShowSearch());
             menu.Items.Add("화면 캡처", null, (_, _) => Run(manager.StartObjectCaptureAsync));
             menu.Items.Add("소스코드 포맷터", null, (_, _) => manager.ShowFormatter());
+            menu.Items.Add("마인드맵", null, (_, _) => manager.ShowMindMap());
+            menu.Items.Add("할 일", null, (_, _) => manager.ShowTodo());
+            menu.Items.Add("달력", null, (_, _) => manager.ShowCalendar());
             menu.Items.Add("Markdown 가져오기…", null, (_, _) => Run(manager.ImportMarkdownAsync));
             var notes = new Forms.ToolStripMenuItem("메모 목록");
             var all = workspace.Notes;

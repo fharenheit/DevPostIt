@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ko">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>달력</title></head>
+<body>
+  <main id="calendar-app" aria-label="달력">
+    <header id="calendar-bar">
+      <button id="cal-new" type="button" class="primary" title="새 일정 (N)">새 일정</button>
+      <button id="cal-today" type="button" title="오늘 (T)">오늘</button>
+      <button id="cal-prev" type="button" aria-label="이전" title="이전 (←)">‹</button>
+      <button id="cal-next" type="button" aria-label="다음" title="다음 (→)">›</button>
+      <h1 id="cal-title"></h1>
+      <div id="cal-views" role="group" aria-label="보기">
+        <button type="button" data-view="month" title="월간 (M)">월간</button>
+        <button type="button" data-view="week" title="주간 (W)">주간</button>
+        <button type="button" data-view="day" title="일간 (D)">일간</button>
+        <button type="button" data-view="list" title="목록 (L)">목록</button>
+      </div>
+    </header>
+    <p id="cal-status" role="status"></p>
+    <section id="cal-body"></section>
+    <dialog id="event-dialog">
+      <form id="event-form" method="dialog">
+        <h2 id="event-heading">새 일정</h2>
+        <label class="wide">제목 <input id="ev-title" required maxlength="500" autocomplete="off"></label>
+        <label class="check"><input id="ev-all-day" type="checkbox"> 종일</label>
+        <label>시작 날짜 <input id="ev-start-date" type="date" required></label>
+        <label class="ev-time">시작 시각 <input id="ev-start-time" type="time"></label>
+        <label>끝 날짜 <input id="ev-end-date" type="date" required></label>
+        <label class="ev-time">끝 시각 <input id="ev-end-time" type="time"></label>
+        <label class="wide">장소 <input id="ev-location" maxlength="500" autocomplete="off"></label>
+        <label>색상 <select id="ev-color"><option value="blue">파랑</option><option value="green">초록</option><option value="red">빨강</option><option value="orange">주황</option><option value="purple">보라</option><option value="gray">회색</option></select></label>
+        <label>알림 <select id="ev-reminder"><option value="">없음</option><option value="0">시작 시각</option><option value="5">5분 전</option><option value="10">10분 전</option><option value="15">15분 전</option><option value="30">30분 전</option><option value="60">1시간 전</option><option value="120">2시간 전</option><option value="1440">1일 전</option></select></label>
+        <label>반복 <select id="ev-repeat"></select></label>
+        <label>반복 종료 <input id="ev-until" type="date"></label>
+        <label class="wide">메모 <textarea id="ev-notes" rows="3" maxlength="20000"></textarea></label>
+        <p id="ev-error" class="wide" role="alert"></p>
+        <div class="tool-dialog-actions wide">
+          <button id="ev-delete" type="button" class="danger" hidden>삭제</button>
+          <button id="ev-cancel" type="button">취소</button>
+          <button id="ev-save" type="submit" class="primary">저장</button>
+        </div>
+      </form>
+    </dialog>
+  </main>
+  <script type="module" src="/src/calendar.ts"></script>
+</body>
+</html>

@@ -21,6 +21,16 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
     private AboutWindow? about;
     private HelpWindow? help;
     private FormatterWindow? formatter;
+    private MindMapWindow? mindMap;
+    private PlannerWindow? todo;
+    private PlannerWindow? calendar;
+    private DispatcherTimer? reminderTimer;
+    private MindMapStore? mindMaps;
+    private PlannerStore? planner;
+    private string ToolsRoot => System.IO.Path.Combine(workspace.Root, ".hunmin", "tools");
+    internal MindMapStore MindMaps => mindMaps ??= new MindMapStore(System.IO.Path.Combine(ToolsRoot, "mindmaps"));
+    internal PlannerStore Planner => planner ??= new PlannerStore(ToolsRoot);
+    public event Action<PlannerReminder>? ReminderDue;
     private MainWindow? lastActive;
     private ObjectCaptureSession? capture;
     internal bool ObjectCaptureHooks { get; set; } = true;
@@ -198,6 +208,61 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
         if (formatter.WindowState == WindowState.Minimized) formatter.WindowState = WindowState.Normal;
         formatter.Activate();
     }
+    public void ShowMindMap()
+    {
+        if (exiting) return;
+        if (mindMap is null)
+        {
+            mindMap = new MindMapWindow(MindMaps);
+            mindMap.Closed += (_, _) => mindMap = null;
+            mindMap.Show();
+        }
+        if (mindMap.WindowState == WindowState.Minimized) mindMap.WindowState = WindowState.Normal;
+        mindMap.Activate();
+    }
+    public void ShowTodo()
+    {
+        if (exiting) return;
+        if (todo is null)
+        {
+            todo = new PlannerWindow("할 일", EditorOrigin.TodoPage, EditorOrigin.IsTodoPage, Planner, BroadcastPlanner, 980, 680);
+            todo.Closed += (_, _) => todo = null;
+            todo.Show();
+        }
+        if (todo.WindowState == WindowState.Minimized) todo.WindowState = WindowState.Normal;
+        todo.Activate();
+    }
+    public void ShowCalendar()
+    {
+        if (exiting) return;
+        if (calendar is null)
+        {
+            calendar = new PlannerWindow("달력", EditorOrigin.CalendarPage, EditorOrigin.IsCalendarPage, Planner, BroadcastPlanner, 1100, 760);
+            calendar.Closed += (_, _) => calendar = null;
+            calendar.Show();
+        }
+        if (calendar.WindowState == WindowState.Minimized) calendar.WindowState = WindowState.Normal;
+        calendar.Activate();
+    }
+    private void BroadcastPlanner(PlannerState state)
+    {
+        todo?.SendState(state);
+        calendar?.SendState(state);
+    }
+    // 앱이 켜져 있는 동안 할 일과 일정의 알림을 확인합니다.
+    public void StartReminders()
+    {
+        reminderTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
+        reminderTimer.Tick += async (_, _) => await CheckRemindersAsync(DateTime.Now);
+        reminderTimer.Start();
+        _ = CheckRemindersAsync(DateTime.Now);
+    }
+    internal async Task CheckRemindersAsync(DateTime now)
+    {
+        if (exiting) return;
+        try { foreach (var reminder in await Task.Run(() => Planner.TakeRemindersAsync(now, CancellationToken.None))) ReminderDue?.Invoke(reminder); }
+        catch (Exception error) when (error is System.IO.IOException or UnauthorizedAccessException or System.IO.InvalidDataException) { /* 다음 확인 때 다시 시도합니다. */ }
+    }
     public void ShowSearch()
     {
         if (exiting) return;
@@ -314,6 +379,8 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
             about?.Close();
             help?.Close();
             formatter?.Close();
+            reminderTimer?.Stop();
+            foreach (var window in new ToolWindow?[] { mindMap, todo, calendar }) if (window is not null) await window.FlushAndCloseAsync();
             await workspace.DisposeAsync();
             completed = true;
             updateTimer?.Stop();

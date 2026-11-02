@@ -7,13 +7,13 @@ namespace DevPostIt.Storage;
 public sealed record BackupSummary(int Notes, int Files);
 public sealed class InvalidBackupException(string message) : IOException(message);
 
-// 메모, 첨부 이미지, 휴지통, 복구 기록을 한 파일로 묶습니다. 검색 DB는 다시 만들 수 있어 넣지 않습니다.
+// 메모, 첨부 이미지, 휴지통, 복구 기록, 마인드맵, 할 일, 달력을 한 파일로 묶습니다. 검색 DB는 다시 만들 수 있어 넣지 않습니다.
 public static class NoteBackup
 {
     private const int FormatVersion = 1, MaxFiles = 100_000;
     private const long MaxBytes = 4L * 1024 * 1024 * 1024;
     private const string ManifestName = "devpostit-backup.json", ReadyMarker = ".restore-ready";
-    private static readonly string[] Included = ["notes", ".hunmin/trash", ".hunmin/recovery", ".hunmin/preferences"];
+    private static readonly string[] Included = ["notes", ".hunmin/trash", ".hunmin/recovery", ".hunmin/preferences", ".hunmin/tools"];
     private sealed record ManifestFile(string Path, long Size, string Sha256);
     private sealed record Manifest(int Format, string App, DateTimeOffset Created, List<ManifestFile> Files);
 

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ko">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>할 일</title></head>
+<body>
+  <main id="todo-app" aria-label="할 일">
+    <nav id="todo-nav" aria-label="목록">
+      <input id="todo-search" type="search" aria-label="할 일 검색" placeholder="검색">
+      <ul id="todo-smart"></ul>
+      <hr>
+      <ul id="todo-lists"></ul>
+      <input id="todo-new-list" type="text" aria-label="새 목록 이름" placeholder="+ 새 목록" maxlength="200">
+    </nav>
+    <section id="todo-main">
+      <header>
+        <h1 id="todo-title"></h1>
+        <label class="todo-sort">정렬 <select id="todo-sort"><option value="manual">직접</option><option value="due">기한</option><option value="important">중요도</option><option value="title">이름</option><option value="created">만든 날짜</option></select></label>
+        <button id="todo-rename-list" type="button" hidden>이름 변경</button>
+        <button id="todo-delete-list" type="button" hidden>목록 삭제</button>
+      </header>
+      <input id="todo-input" type="text" aria-label="새 할 일" placeholder="할 일을 입력하고 Enter를 누르세요" maxlength="500" autofocus>
+      <ul id="todo-items"></ul>
+      <button id="todo-completed-toggle" type="button" aria-expanded="false" hidden></button>
+      <ul id="todo-completed" hidden></ul>
+      <p id="todo-status" role="status"></p>
+    </section>
+    <aside id="todo-detail" aria-label="할 일 자세히" hidden></aside>
+  </main>
+  <script type="module" src="/src/todo.ts"></script>
+</body>
+</html>

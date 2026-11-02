@@ -237,7 +237,7 @@ public class EditorBridgeTests
                     Assert.True(System.Text.RegularExpressions.Regex.IsMatch(sentence.TrimEnd('.'), "(니다|십시오)$"), $"합니다체가 아닙니다: {sentence}");
         }
         var text = string.Join('\n', HelpContent.Sections.SelectMany(section => section.Paragraphs.Prepend(section.Title)));
-        foreach (var topic in new[] { "휴지통", "백업", "복원", "검색", "PDF", "찾기", "바꾸기", "단축키", "미리보기", "글꼴", "업데이트", "표", "이미지", "항상 위", "데이터 폴더", "캡처", "이미지 폴더", "주석", "모자이크", "Mermaid", "draw.io", "가져오기", "링크", "쓰지 않는 이미지", "소스코드 포맷터" })
+        foreach (var topic in new[] { "휴지통", "백업", "복원", "검색", "PDF", "찾기", "바꾸기", "단축키", "미리보기", "글꼴", "업데이트", "표", "이미지", "항상 위", "데이터 폴더", "캡처", "이미지 폴더", "주석", "모자이크", "Mermaid", "draw.io", "가져오기", "링크", "쓰지 않는 이미지", "소스코드 포맷터", "마인드맵", "할 일", "달력", "공휴일" })
             Assert.Contains(topic, text);
     }
 
@@ -391,6 +391,45 @@ public class EditorBridgeTests
         Assert.Equal(value, read);
         Assert.False(SettingsMessage.TryReadCaptureAnnotate(json, EditorOrigin.Page, out _));
     }
+
+    [Theory]
+    [InlineData("""{"protocolVersion":1,"type":"mindmap.list"}""", true)]
+    [InlineData("""{"protocolVersion":1,"type":"mindmap.open","id":"a"}""", true)]
+    [InlineData("""{"protocolVersion":1,"type":"mindmap.open"}""", false)]
+    [InlineData("""{"protocolVersion":1,"type":"mindmap.open","id":"a","path":"C:\\x"}""", false)]
+    [InlineData("""{"protocolVersion":2,"type":"mindmap.list"}""", false)]
+    [InlineData("""{"type":"mindmap.list"}""", false)]
+    [InlineData("""{"protocolVersion":1,"type":"planner.load"}""", false)]
+    [InlineData("""{"protocolVersion":1,"type":"note.changed"}""", false)]
+    [InlineData("not json", false)]
+    [InlineData("[]", false)]
+    public void MindMapPageMessages(string json, bool accepted)
+    {
+        Assert.Equal(accepted, ToolMessage.TryReadMindMap(json, EditorOrigin.MindMapPage, out _));
+        Assert.False(ToolMessage.TryReadMindMap(json, EditorOrigin.TodoPage, out _));
+        Assert.False(ToolMessage.TryReadMindMap(json, EditorOrigin.Page, out _));
+        Assert.False(ToolMessage.TryReadMindMap(json, "https://example.com/mindmap.html", out _));
+    }
+
+    [Fact]
+    public void PlannerMessagesComeOnlyFromTodoAndCalendarPages()
+    {
+        const string put = """{"protocolVersion":1,"type":"planner.put","collection":"todos","item":{}}""";
+        Assert.True(ToolMessage.TryReadPlanner(put, EditorOrigin.TodoPage, out var request));
+        Assert.Equal("planner.put", request!.Type);
+        Assert.True(ToolMessage.TryReadPlanner(put, EditorOrigin.CalendarPage, out _));
+        Assert.False(ToolMessage.TryReadPlanner(put, EditorOrigin.MindMapPage, out _));
+        Assert.False(ToolMessage.TryReadPlanner(put, EditorOrigin.Page, out _));
+        Assert.False(ToolMessage.TryReadPlanner(put, EditorOrigin.SettingsPage, out _));
+        Assert.False(ToolMessage.TryReadPlanner("""{"protocolVersion":1,"type":"planner.put","item":{}}""", EditorOrigin.TodoPage, out _));
+    }
+
+    [Theory]
+    [InlineData("https://devpostit.local/mindmap.html", true)]
+    [InlineData("https://devpostit.local/mindmap.html?a=1", false)]
+    [InlineData("https://evil.example/mindmap.html", false)]
+    [InlineData("https://devpostit.local/index.html", false)]
+    public void ToolPageOrigin(string source, bool allowed) => Assert.Equal(allowed, EditorOrigin.IsMindMapPage(source));
 
     [Fact]
     public void FormatterPageIsSeparateFromNotePages()
