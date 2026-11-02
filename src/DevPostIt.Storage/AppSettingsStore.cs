@@ -23,6 +23,7 @@ public sealed class AppSettings
     public bool TransparentImagesRepaired { get; set; }
     public int CaptureDelaySeconds { get; set; }
     public bool AnnotateCapture { get; set; } = true;
+    public bool HolidayUpdates { get; set; } = true;
     public List<Guid>? OpenNotes { get; set; }
     public List<Guid> CollapsedNotes { get; set; } = [];
     public Dictionary<Guid, NoteWindowState> Notes { get; set; } = [];

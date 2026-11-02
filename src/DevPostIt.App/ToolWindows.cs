@@ -150,10 +150,12 @@ public sealed class PlannerWindow : ToolWindow
 {
     private readonly PlannerStore store;
     private readonly Action<PlannerState> changed;
-    public PlannerWindow(string title, string page, Func<string, bool> isAllowed, PlannerStore store, Action<PlannerState> changed, double width, double height) : base(title, page, isAllowed, width, height)
+    private readonly Func<HolidayFile?>? holidays;
+    public PlannerWindow(string title, string page, Func<string, bool> isAllowed, PlannerStore store, Action<PlannerState> changed, double width, double height, Func<HolidayFile?>? holidays = null) : base(title, page, isAllowed, width, height)
     {
-        this.store = store; this.changed = changed;
+        this.store = store; this.changed = changed; this.holidays = holidays;
     }
+    internal void SendHolidays() { if (holidays is not null) Post(new { type = "holidays.state", years = holidays()?.Years }); }
     internal void SendState(PlannerState state) => Post(new { type = "planner.state", state = new { lists = state.Lists, todos = state.Todos, events = state.Events } });
     protected override async Task ReceiveAsync(string json, string source)
     {
@@ -164,6 +166,7 @@ public sealed class PlannerWindow : ToolWindow
             switch (request.Type)
             {
                 case "planner.load":
+                    SendHolidays();
                     SendState(await store.LoadAsync(CancellationToken.None));
                     break;
                 case "planner.put":

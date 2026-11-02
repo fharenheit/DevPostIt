@@ -30,6 +30,9 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
     private string ToolsRoot => System.IO.Path.Combine(workspace.Root, ".hunmin", "tools");
     internal MindMapStore MindMaps => mindMaps ??= new MindMapStore(System.IO.Path.Combine(ToolsRoot, "mindmaps"));
     internal PlannerStore Planner => planner ??= new PlannerStore(ToolsRoot);
+    private HolidayStore? holidays;
+    private DispatcherTimer? holidayTimer;
+    internal HolidayStore Holidays => holidays ??= new HolidayStore(ToolsRoot);
     public event Action<PlannerReminder>? ReminderDue;
     private MainWindow? lastActive;
     private ObjectCaptureSession? capture;
@@ -237,7 +240,7 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
         if (exiting) return;
         if (calendar is null)
         {
-            calendar = new PlannerWindow("달력", EditorOrigin.CalendarPage, EditorOrigin.IsCalendarPage, Planner, BroadcastPlanner, 1100, 760);
+            calendar = new PlannerWindow("달력", EditorOrigin.CalendarPage, EditorOrigin.IsCalendarPage, Planner, BroadcastPlanner, 1100, 760, () => Holidays.Load());
             calendar.Closed += (_, _) => calendar = null;
             calendar.Show();
         }
@@ -248,6 +251,23 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
     {
         todo?.SendState(state);
         calendar?.SendState(state);
+    }
+    // 시작 후와 하루 간격으로 저장소의 공휴일 파일을 받습니다. 실패해도 알리지 않고 가진 정보를 계속 씁니다.
+    public void StartHolidayUpdates()
+    {
+        holidayTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(15) };
+        holidayTimer.Tick += async (_, _) =>
+        {
+            holidayTimer.Interval = TimeSpan.FromHours(24);
+            if (settingsStore.Current.HolidayUpdates) await UpdateHolidaysAsync();
+        };
+        holidayTimer.Start();
+    }
+    internal async Task UpdateHolidaysAsync()
+    {
+        if (exiting) return;
+        try { if (await Task.Run(() => Holidays.UpdateAsync(CancellationToken.None))) calendar?.SendHolidays(); }
+        catch (Exception error) when (error is HttpRequestException or TaskCanceledException or System.IO.IOException or System.IO.InvalidDataException or UnauthorizedAccessException) { /* 다음 확인 때 다시 시도합니다. */ }
     }
     // 앱이 켜져 있는 동안 할 일과 일정의 알림을 확인합니다.
     public void StartReminders()
@@ -380,6 +400,7 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
             help?.Close();
             formatter?.Close();
             reminderTimer?.Stop();
+            holidayTimer?.Stop();
             foreach (var window in new ToolWindow?[] { mindMap, todo, calendar }) if (window is not null) await window.FlushAndCloseAsync();
             await workspace.DisposeAsync();
             completed = true;

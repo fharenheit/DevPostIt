@@ -286,10 +286,15 @@ internal static class Program
         manager.ShowTodo();
         var todoWindow = application.Windows.OfType<PlannerWindow>().Single();
         await UntilAsync(async () => todoWindow.View.CoreWebView2 is not null && await todoWindow.View.ExecuteScriptAsync("Boolean(document.querySelector('#todo-title')?.textContent)") == "true");
+        // 저장해 둔 공휴일 파일이 있으면 실제 WebView2의 달력이 그 목록을 씁니다. 하네스는 네트워크로 받지 않습니다.
+        var thisMonth = DateTime.Now.ToString("yyyy-MM");
+        File.WriteAllText(Path.Combine(toolsRoot, "korean-holidays.json"), $$$"""{"version":1,"years":{"{{{DateTime.Now.Year}}}":[{"date":"{{{thisMonth}}}-15","name":"하네스 공휴일","substitute":false}]}}""");
         manager.ShowCalendar();
         var calendarWindow = application.Windows.OfType<PlannerWindow>().Single(window => window != todoWindow);
         await UntilAsync(async () => calendarWindow.View.CoreWebView2 is not null && await calendarWindow.View.ExecuteScriptAsync("document.querySelectorAll('.cal-day').length > 0 || document.querySelectorAll('.cal-column').length > 0") == "true");
         await calendarWindow.View.ExecuteScriptAsync("document.querySelector('[data-view=\"month\"]').click()");
+        await UntilAsync(async () => (await calendarWindow.View.ExecuteScriptAsync($"document.querySelector('[data-date=\"{thisMonth}-15\"] .cal-holiday')?.textContent ?? ''")).Contains("하네스 공휴일"));
+        File.Delete(Path.Combine(toolsRoot, "korean-holidays.json"));
         await todoWindow.View.ExecuteScriptAsync("(() => { const input = document.querySelector('#todo-input'); input.value = '앱에서 등록'; input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })); })()");
         await UntilAsync(async () => { await Task.Yield(); return (await manager.Planner.LoadAsync(CancellationToken.None)).Todos.Any(todo => todo.Title == "앱에서 등록"); });
         Check(File.ReadAllText(Path.Combine(toolsRoot, "planner.json")).Contains("앱에서 등록"), "할 일을 파일에 저장");

@@ -46,6 +46,7 @@ public partial class App : System.Windows.Application
             manager.RestoreSession();
             manager.StartUpdateChecks();
             manager.StartReminders();
+            manager.StartHolidayUpdates();
         }
         catch (Exception error)
         {

@@ -237,7 +237,7 @@ public class EditorBridgeTests
                     Assert.True(System.Text.RegularExpressions.Regex.IsMatch(sentence.TrimEnd('.'), "(니다|십시오)$"), $"합니다체가 아닙니다: {sentence}");
         }
         var text = string.Join('\n', HelpContent.Sections.SelectMany(section => section.Paragraphs.Prepend(section.Title)));
-        foreach (var topic in new[] { "휴지통", "백업", "복원", "검색", "PDF", "찾기", "바꾸기", "단축키", "미리보기", "글꼴", "업데이트", "표", "이미지", "항상 위", "데이터 폴더", "캡처", "이미지 폴더", "주석", "모자이크", "Mermaid", "draw.io", "가져오기", "링크", "쓰지 않는 이미지", "소스코드 포맷터", "마인드맵", "할 일", "달력", "공휴일" })
+        foreach (var topic in new[] { "휴지통", "백업", "복원", "검색", "PDF", "찾기", "바꾸기", "단축키", "미리보기", "글꼴", "업데이트", "표", "이미지", "항상 위", "데이터 폴더", "캡처", "이미지 폴더", "주석", "모자이크", "Mermaid", "draw.io", "가져오기", "링크", "쓰지 않는 이미지", "소스코드 포맷터", "마인드맵", "할 일", "달력", "공휴일", "GitHub" })
             Assert.Contains(topic, text);
     }
 
@@ -430,6 +430,17 @@ public class EditorBridgeTests
     [InlineData("https://evil.example/mindmap.html", false)]
     [InlineData("https://devpostit.local/index.html", false)]
     public void ToolPageOrigin(string source, bool allowed) => Assert.Equal(allowed, EditorOrigin.IsMindMapPage(source));
+
+    [Theory]
+    [InlineData("""{"protocolVersion":1,"type":"settings.holidayUpdates","value":false}""", true, false)]
+    [InlineData("""{"protocolVersion":1,"type":"settings.holidayUpdates","value":true}""", true, true)]
+    [InlineData("""{"protocolVersion":1,"type":"settings.holidayUpdates","value":1}""", false, false)]
+    public void HolidayUpdatesIsAPlainFlag(string json, bool accepted, bool value)
+    {
+        Assert.Equal(accepted, SettingsMessage.TryReadHolidayUpdates(json, EditorOrigin.SettingsPage, out var read));
+        Assert.Equal(value, read);
+        Assert.False(SettingsMessage.TryReadHolidayUpdates(json, EditorOrigin.CalendarPage, out _));
+    }
 
     [Fact]
     public void FormatterPageIsSeparateFromNotePages()

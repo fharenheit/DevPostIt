@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
-import { holidaysOf } from '../src/korean-holidays';
+import { readFileSync } from 'node:fs';
+import { applyHolidayData, holidaysOf } from '../src/korean-holidays';
 import { fromOutline, toOutline, type MapNode } from '../src/mindmap-core';
 import { nextDue, occursOn, type CalendarEvent } from '../src/planner-core';
 
@@ -29,6 +30,31 @@ test.describe('한국 공휴일', () => {
     expect(substitutes(2028)).not.toContain('01-03');
     expect(days(2027)).toContain('06-06');
     expect(substitutes(2027)).not.toContain('06-07');
+  });
+});
+
+test.describe('공휴일 데이터 파일', () => {
+  const file = JSON.parse(readFileSync('../data/korean-holidays.json', 'utf8'));
+  test.afterEach(() => applyHolidayData(null));
+  for (const year of ['2026', '2027']) {
+    test(`저장소의 ${year}년 목록은 내장 계산과 일치한다`, () => {
+      applyHolidayData(null);
+      const key = (item: { date: string; name: string; substitute: boolean }) => `${item.date}|${item.name}|${item.substitute}`;
+      expect(file.years[year].map(key)).toEqual(holidaysOf(Number(year)).map(key));
+    });
+  }
+  test('파일에 있는 연도는 목록 전체를 쓰고 없는 연도는 계산한다', () => {
+    applyHolidayData({ 2030: [{ date: '2030-03-05', name: '시험 공휴일', substitute: false }] });
+    expect(holidaysOf(2030)).toEqual([{ date: '2030-03-05', name: '시험 공휴일', substitute: false }]);
+    expect(holidaysOf(2027).map(item => item.date)).toContain('2027-05-03');
+    applyHolidayData(null);
+    expect(holidaysOf(2030).map(item => item.name)).toContain('신정');
+  });
+  test('형식이 잘못된 데이터는 통째로 무시한다', () => {
+    for (const wrong of [null, 'x', [], { 2030: 'x' }, { abcd: [] }, { 2030: [{ date: '2031-01-01', name: 'a', substitute: false }] }, { 2030: [{ date: '2030-01-01', name: 1, substitute: false }] }, { 2030: [{ date: '2030-01-01', name: 'a'.repeat(51), substitute: false }] }, { 2030: [{ date: '2030-01-01', name: 'a', substitute: 'no' }] }]) {
+      applyHolidayData(wrong);
+      expect(holidaysOf(2030).map(item => item.name)).toContain('신정');
+    }
   });
 });
 
@@ -585,6 +611,23 @@ test.describe('달력', () => {
     const pressed = page.locator('#cal-views [aria-pressed=true]');
     await pressed.hover();
     await expect(pressed).toHaveCSS('background-color', 'rgb(122, 92, 0)');
+  });
+
+  test('앱이 보낸 공휴일 데이터로 달력을 바꾼다', async ({ page }) => {
+    await page.clock.setFixedTime(new Date('2026-05-13T10:00:00'));
+    await page.addInitScript(() => {
+      const messages: unknown[] = [];
+      let receive: ((event: { data: unknown }) => void) | undefined;
+      Object.assign(window, { chrome: { webview: { postMessage: (message: unknown) => messages.push(message), addEventListener: (_: string, handler: typeof receive) => { receive = handler; } } }, fromHost: (message: unknown) => receive?.({ data: message }) });
+    });
+    await page.goto('/calendar.html');
+    await expect(page.locator('[data-date="2026-05-07"] .cal-holiday')).toHaveCount(0);
+    await page.evaluate(() => (window as any).fromHost({ type: 'holidays.state', years: { 2026: [{ date: '2026-05-07', name: '<img src=x onerror=window.attacked=1>', substitute: false }] } }));
+    await expect(page.locator('[data-date="2026-05-07"] .cal-holiday')).toHaveText('<img src=x onerror=window.attacked=1>');
+    await expect(page.locator('[data-date="2026-05-05"] .cal-holiday')).toHaveCount(0);
+    expect(await page.evaluate(() => 'attacked' in window)).toBe(false);
+    await page.evaluate(() => (window as any).fromHost({ type: 'holidays.state', years: 'x' }));
+    await expect(page.locator('[data-date="2026-05-05"] .cal-holiday')).toHaveText('어린이날');
   });
 
   test('겹치는 일정은 나란히 놓는다', async ({ page }) => {

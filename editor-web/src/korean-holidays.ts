@@ -1,6 +1,7 @@
 // 한국 공휴일 계산입니다. 「공휴일에 관한 법률」과 「관공서의 공휴일에 관한 규정」의 현재 규칙을 따릅니다.
 // 음력 날짜는 브라우저의 단기력(dangi)으로 계산하므로 해마다 표를 고칠 필요가 없습니다.
-// 선거일과 임시공휴일은 미리 알 수 없어 표로 둡니다. 새로 지정되면 이 표를 고칩니다.
+// 선거일과 임시공휴일은 미리 알 수 없어 표로 둡니다.
+// 저장소의 data/korean-holidays.json에 있는 연도는 앱이 받아 넘겨 주며, 이 계산 대신 그 목록을 씁니다.
 export type Holiday = { date: string; name: string; substitute: boolean };
 
 const announced: Record<string, string> = {
@@ -53,8 +54,28 @@ function baseHolidays(year: number): Base[] {
   return result;
 }
 
+let received = new Map<number, Holiday[]>();
+// 앱이 받은 연도별 목록을 적용합니다. 하나라도 형식이 틀리면 전부 버리고 내장 계산을 씁니다.
+export function applyHolidayData(years: unknown): void {
+  received = new Map();
+  if (!years || typeof years !== 'object' || Array.isArray(years)) return;
+  const next = new Map<number, Holiday[]>();
+  for (const [year, entries] of Object.entries(years)) {
+    if (!/^\d{4}$/.test(year) || !Array.isArray(entries)) return;
+    const list: Holiday[] = [];
+    for (const entry of entries as Partial<Holiday>[]) {
+      if (typeof entry?.date !== 'string' || !new RegExp(`^${year}-\\d{2}-\\d{2}$`).test(entry.date) || typeof entry.name !== 'string' || !entry.name || entry.name.length > 50 || typeof entry.substitute !== 'boolean') return;
+      list.push({ date: entry.date, name: entry.name, substitute: entry.substitute });
+    }
+    next.set(Number(year), list.sort((a, b) => a.date.localeCompare(b.date)));
+  }
+  received = next;
+}
+
 const cache = new Map<number, Holiday[]>();
 export function holidaysOf(year: number): Holiday[] {
+  const given = received.get(year);
+  if (given) return given;
   const known = cache.get(year);
   if (known) return known;
   const base = baseHolidays(year);

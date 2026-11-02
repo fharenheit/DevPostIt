@@ -1,7 +1,8 @@
 import './style.css';
 import './tools.css';
 import { applyTypography, readFontSettings } from './fonts';
-import { holidaysOn, holidaysOf } from './korean-holidays';
+import { applyHolidayData, holidaysOn, holidaysOf } from './korean-holidays';
+import { onHostMessage } from './tool-host';
 import { addDays, addMinutes, ask, dateText, dateTimeText, dayLabel, element, occurrences, parseLocal, PlannerClient, repeatNames, startOfDay, startOfWeek, timeText, today, weekdayNames, type CalendarEvent, type Occurrence, type Repeat, type Todo } from './planner-core';
 
 applyTypography(readFontSettings());
@@ -360,5 +361,6 @@ window.addEventListener('keydown', event => {
 });
 window.addEventListener('resize', () => { if (view === 'month') render(); });
 holidaysOf(cursor.getFullYear());
+onHostMessage(message => { if (message.type === 'holidays.state') { applyHolidayData(message.years); render(); } });
 client.subscribe(render);
 render();
