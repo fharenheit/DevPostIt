@@ -89,7 +89,7 @@ button.danger { color: #9a2f12 !important; border-color: #9a2f12 !important; }
 #todo-app .todo-star { border: none; background: transparent; font-size: 16px; color: var(--ink-muted); padding: 0 .2rem; }
 #todo-app .todo-star.on { color: #c98a00; }
 .todo-empty { color: var(--ink-muted); padding: 1rem 0; text-align: center; }
-#todo-completed-toggle { align-self: flex-start; }
+#todo-completed-bar { display: flex; justify-content: space-between; gap: .5rem; }
 #todo-status { margin: 0; color: #9a2f12; font-size: 13px; }
 #todo-detail { width: 19rem; display: flex; flex-direction: column; gap: .5rem; padding: .75rem; overflow: auto; border-left: 1px solid var(--line); background: var(--paper-header); min-height: 0; }
 #todo-detail[hidden] { display: none; }

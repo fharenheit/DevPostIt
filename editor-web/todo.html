@@ -19,7 +19,10 @@
       </header>
       <input id="todo-input" type="text" aria-label="새 할 일" placeholder="할 일을 입력하고 Enter를 누르세요" maxlength="500" autofocus>
       <ul id="todo-items"></ul>
-      <button id="todo-completed-toggle" type="button" aria-expanded="false" hidden></button>
+      <div id="todo-completed-bar">
+        <button id="todo-completed-toggle" type="button" aria-expanded="false" hidden></button>
+        <button id="todo-clear-completed" type="button" hidden>완료된 할 일 삭제</button>
+      </div>
       <ul id="todo-completed" hidden></ul>
       <p id="todo-status" role="status"></p>
     </section>

@@ -216,6 +216,7 @@ function render(): void {
   items.replaceChildren(...active.map(row));
   if (!active.length && !done.length) items.append(element('li', { className: 'todo-empty', textContent: searching ? '찾는 할 일이 없습니다.' : '할 일이 없습니다.' }));
   completedToggle.hidden = done.length === 0;
+  $('#todo-clear-completed').hidden = done.length === 0;
   completedToggle.textContent = `${showCompleted ? '▾' : '▸'} 완료됨 ${done.length}`;
   completedToggle.setAttribute('aria-expanded', String(showCompleted));
   completed.hidden = !showCompleted;
@@ -223,6 +224,14 @@ function render(): void {
   renderDetail();
 }
 completedToggle.addEventListener('click', () => { showCompleted = !showCompleted; render(); });
+// 지금 보고 있는 목록이나 검색 결과의 완료 항목만 지웁니다.
+$('#todo-clear-completed').addEventListener('click', async () => {
+  const { done } = visible();
+  if (!done.length || await ask(`완료된 할 일 ${done.length}개를 삭제할까요? 되돌릴 수 없습니다.`, '삭제') !== 0) return;
+  if (done.some(todo => todo.id === selectedTodo)) selectedTodo = null;
+  for (const todo of done) client.delete('todos', todo.id);
+  input.focus();
+});
 search.addEventListener('input', render);
 sort.value = localStorageGet('devpostit.todo.sort') ?? 'manual';
 sort.addEventListener('change', () => { localStorageSet('devpostit.todo.sort', sort.value); render(); });

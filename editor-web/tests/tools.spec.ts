@@ -368,6 +368,50 @@ test.describe('할 일', () => {
     await expect(page.locator('#todo-items .todo-item')).toHaveCount(1);
   });
 
+  test('완료된 할 일을 현재 목록에서만 일괄 삭제하고 기본은 취소다', async ({ page }) => {
+    await openTodo(page);
+    await addTodo(page, '남길 일');
+    await addTodo(page, '끝낸 일 1');
+    await addTodo(page, '끝낸 일 2');
+    const clear = page.getByRole('button', { name: '완료된 할 일 삭제' });
+    await expect(clear).toBeHidden();
+    await page.getByRole('checkbox', { name: '끝낸 일 1 완료' }).click();
+    await page.getByRole('checkbox', { name: '끝낸 일 2 완료' }).click();
+    await page.locator('#todo-new-list').fill('회사');
+    await page.keyboard.press('Enter');
+    await expect(page.locator('#todo-title')).toHaveText('회사');
+    await addTodo(page, '회사에서 끝낸 일');
+    await page.getByRole('checkbox', { name: '회사에서 끝낸 일 완료' }).click();
+    await page.locator('#todo-smart button', { hasText: '오늘 할 일' }).click();
+    await expect(clear).toBeVisible();
+    await clear.click();
+    await expect(page.locator('.tool-confirm')).toContainText('2개');
+    await expect(page.locator('.tool-confirm button:focus')).toHaveText('취소');
+    await page.keyboard.press('Enter');
+    await expect(page.locator('#todo-completed-toggle')).toContainText('2');
+    await clear.click();
+    await page.locator('.tool-confirm').getByRole('button', { name: '삭제', exact: true }).click();
+    await expect(page.locator('#todo-completed-toggle')).toBeHidden();
+    await expect(clear).toBeHidden();
+    await expect(page.locator('#todo-items .todo-item')).toHaveCount(1);
+    await expect(page.locator('#todo-items .todo-name')).toHaveText('남길 일');
+    await page.reload();
+    await expect(page.locator('#todo-items .todo-item')).toHaveCount(1);
+    await page.locator('#todo-smart button', { hasText: '전체' }).click();
+    await expect(page.locator('#todo-completed-toggle')).toContainText('1');
+  });
+
+  test('자세히를 연 완료 항목을 일괄 삭제하면 자세히 창을 닫는다', async ({ page }) => {
+    await openTodo(page);
+    await addTodo(page, '끝낸 일');
+    await page.locator('.todo-item').click();
+    await page.getByRole('checkbox', { name: '끝낸 일 완료' }).click();
+    await page.getByRole('button', { name: '완료된 할 일 삭제' }).click();
+    await page.locator('.tool-confirm').getByRole('button', { name: '삭제', exact: true }).click();
+    await expect(page.locator('#todo-detail')).toBeHidden();
+    await expect(page.locator('#todo-input')).toBeFocused();
+  });
+
   test('목록별 등록과 중요 표시, 개수, 다시 열기', async ({ page }) => {
     await openTodo(page);
     await addTodo(page, '오늘 일');
