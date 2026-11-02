@@ -3,9 +3,22 @@
 개발자를 위한 Windows용 Markdown 포스트잇 메모앱입니다. 훈민정음의 부속물인 훈민메모패드의 사용성을 제공하면서 개발자를 위한 Markdown 지원 그리고 Snagit의 Object Capture 기능으로 바로 캡춰하고 파일로 저장하고, MD 파일에 링크까지 걸어주는 메모앱입니다. WPF와 WebView2로 만들었고, 메모를 개별 Markdown 파일로 저장하며 Monaco 편집기를 사용합니다.
 
 <p align="center">
-  <img src="docs/images/source-editing.png" alt="소스 편집 화면" width="45%">
-  <img src="docs/images/preview.png" alt="미리보기 화면" width="45%">
+  <img src="docs/images/source-editing.png" alt="메모 소스 편집" width="32%">
+  <img src="docs/images/preview.png" alt="메모 미리보기" width="32%">
+  <img src="docs/images/tray-menu.png" alt="트레이 메뉴" width="28%">
 </p>
+
+| 마인드맵 | 달력 |
+| --- | --- |
+| <img src="docs/images/mindmap.png" alt="마인드맵"> | <img src="docs/images/calendar.png" alt="달력"> |
+
+| 할 일 | 소스코드 포맷터 |
+| --- | --- |
+| <img src="docs/images/todo.png" alt="할 일"> | <img src="docs/images/formatter.png" alt="소스코드 포맷터"> |
+
+**캡처 주석**
+
+<img src="docs/images/capture-annotation.png" alt="캡처 주석" width="70%">
 
 ## 기능
 
