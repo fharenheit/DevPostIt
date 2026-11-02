@@ -98,8 +98,12 @@ internal static class Program
         iconButton.ApplyTemplate();
         var iconChrome = (Border)iconButton.Template.FindName("chrome", iconButton);
         Check(iconChrome.Background == iconButton.Background && iconButton.Template.Triggers.Count > 0, "접힌 아이콘은 마우스를 올려도 노란색 유지");
+        Check(editor.DefaultBackgroundColor.ToArgb() == System.Drawing.Color.FromArgb(255, 253, 245).ToArgb(), "메모 창의 WebView 기본 배경은 종이색");
+        var repaints = first.RepaintCount;
         ((Button)icon.Content).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         Check(first.IsVisible && !application.Windows.OfType<CollapsedNoteWindow>().Any(), "같은 창 클릭 복원");
+        await UntilAsync(() => Task.FromResult(first.RepaintCount > repaints));
+        Check(editor.Margin == new Thickness(0), "복원 후 다시 그리고 편집기 크기를 원래대로 둠");
         Check(ReferenceEquals(first, manager.ShowNote(first.NoteId)), "중복 창 방지");
         Check(JsonSerializer.Deserialize<string>(await editor.ExecuteScriptAsync("window.hunminEditor.getTitle()")) == "접기 복원 검증", "복원 후 편집 내용 보존");
         SendMessage(new WindowInteropHelper(first).Handle, 0x00A3, 2, 0);

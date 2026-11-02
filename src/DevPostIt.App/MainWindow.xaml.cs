@@ -30,6 +30,7 @@ public partial class MainWindow : Window
     private bool allowClose;
     private bool closed;
     private bool opened;
+    private int repaintRun;
 
     private TaskCompletionSource<bool>? closeCompletion;
     private bool preserveOnClose = true;
@@ -63,6 +64,7 @@ public partial class MainWindow : Window
     internal Action<string, string> DiagramAppOpener { get; set; } = DiagramApp.Open;
     internal Action DiagramAppMissing { get; set; }
     internal string? PendingPreferences { get; set; }
+    internal int RepaintCount { get; private set; }
     internal Func<byte[]?> ClipboardImageReader { get; set; } = ClipboardPng;
     public event Action<string, bool>? AppearanceChanged;
     public string NoteColor { get; private set; } = NoteColors.Default;
@@ -90,6 +92,8 @@ public partial class MainWindow : Window
             ApplyTitleBarColors(handle, NoteColor);
         };
         StateChanged += (_, _) => { if (WindowState == WindowState.Minimized && CanCollapse) CollapseRequested?.Invoke(this); };
+        EditorView.DefaultBackgroundColor = System.Drawing.Color.FromArgb(255, 253, 245);
+        IsVisibleChanged += (_, e) => { if (e.NewValue is true) RepaintAfterShow(); };
     }
     // 네이티브 제목 표시줄을 메모지 색에 맞춥니다. 지원하지 않는 Windows 10에서는 호출만 실패하고 기본 색을 유지합니다. 값은 0x00BBGGRR입니다.
     internal static void ApplyTitleBarColors(IntPtr handle, string? noteColor = null)
@@ -134,6 +138,19 @@ public partial class MainWindow : Window
         var pending = deferredMessages.ToArray();
         deferredMessages.Clear();
         foreach (var message in pending) _ = ProcessMessageAsync(message.Json, message.Source);
+    }
+
+    // 숨겼다가 다시 보이면 WebView2가 화면을 그리지 않아 하얗게 남을 때가 있습니다. 창 크기를 바꿀 때처럼 편집기 크기를 잠깐 바꿔 다시 그리게 합니다.
+    private async void RepaintAfterShow()
+    {
+        var run = ++repaintRun;
+        await Task.Delay(150);
+        if (run != repaintRun || closed || !IsVisible || bridge is null) return;
+        EditorView.Margin = new Thickness(0, 0, 1, 0);
+        await Task.Delay(60);
+        if (closed) return;
+        EditorView.Margin = new Thickness(0);
+        RepaintCount++;
     }
 
     private void WindowLoaded(object sender, RoutedEventArgs e) => initialization ??= InitializeEditorAsync();
