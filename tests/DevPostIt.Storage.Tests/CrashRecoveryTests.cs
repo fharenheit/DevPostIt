@@ -16,7 +16,7 @@ public sealed class CrashRecoveryTests : IDisposable
         var note = Note.Create("note.md", "크래시 시험", "원본 파일", []);
         await repository.SaveAsync(note, default);
         var dotnetRoot = Path.GetFullPath(Path.Combine(RuntimeEnvironment.GetRuntimeDirectory(), "../../.."));
-        var start = new ProcessStartInfo(Path.Combine(dotnetRoot, "dotnet.exe")) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardError = true };
+        var start = new ProcessStartInfo(Path.Combine(dotnetRoot, OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet")) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardError = true };
         start.ArgumentList.Add(typeof(DevPostIt.CrashHarness.Marker).Assembly.Location);
         start.ArgumentList.Add(root);
         start.ArgumentList.Add(note.Id.ToString());

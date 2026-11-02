@@ -135,7 +135,7 @@ public static class NoteBackup
     private static bool IsSafePath(string path)
     {
         if (path.Contains('\\') || path.Contains(':') || path.StartsWith('/')) return false;
-        if (path.Split('/').Any(part => part is "" or "." or ".." || part.EndsWith('.') || part.EndsWith(' ') || part.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)) return false;
+        if (path.Split('/').Any(part => part is "" or "." or ".." || part.EndsWith('.') || part.EndsWith(' ') || part.IndexOfAny(NoteFileName.InvalidCharacters) >= 0)) return false;
         return Included.Any(folder => path.StartsWith(folder + "/", StringComparison.Ordinal));
     }
     private static ZipArchive OpenArchive(string backup)

@@ -94,8 +94,8 @@ public sealed class NoteWorkspaceTests : IDisposable
         await workspace.OpenNoteAsync(note.Id, default);
         await workspace.Service.ApplyChangeAsync(new(note.Id, 1, "남겨야 할 초안"), default);
         var full = Path.Combine(root, "notes", note.RelativePath);
-        using (var locked = new FileStream(full, FileMode.Open, FileAccess.Read, FileShare.Read))
-            await Assert.ThrowsAsync<IOException>(() => workspace.DeleteAsync(note.Id, default));
+        using (new HeldFile(full))
+            await HeldFile.AssertFailsAsync(() => workspace.DeleteAsync(note.Id, default));
         Assert.Single(workspace.Notes);
         Assert.NotNull(await new FileRecoveryJournal(Path.Combine(root, ".hunmin", "recovery")).ReadAsync(note.Id, default));
         await workspace.DeleteAsync(note.Id, default);
@@ -120,8 +120,8 @@ public sealed class NoteWorkspaceTests : IDisposable
         await using (var second = await NoteWorkspace.OpenAsync(root, default))
         {
             await second.OpenNoteAsync(saved.Id, default);
-            using var locked = new FileStream(Path.Combine(root, "notes", saved.RelativePath), FileMode.Open, FileAccess.Read, FileShare.Read);
-            await Assert.ThrowsAsync<IOException>(() => second.DeleteAsync(saved.Id, default));
+            using var held = new HeldFile(Path.Combine(root, "notes", saved.RelativePath));
+            await HeldFile.AssertFailsAsync(() => second.DeleteAsync(saved.Id, default));
         }
         var preserved = (await journal.ReadAsync(saved.Id, default))!;
         Assert.Equal(original.BaseFingerprint, preserved.BaseFingerprint);

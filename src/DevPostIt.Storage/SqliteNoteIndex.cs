@@ -212,6 +212,9 @@ public sealed class SqliteNoteIndex : INoteIndexDeletionWriter
         DataSource = path, Mode = mode, Pooling = false, DefaultTimeout = 5
     }.ToString());
 
+    // APFS는 NFC와 NFD 이름을 같은 파일로 봅니다. NTFS는 다른 파일로 보므로 Windows의 키는 그대로 둡니다.
+    private static string PathKey(string path) =>
+        (OperatingSystem.IsMacOS() ? path.Normalize(NormalizationForm.FormC) : path).Replace('\\', '/').ToUpperInvariant();
     private static string Normalize(string value) => value.Normalize(NormalizationForm.FormC).ToUpperInvariant();
 
     private static async Task UpsertAsync(SqliteConnection connection, SqliteTransaction transaction, Note note, CancellationToken cancellationToken)
@@ -231,7 +234,7 @@ public sealed class SqliteNoteIndex : INoteIndexDeletionWriter
             """;
         command.Parameters.AddWithValue("$id", note.Id.ToString("D"));
         command.Parameters.AddWithValue("$path", note.RelativePath.Replace('\\', '/'));
-        command.Parameters.AddWithValue("$path_key", note.RelativePath.Replace('\\', '/').ToUpperInvariant());
+        command.Parameters.AddWithValue("$path_key", PathKey(note.RelativePath));
         command.Parameters.AddWithValue("$title", note.Title);
         command.Parameters.AddWithValue("$body", note.Markdown);
         command.Parameters.AddWithValue("$tags", JsonSerializer.Serialize(note.Tags));

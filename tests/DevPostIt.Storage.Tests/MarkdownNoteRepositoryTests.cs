@@ -107,15 +107,19 @@ public class MarkdownNoteRepositoryTests : IDisposable
         var outside = Directory.CreateDirectory(Path.Combine(root, "outside")).FullName;
         var notes = Directory.CreateDirectory(Path.Combine(root, "notes")).FullName;
         var junction = Path.Combine(notes, "link");
-        var start = new System.Diagnostics.ProcessStartInfo("cmd.exe") { CreateNoWindow = true, UseShellExecute = false };
-        start.ArgumentList.Add("/c");
-        start.ArgumentList.Add("mklink");
-        start.ArgumentList.Add("/J");
-        start.ArgumentList.Add(junction);
-        start.ArgumentList.Add(outside);
-        using var process = System.Diagnostics.Process.Start(start)!;
-        await process.WaitForExitAsync();
-        Assert.Equal(0, process.ExitCode);
+        if (OperatingSystem.IsWindows())
+        {
+            var start = new System.Diagnostics.ProcessStartInfo("cmd.exe") { CreateNoWindow = true, UseShellExecute = false };
+            start.ArgumentList.Add("/c");
+            start.ArgumentList.Add("mklink");
+            start.ArgumentList.Add("/J");
+            start.ArgumentList.Add(junction);
+            start.ArgumentList.Add(outside);
+            using var process = System.Diagnostics.Process.Start(start)!;
+            await process.WaitForExitAsync();
+            Assert.Equal(0, process.ExitCode);
+        }
+        else Directory.CreateSymbolicLink(junction, outside);
         try
         {
             await Assert.ThrowsAsync<IOException>(() => new MarkdownNoteRepository(notes).SaveAsync(Note.Create("link/escape.md", "제목", "본문", []), default));

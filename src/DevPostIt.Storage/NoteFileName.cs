@@ -3,12 +3,14 @@ using System.Text.RegularExpressions;
 namespace DevPostIt.Storage;
 
 // 메모 이름을 Windows에서 쓸 수 있는 파일 이름으로 바꿉니다. 쓸 글자가 남지 않으면 메모 ID를 씁니다.
+// 동기화나 백업으로 다른 OS에서도 열리도록 macOS에서도 같은 글자를 막습니다.
 public static partial class NoteFileName
 {
     private const int MaxLength = 100;
+    internal static readonly char[] InvalidCharacters = [.. "<>:\"/\\|?*", .. Enumerable.Range(0, 32).Select(code => (char)code)];
     public static string For(string title, Guid id)
     {
-        var name = string.Concat(title.Select(character => Path.GetInvalidFileNameChars().Contains(character) ? '_' : character));
+        var name = string.Concat(title.Select(character => InvalidCharacters.Contains(character) ? '_' : character));
         if (name.Length > MaxLength) name = name[..MaxLength];
         name = name.TrimEnd('.', ' ');
         if (name.Length == 0) return $"{id:N}.md";

@@ -53,8 +53,8 @@ public sealed class WorkspaceFeatureTests : IDisposable
         await using var workspace = await NoteWorkspace.OpenAsync(root, default);
         var note = workspace.Notes.Single();
         await workspace.OpenNoteAsync(note.Id, default);
-        using (new FileStream(NotePath(note), FileMode.Open, FileAccess.Read, FileShare.Read))
-            await Assert.ThrowsAnyAsync<IOException>(() => workspace.TrashAsync(note.Id, default));
+        using (new HeldFile(NotePath(note)))
+            await HeldFile.AssertFailsAsync(() => workspace.TrashAsync(note.Id, default));
 
         Assert.Contains(workspace.Notes, item => item.Id == note.Id);
         Assert.Empty(workspace.TrashedNotes);
@@ -273,10 +273,14 @@ public sealed class WorkspaceFeatureTests : IDisposable
     }
 
     [Theory]
-    [InlineData(@"C:\a\data", @"C:\a\data", true)]
-    [InlineData(@"C:\a\data\sub", @"C:\a\data", true)]
-    [InlineData(@"C:\a", @"C:\a\data", true)]
-    [InlineData(@"C:\a\data2", @"C:\a\data", false)]
-    [InlineData(@"D:\data", @"C:\a\data", false)]
-    public void OverlappingFoldersAreDetected(string first, string second, bool expected) => Assert.Equal(expected, NoteDataLocation.Overlaps(first, second));
+    [InlineData("a/data", "a/data", true)]
+    [InlineData("a/data/sub", "a/data", true)]
+    [InlineData("a", "a/data", true)]
+    [InlineData("a/data2", "a/data", false)]
+    [InlineData("b/data", "a/data", false)]
+    public void OverlappingFoldersAreDetected(string first, string second, bool expected)
+    {
+        var top = Path.GetPathRoot(Path.GetTempPath())!;
+        Assert.Equal(expected, NoteDataLocation.Overlaps(Path.Combine(top, first), Path.Combine(top, second)));
+    }
 }

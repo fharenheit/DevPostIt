@@ -23,8 +23,8 @@ public sealed class AtomicFileWriterTests : IDisposable
         var path = Path.Combine(root, "locked.md");
         await File.WriteAllTextAsync(path, "이전 유효 파일");
         var before = await File.ReadAllBytesAsync(path);
-        using (var locked = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
-            await Assert.ThrowsAnyAsync<IOException>(() => new AtomicFileWriter().WriteAsync(path, "새 본문", default));
+        using (new HeldFile(path))
+            await HeldFile.AssertFailsAsync(() => new AtomicFileWriter().WriteAsync(path, "새 본문", default));
         Assert.Equal(before, await File.ReadAllBytesAsync(path));
         Assert.Single(Directory.EnumerateFiles(root));
     }
@@ -62,8 +62,8 @@ public sealed class AtomicFileWriterTests : IDisposable
         var repository = new MarkdownNoteRepository(root);
         await repository.SaveAsync(note, default);
         var path = Path.Combine(root, "note.md");
-        using (var locked = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
-            await Assert.ThrowsAnyAsync<IOException>(() => repository.SaveAsync(note with { Markdown = "새 본문" }, default));
+        using (new HeldFile(path))
+            await HeldFile.AssertFailsAsync(() => repository.SaveAsync(note with { Markdown = "새 본문" }, default));
         Assert.Equal("이전 본문", (await repository.GetAsync(note.Id, default))!.Markdown);
     }
     public void Dispose() => Directory.Delete(root, true);

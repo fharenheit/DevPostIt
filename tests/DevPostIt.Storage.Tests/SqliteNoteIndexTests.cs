@@ -40,6 +40,16 @@ public sealed class SqliteNoteIndexTests : IDisposable
     }
 
     [Fact]
+    public async Task NfdPathCollidesWithNfcPathOnMacOs()
+    {
+        if (!OperatingSystem.IsMacOS()) return; // NTFS는 두 이름을 다른 파일로 다룹니다.
+        var first = Note.Create("한글.md", "원본 메모", "보존", []);
+        await Index.UpsertAsync(first, default);
+        var decomposed = "한글.md".Normalize(System.Text.NormalizationForm.FormD);
+        await Assert.ThrowsAsync<SqliteException>(() => Index.UpsertAsync(Note.Create(decomposed, "다른 메모", "덮어쓰기", []), default));
+    }
+
+    [Fact]
     public async Task SameIdIsUpsertedOnceAndPathCollisionDoesNotDestroyExistingEntries()
     {
         var first = Note.Create("one.md", "중복 검증", "본문", []);

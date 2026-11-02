@@ -147,7 +147,7 @@ public sealed class MarkdownNoteRepository : INoteDeletionRepository, INoteReloc
         {
             var stem = part.Split('.')[0];
             if (part is "" or "." or ".." || part.EndsWith('.') || part.EndsWith(' ') ||
-                part.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 ||
+                part.IndexOfAny(NoteFileName.InvalidCharacters) >= 0 ||
                 System.Text.RegularExpressions.Regex.IsMatch(stem, @"^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
                 throw new ArgumentException("안전하지 않은 파일 경로입니다.", nameof(relativePath));
         }
