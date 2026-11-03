@@ -3,6 +3,51 @@ namespace DevPostIt.EditorHost;
 public enum AnnotationTool { Arrow, Rectangle, Text, Mosaic }
 public sealed record Annotation(AnnotationTool Tool, double X1, double Y1, double X2, double Y2, uint Color, string Text = "");
 
+public enum CropEdge { Left, Top, Right, Bottom }
+
+// 자를 영역입니다. 좌표는 캡처 그림의 픽셀이고 Right와 Bottom은 영역 바깥의 첫 픽셀입니다.
+public readonly record struct CaptureCrop(int Left, int Top, int Right, int Bottom)
+{
+    public const int MinSize = 16;
+    public int Width => Right - Left;
+    public int Height => Bottom - Top;
+
+    public static CaptureCrop Full(int width, int height) => new(0, 0, width, height);
+    public bool IsFull(int width, int height) => this == Full(width, height);
+
+    // 그림 밖으로 나가지 않고 MinSize보다 좁아지지 않습니다. 그림이 MinSize보다 작으면 자르지 않습니다.
+    public CaptureCrop Move(CropEdge edge, double position, int width, int height)
+    {
+        var at = (int)Math.Round(position);
+        return edge switch
+        {
+            CropEdge.Left => this with { Left = Math.Clamp(at, 0, Math.Max(0, Right - MinSize)) },
+            CropEdge.Top => this with { Top = Math.Clamp(at, 0, Math.Max(0, Bottom - MinSize)) },
+            CropEdge.Right => this with { Right = Math.Clamp(at, Math.Min(Left + MinSize, width), width) },
+            _ => this with { Bottom = Math.Clamp(at, Math.Min(Top + MinSize, height), height) },
+        };
+    }
+
+    // 테두리가 겹칠 만큼 가까우면 커서에 더 가까운 쪽을 고릅니다.
+    public CropEdge? EdgeAt(double x, double y, double tolerance)
+    {
+        var alongWidth = x >= Left - tolerance && x <= Right + tolerance;
+        var alongHeight = y >= Top - tolerance && y <= Bottom + tolerance;
+        (CropEdge Edge, double Distance, bool Along)[] edges =
+        [
+            (CropEdge.Left, Math.Abs(x - Left), alongHeight),
+            (CropEdge.Top, Math.Abs(y - Top), alongWidth),
+            (CropEdge.Right, Math.Abs(x - Right), alongHeight),
+            (CropEdge.Bottom, Math.Abs(y - Bottom), alongWidth),
+        ];
+        CropEdge? found = null;
+        var nearest = double.MaxValue;
+        foreach (var (edge, distance, along) in edges)
+            if (along && distance <= tolerance && distance < nearest) (found, nearest) = (edge, distance);
+        return found;
+    }
+}
+
 // 캡처 주석의 계산입니다. 좌표는 모두 캡처 그림의 픽셀입니다.
 public static class CaptureAnnotations
 {

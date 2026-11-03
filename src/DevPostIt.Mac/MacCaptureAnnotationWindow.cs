@@ -81,7 +81,7 @@ internal static class CaptureImage
         }
     }
 
-    public static byte[] Render(byte[] png, IReadOnlyList<Annotation> items, double density)
+    public static byte[] Render(byte[] png, IReadOnlyList<Annotation> items, double density, CaptureCrop? crop = null)
     {
         var (width, height, pixels) = Read(png);
         using var composed = Compose(pixels, width, height, items);
@@ -95,7 +95,10 @@ internal static class CaptureImage
         foreach (var item in items) Paint(item, density);
         NSGraphicsContext.GlobalRestoreGraphicsState();
         using var result = context.ToImage();
-        return ToPng(result!);
+        // 잘린 부분은 결과 그림에 남지 않습니다. 모자이크와 주석은 원본 좌표로 그린 뒤 자릅니다.
+        if (crop is not { } area || area.IsFull(width, height)) return ToPng(result!);
+        using var cut = result!.WithImageInRect(new CGRect(area.Left, area.Top, area.Width, area.Height));
+        return ToPng(cut!);
     }
 }
 
@@ -114,6 +117,9 @@ internal sealed class MacCaptureAnnotationWindow : NSWindow
     private readonly int imageWidth, imageHeight;
     private readonly byte[] pixels;
     private readonly List<Annotation> annotations = [];
+    private readonly Stack<Action> history = new();
+    private CaptureCrop crop;
+    private CaptureCrop? cropBeforeDrag;
     private readonly Canvas canvas;
     private AnnotationTool tool = AnnotationTool.Arrow;
     private uint color = CaptureAnnotations.Red;
@@ -123,6 +129,8 @@ internal sealed class MacCaptureAnnotationWindow : NSWindow
 
     public event Action? WindowClosed;
     internal int AnnotationCount => annotations.Count;
+    internal CaptureCrop Crop => crop;
+    internal NSView CanvasView => canvas;
     internal nfloat ToolbarWidth => toolbar!.FittingSize.Width + 2 * (nfloat)Margin;
 
     public MacCaptureAnnotationWindow(byte[] png, double density, Action<byte[]> finished, Action<byte[]>? copied = null)
@@ -130,6 +138,7 @@ internal sealed class MacCaptureAnnotationWindow : NSWindow
     {
         original = png; this.finished = finished; this.copied = copied; this.density = density;
         (imageWidth, imageHeight, pixels) = CaptureImage.Read(png);
+        crop = CaptureCrop.Full(imageWidth, imageHeight);
         ReleaseWhenClosed(false);
         Title = "캡처 주석";
         Level = NSWindowLevel.Floating;
@@ -183,20 +192,36 @@ internal sealed class MacCaptureAnnotationWindow : NSWindow
     internal void AddAnnotation(Annotation annotation)
     {
         annotations.Add(annotation);
+        history.Push(() => annotations.RemoveAt(annotations.Count - 1));
         canvas.Refresh();
     }
 
     internal void Undo()
     {
-        if (annotations.Count == 0) return;
-        annotations.RemoveAt(annotations.Count - 1);
+        if (!history.TryPop(out var restore)) return;
+        restore();
         canvas.Refresh();
     }
+
+    private void DragCrop(CropEdge edge, double position)
+    {
+        cropBeforeDrag ??= crop;
+        crop = crop.Move(edge, position, imageWidth, imageHeight);
+    }
+
+    // 끄는 동안의 움직임을 묶어 실행 취소 한 번으로 되돌립니다.
+    private void EndCropDrag()
+    {
+        if (cropBeforeDrag is { } before && before != crop) history.Push(() => crop = before);
+        cropBeforeDrag = null;
+    }
+
+    private byte[] Result() => annotations.Count == 0 && crop.IsFull(imageWidth, imageHeight) ? original : CaptureImage.Render(original, annotations, density, crop);
 
     internal void Finish()
     {
         CommitText();
-        finished(annotations.Count == 0 ? original : CaptureImage.Render(original, annotations, density));
+        finished(Result());
         Close();
     }
 
@@ -204,7 +229,7 @@ internal sealed class MacCaptureAnnotationWindow : NSWindow
     internal void CopyToClipboard()
     {
         CommitText();
-        copied?.Invoke(annotations.Count == 0 ? original : CaptureImage.Render(original, annotations, density));
+        copied?.Invoke(Result());
         Close();
     }
 
@@ -257,13 +282,48 @@ internal sealed class MacCaptureAnnotationWindow : NSWindow
     private sealed class Canvas(MacCaptureAnnotationWindow owner) : NSView
     {
         private const ushort ReturnKey = 36, EnterKey = 76, EscapeKey = 53;
+        private const double EdgeTolerance = 6, CropLine = 1.5, HandleLength = 32, HandleThickness = 5;
         private NSImage? composed;
         private CGPoint? start;
         private Annotation? draft;
+        private CropEdge? draggedEdge;
 
         public override bool IsFlipped => true;
         public override bool AcceptsFirstResponder() => true;
-        public override void ResetCursorRects() => AddCursorRect(Bounds, NSCursor.CrosshairCursor);
+
+        public override void ViewDidMoveToWindow()
+        {
+            base.ViewDidMoveToWindow();
+            if (TrackingAreas().Length == 0)
+                AddTrackingArea(new NSTrackingArea(CGRect.Empty, NSTrackingAreaOptions.MouseMoved | NSTrackingAreaOptions.CursorUpdate | NSTrackingAreaOptions.ActiveInKeyWindow | NSTrackingAreaOptions.InVisibleRect, this, null));
+        }
+
+        public override void CursorUpdate(NSEvent theEvent) => UpdateCursor(theEvent);
+        public override void MouseMoved(NSEvent theEvent) => UpdateCursor(theEvent);
+
+        private void UpdateCursor(NSEvent theEvent)
+        {
+            var cursor = EdgeAt(theEvent) switch
+            {
+                CropEdge.Left or CropEdge.Right => NSCursor.ResizeLeftRightCursor,
+                CropEdge.Top or CropEdge.Bottom => NSCursor.ResizeUpDownCursor,
+                _ => NSCursor.CrosshairCursor,
+            };
+            cursor.Set();
+        }
+
+        // 그림 밖의 빈 곳을 누른 경우를 가려야 하므로 그림 안으로 당기지 않은 좌표로 찾습니다.
+        private CropEdge? EdgeAt(NSEvent theEvent)
+        {
+            var at = ConvertPointFromView(theEvent.LocationInWindow, null);
+            return owner.crop.EdgeAt(at.X / Scale, at.Y / Scale, EdgeTolerance / Scale);
+        }
+
+        private double EdgePosition(CropEdge edge, NSEvent theEvent)
+        {
+            var at = ConvertPointFromView(theEvent.LocationInWindow, null);
+            return (edge is CropEdge.Left or CropEdge.Right ? at.X : at.Y) / Scale;
+        }
 
         // 그림을 줄이기만 합니다. 키우지 않습니다.
         private nfloat Scale => (nfloat)Math.Min(1 / owner.density, Math.Min(Bounds.Width / owner.imageWidth, Bounds.Height / owner.imageHeight));
@@ -284,6 +344,7 @@ internal sealed class MacCaptureAnnotationWindow : NSWindow
         public override void MouseDown(NSEvent theEvent)
         {
             owner.CommitText();
+            if (EdgeAt(theEvent) is { } edge) { draggedEdge = edge; return; }
             var at = ImagePoint(theEvent);
             if (owner.tool == AnnotationTool.Text) { owner.BeginText(ConvertPointFromView(theEvent.LocationInWindow, null), at); return; }
             start = at;
@@ -291,6 +352,12 @@ internal sealed class MacCaptureAnnotationWindow : NSWindow
 
         public override void MouseDragged(NSEvent theEvent)
         {
+            if (draggedEdge is { } edge)
+            {
+                owner.DragCrop(edge, EdgePosition(edge, theEvent));
+                NeedsDisplay = true;
+                return;
+            }
             if (start is not { } from) return;
             var to = ImagePoint(theEvent);
             draft = new Annotation(owner.tool, from.X, from.Y, to.X, to.Y, owner.color);
@@ -299,6 +366,12 @@ internal sealed class MacCaptureAnnotationWindow : NSWindow
 
         public override void MouseUp(NSEvent theEvent)
         {
+            if (draggedEdge is not null)
+            {
+                draggedEdge = null;
+                owner.EndCropDrag();
+                return;
+            }
             if (start is not { } from) return;
             start = null;
             draft = null;
@@ -330,16 +403,45 @@ internal sealed class MacCaptureAnnotationWindow : NSWindow
             }
             composed.Draw(new CGRect(CGPoint.Empty, size), CGRect.Empty, NSCompositingOperation.SourceOver, 1, true, null);
             foreach (var item in owner.annotations) CaptureImage.Paint(item, owner.density);
-            if (draft is not { } current) return;
-            if (current.Tool == AnnotationTool.Mosaic)
+            if (draft is { } current)
             {
-                NSColor.Gray.SetStroke();
-                using var path = NSBezierPath.FromRect(new CGRect(Math.Min(current.X1, current.X2), Math.Min(current.Y1, current.Y2), Math.Abs(current.X2 - current.X1), Math.Abs(current.Y2 - current.Y1)));
-                path.LineWidth = (nfloat)owner.density;
-                path.SetLineDash([(nfloat)(4 * owner.density), (nfloat)(4 * owner.density)], 0);
-                path.Stroke();
+                if (current.Tool == AnnotationTool.Mosaic)
+                {
+                    NSColor.Gray.SetStroke();
+                    using var path = NSBezierPath.FromRect(new CGRect(Math.Min(current.X1, current.X2), Math.Min(current.Y1, current.Y2), Math.Abs(current.X2 - current.X1), Math.Abs(current.Y2 - current.Y1)));
+                    path.LineWidth = (nfloat)owner.density;
+                    path.SetLineDash([(nfloat)(4 * owner.density), (nfloat)(4 * owner.density)], 0);
+                    path.Stroke();
+                }
+                else CaptureImage.Paint(current, owner.density);
             }
-            else CaptureImage.Paint(current, owner.density);
+            DrawCrop(scale);
+        }
+
+        // 잘려 나갈 곳을 어둡게 하고 테두리와 손잡이를 그립니다. 손잡이는 잘리지 않도록 영역 안쪽에 둡니다.
+        private void DrawCrop(nfloat scale)
+        {
+            var crop = owner.crop;
+            var (width, height) = (owner.imageWidth, owner.imageHeight);
+            NSColor.Black.ColorWithAlphaComponent(.5f).SetFill();
+            foreach (var part in new[] { new CGRect(0, 0, width, crop.Top), new CGRect(0, crop.Bottom, width, height - crop.Bottom), new CGRect(0, crop.Top, crop.Left, crop.Height), new CGRect(crop.Right, crop.Top, width - crop.Right, crop.Height) })
+                if (part.Width > 0 && part.Height > 0)
+                    using (var shade = NSBezierPath.FromRect(part)) shade.Fill();
+            var line = (nfloat)(CropLine / scale);
+            var inset = new CGRect(crop.Left, crop.Top, crop.Width, crop.Height).Inset(line / 2, line / 2);
+            NSColor.White.SetStroke();
+            using (var border = NSBezierPath.FromRect(inset)) { border.LineWidth = line; border.Stroke(); }
+            var (length, thickness) = ((nfloat)(Math.Min(HandleLength / scale, Math.Min(crop.Width, crop.Height))), (nfloat)(HandleThickness / scale));
+            var (middleX, middleY) = ((crop.Left + crop.Right - length) / 2, (crop.Top + crop.Bottom - length) / 2);
+            foreach (var handle in new[] { new CGRect(crop.Left, middleY, thickness, length), new CGRect(crop.Right - thickness, middleY, thickness, length), new CGRect(middleX, crop.Top, length, thickness), new CGRect(middleX, crop.Bottom - thickness, length, thickness) })
+                using (var path = NSBezierPath.FromRect(handle))
+                {
+                    NSColor.White.SetFill();
+                    path.Fill();
+                    NSColor.DarkGray.SetStroke();
+                    path.LineWidth = 1 / scale;
+                    path.Stroke();
+                }
         }
     }
 }

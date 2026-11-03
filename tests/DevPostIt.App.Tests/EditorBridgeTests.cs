@@ -371,6 +371,58 @@ public class EditorBridgeTests
     [InlineData(10, 10, 10, 50)]
     public void AnnotationAreaOutsideOrEmptyIsRejected(double x1, double y1, double x2, double y2) => Assert.Null(CaptureAnnotations.Area(x1, y1, x2, y2, 100, 100));
 
+    [Theory]
+    [InlineData(CropEdge.Left, 30.4, 30, 0, 200, 100)]
+    [InlineData(CropEdge.Top, 20.6, 0, 21, 200, 100)]
+    [InlineData(CropEdge.Right, 150, 0, 0, 150, 100)]
+    [InlineData(CropEdge.Bottom, 70, 0, 0, 200, 70)]
+    public void CropEdgeMovesOnlyThatEdgeToTheNearestPixel(CropEdge edge, double position, int left, int top, int right, int bottom) =>
+        Assert.Equal(new CaptureCrop(left, top, right, bottom), CaptureCrop.Full(200, 100).Move(edge, position, 200, 100));
+
+    [Theory]
+    [InlineData(CropEdge.Left, -50, 0, 0, 200, 100)]
+    [InlineData(CropEdge.Left, 500, 184, 0, 200, 100)]
+    [InlineData(CropEdge.Top, 500, 0, 84, 200, 100)]
+    [InlineData(CropEdge.Right, -50, 0, 0, 16, 100)]
+    [InlineData(CropEdge.Right, 500, 0, 0, 200, 100)]
+    [InlineData(CropEdge.Bottom, -50, 0, 0, 200, 16)]
+    public void CropEdgeStaysInsideTheImageAndKeepsTheMinimumSize(CropEdge edge, double position, int left, int top, int right, int bottom) =>
+        Assert.Equal(new CaptureCrop(left, top, right, bottom), CaptureCrop.Full(200, 100).Move(edge, position, 200, 100));
+
+    [Fact]
+    public void CropOfAnImageSmallerThanTheMinimumStaysWhole()
+    {
+        foreach (var edge in Enum.GetValues<CropEdge>())
+            Assert.Equal(CaptureCrop.Full(10, 10), CaptureCrop.Full(10, 10).Move(edge, 5, 10, 10));
+    }
+
+    [Theory]
+    [InlineData(21, 50, CropEdge.Left)]
+    [InlineData(100, 9, CropEdge.Top)]
+    [InlineData(178, 50, CropEdge.Right)]
+    [InlineData(100, 91, CropEdge.Bottom)]
+    [InlineData(21, 12, CropEdge.Left)]
+    public void CropEdgeIsFoundNearTheBorder(double x, double y, CropEdge edge) =>
+        Assert.Equal(edge, new CaptureCrop(20, 10, 180, 90).EdgeAt(x, y, 4));
+
+    [Theory]
+    [InlineData(100, 50)]
+    [InlineData(10, 50)]
+    [InlineData(100, 2)]
+    [InlineData(500, 50)]
+    [InlineData(20, 200)]
+    public void CropEdgeIsNotFoundAwayFromTheBorder(double x, double y) =>
+        Assert.Null(new CaptureCrop(20, 10, 180, 90).EdgeAt(x, y, 4));
+
+    [Fact]
+    public void CropKnowsItsSizeAndWhetherItCutsAnything()
+    {
+        Assert.True(CaptureCrop.Full(200, 100).IsFull(200, 100));
+        var crop = CaptureCrop.Full(200, 100).Move(CropEdge.Left, 30, 200, 100);
+        Assert.False(crop.IsFull(200, 100));
+        Assert.Equal((170, 100), (crop.Width, crop.Height));
+    }
+
     [Fact]
     public void ArrowHeadPointsAtTheEndOfTheLine()
     {

@@ -1,3 +1,4 @@
+using DevPostIt.EditorHost;
 using System.Text.Json;
 using DevPostIt.Mac;
 using DevPostIt.Storage;
@@ -410,6 +411,90 @@ internal sealed class SmokeDelegate : NSApplicationDelegate
         Check(boardPng() is { } onlyCopied && onlyCopied.SequenceEqual(mosaicOnly), "클립보드에 넣기는 주석을 넣은 그림을 복사");
         Check(Directory.EnumerateFiles(Path.Combine(workspace.AssetsRoot, window.NoteId.ToString("N"))).Count() == before + 1, "클립보드에 넣기는 메모와 파일을 바꾸지 않음");
         Check(manager.Annotators.Count == 0 && Directory.EnumerateFiles(Path.Combine(workspace.AssetsRoot, window.NoteId.ToString("N"))).Count() == before + 1, "주석 창을 닫으면 그림을 버림");
+        CheckCaptureCrop();
+    }
+
+    // 이벤트 객체를 캔버스에 직접 넘깁니다. 이벤트 큐와 사용자 데스크톱에는 아무것도 보내지 않습니다.
+    private void CheckCaptureCrop()
+    {
+        const int width = 200, height = 120;
+        // 파랑이 x, 초록이 y라 잘린 그림의 픽셀이 원본의 어디인지 알 수 있습니다.
+        var pattern = new byte[width * height * 4];
+        for (var y = 0; y < height; y++)
+            for (var x = 0; x < width; x++)
+            {
+                var at = (y * width + x) * 4;
+                (pattern[at], pattern[at + 1], pattern[at + 2], pattern[at + 3]) = ((byte)x, (byte)y, 0, 255);
+            }
+        using var space = CoreGraphics.CGColorSpace.CreateSrgb();
+        using var context = new CoreGraphics.CGBitmapContext(pattern, width, height, 8, width * 4, space, CoreGraphics.CGBitmapFlags.ByteOrder32Little | CoreGraphics.CGBitmapFlags.PremultipliedFirst);
+        using var source = context.ToImage();
+        var png = CaptureImage.ToPng(source!);
+        bool IsAt((int Width, int Height, byte[] Pixels) image, int x, int y, int sourceX, int sourceY)
+        {
+            var at = (y * image.Width + x) * 4;
+            return Math.Abs(image.Pixels[at] - sourceX) <= 2 && Math.Abs(image.Pixels[at + 1] - sourceY) <= 2;
+        }
+        void Drag(MacCaptureAnnotationWindow target, double fromX, double fromY, double toX, double toY)
+        {
+            var canvas = target.CanvasView;
+            NSEvent Mouse(NSEventType type, double x, double y) =>
+                NSEvent.MouseEvent(type, canvas.ConvertPointToView(new CGPoint(x, y), null), 0, NSProcessInfo.ProcessInfo.SystemUptime, target.WindowNumber, null, 0, 1, 1f);
+            canvas.MouseDown(Mouse(NSEventType.LeftMouseDown, fromX, fromY));
+            canvas.MouseDragged(Mouse(NSEventType.LeftMouseDragged, toX, toY));
+            canvas.MouseUp(Mouse(NSEventType.LeftMouseUp, toX, toY));
+        }
+
+        byte[]? finished = null, copied = null;
+        var whole = new MacCaptureAnnotationWindow(png, 1, result => finished = result);
+        Check(whole.Crop == CaptureCrop.Full(width, height), "주석 창은 그림 전체로 시작");
+        whole.Finish();
+        Check(finished is { } kept && kept.SequenceEqual(png), "자르지 않으면 원본을 그대로 넣음");
+
+        var cropper = new MacCaptureAnnotationWindow(png, 1, result => finished = result, result => copied = result);
+        Drag(cropper, 1, 60, 30, 60);
+        Check(cropper.Crop == new CaptureCrop(30, 0, width, height), $"왼쪽 테두리를 끌어 자름 ({cropper.Crop})");
+        Drag(cropper, 100, 1, 100, 20);
+        Check(cropper.Crop == new CaptureCrop(30, 20, width, height), $"위쪽 테두리를 끌어 자름 ({cropper.Crop})");
+        Drag(cropper, 199, 60, 170, 60);
+        Check(cropper.Crop == new CaptureCrop(30, 20, 170, height), $"오른쪽 테두리를 끌어 자름 ({cropper.Crop})");
+        Drag(cropper, 100, 119, 100, 100);
+        Check(cropper.Crop == new CaptureCrop(30, 20, 170, 100), $"아래쪽 테두리를 끌어 자름 ({cropper.Crop})");
+        Check(cropper.AnnotationCount == 0, "테두리를 끌면 주석을 만들지 않음");
+        Drag(cropper, 60, 40, 90, 70);
+        Check(cropper.AnnotationCount == 1 && cropper.Crop == new CaptureCrop(30, 20, 170, 100), "그림 안을 끌면 자르지 않고 주석을 만듦");
+        cropper.Undo();
+        Check(cropper.AnnotationCount == 0 && cropper.Crop == new CaptureCrop(30, 20, 170, 100), "실행 취소는 마지막 주석부터 되돌림");
+        cropper.Undo();
+        Check(cropper.Crop == new CaptureCrop(30, 20, 170, height), "실행 취소는 자르기도 되돌림");
+        Drag(cropper, 100, 119, 100, 100);
+        cropper.Finish();
+        var cut = CaptureImage.Read(finished!);
+        Check((cut.Width, cut.Height) == (140, 80), $"자른 크기로 메모에 넣음 ({cut.Width}×{cut.Height})");
+        Check(IsAt(cut, 0, 0, 30, 20) && IsAt(cut, 139, 79, 169, 99), "자른 그림은 고른 영역의 픽셀");
+
+        var both = new MacCaptureAnnotationWindow(png, 1, _ => { }, result => copied = result);
+        both.AddAnnotation(new DevPostIt.EditorHost.Annotation(DevPostIt.EditorHost.AnnotationTool.Mosaic, 0, 0, 100, 100, 0));
+        Drag(both, 1, 60, 50, 60);
+        both.CopyToClipboard();
+        var copy = CaptureImage.Read(copied!);
+        Check(copy.Width == 150 && !IsAt(copy, 10, 10, 60, 10) && IsAt(copy, 60, 10, 110, 10), "클립보드에도 자르고 모자이크한 그림이 들어감");
+
+        var retina = new MacCaptureAnnotationWindow(png, 2, result => finished = result);
+        Drag(retina, 0.5, 30, 15, 30);
+        Check(retina.Crop == new CaptureCrop(30, 0, width, height), $"화면 배율을 반영해 테두리를 옮김 ({retina.Crop})");
+        retina.Close();
+
+        finished = null;
+        var original = new MacCaptureAnnotationWindow(png, 1, result => finished = result);
+        Drag(original, 1, 60, 30, 60);
+        original.InsertOriginal();
+        Check(finished is { } untouched && untouched.SequenceEqual(png), "그대로 넣기는 자르지 않은 원본을 넣음");
+
+        var limit = new MacCaptureAnnotationWindow(png, 1, _ => { });
+        Drag(limit, 1, 60, 500, 60);
+        Check(limit.Crop.Width == CaptureCrop.MinSize, "테두리를 지나치게 끌어도 최소 크기를 남김");
+        limit.Close();
     }
 
     // 클릭 이벤트 객체를 직접 넘깁니다. 이벤트 큐와 사용자 데스크톱에는 아무것도 보내지 않습니다.
