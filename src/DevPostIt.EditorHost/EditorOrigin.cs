@@ -50,6 +50,13 @@ public static class EditorOrigin
         Uri.TryCreate(source, UriKind.Absolute, out var uri) && uri.AbsolutePath == "/index.html" &&
         uri.Query.Length == 0 && uri.Fragment.Length == 0;
 
+    // 설정·검색·도구 메시지의 검사는 페이지 주소로 합니다. 앱 스킴의 주소만 같은 경로의 주소로 바꾸며 쿼리와 조각은 남겨 검사가 거부하게 합니다.
+    public static string? CanonicalMacSource(string source) => IsLocalMacResource(source) && Uri.TryCreate(source, UriKind.Absolute, out var uri)
+        ? "https://devpostit.local" + uri.PathAndQuery + uri.Fragment
+        : null;
+
+    public static string MacAddress(string page) => page.Replace("https://devpostit.local/", "devpostit://app/", StringComparison.Ordinal);
+
     public static bool IsMacNoteAsset(string source) => Uri.TryCreate(source, UriKind.Absolute, out var uri) &&
         uri.Scheme == MacAssetScheme && uri.Host == "notes" && uri.IsDefaultPort && uri.UserInfo.Length == 0 &&
         uri.Query.Length == 0 && uri.Fragment.Length == 0 &&

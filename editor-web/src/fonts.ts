@@ -1,8 +1,8 @@
 // 한글은 D2의 폭(1em)을 라틴 글자 폭의 2배에 맞춘 별칭으로 표시해 코드 정렬을 유지합니다.
 export const fonts = {
-  d2: '"D2 Ligature", "JetBrains Mono", Consolas, monospace',
-  jetbrains: '"JetBrains Mono", "D2 Hangul 120", "D2 Ligature", Consolas, monospace',
-  system: 'Consolas, "D2 Hangul 110", "D2 Ligature", monospace',
+  d2: '"D2 Ligature", "JetBrains Mono", Consolas, Menlo, monospace',
+  jetbrains: '"JetBrains Mono", "D2 Hangul 120", "D2 Ligature", Consolas, Menlo, monospace',
+  system: 'Consolas, Menlo, "D2 Hangul 110", "D2 Ligature", monospace',
 } as const;
 export type FontKey = keyof typeof fonts | `custom:${string}`;
 export type EditorPreferences = { lineNumbers: boolean; wordWrap: boolean; minimap: boolean; whitespace: boolean; bracketColors: boolean; stickyScroll: boolean };
@@ -10,7 +10,7 @@ export const defaultEditorPreferences: EditorPreferences = { lineNumbers: true, 
 export type FontSettings = { font: FontKey; ligatures: boolean; size: number; editor: EditorPreferences; editorSize: number | null; previewSize: number | null; lineHeight: number; bodyFont: string };
 export const minTextSize = 10, maxTextSize = 24, defaultTextSize = 15, minEditorSize = 8, maxEditorSize = 24, minLineHeight = 1.2, maxLineHeight = 2.2, defaultLineHeight = 1.7;
 export const preferencesKey = 'devpostit.editor.preferences.v1';
-const defaultBodyStack = '"Segoe UI", "Malgun Gothic", sans-serif';
+const defaultBodyStack = '"Segoe UI", -apple-system, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif';
 // 글꼴 이름은 CSS에 들어가므로 따옴표 등을 허용하지 않습니다.
 const safeFontName = /^[\p{L}\p{N} ._-]{1,100}$/u;
 export const isSafeFontName = (name: unknown): name is string => typeof name === 'string' && safeFontName.test(name);

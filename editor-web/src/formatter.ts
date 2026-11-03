@@ -1,3 +1,4 @@
+import { editorTarget } from './platform';
 import * as monaco from 'monaco-editor/editor/editor.api';
 import { preferenceOptions, sharedEditorOptions } from './monaco-setup';
 import './code-languages';
@@ -91,7 +92,8 @@ async function formatCode(): Promise<void> {
   }
 }
 button.addEventListener('click', () => void formatCode());
-view.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyF, () => void formatCode());
+// macOS의 ⌥⌘F는 Monaco의 바꾸기입니다.
+view.addCommand((editorTarget === 'macos' ? monaco.KeyMod.WinCtrl : monaco.KeyMod.CtrlCmd) | monaco.KeyMod.Alt | monaco.KeyCode.KeyF, () => void formatCode());
 view.addCommand(monaco.KeyMod.Shift | monaco.KeyMod.Alt | monaco.KeyCode.KeyF, () => void formatCode());
 
 function applySettings(): void {

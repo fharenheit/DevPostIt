@@ -1,3 +1,4 @@
+import { shortcutLabel } from './platform';
 import type { MarkdownAction } from './markdown-format';
 
 type ToolbarItem = { action: MarkdownAction; label: string; icon: string; bold?: boolean; shortcut?: string };
@@ -38,9 +39,9 @@ const editorActions = [
   { id: 'editor.action.startFindReplaceAction', label: '바꾸기', shortcut: 'Ctrl+H', icon: 'M3 5h9l-2.5-2.5M13 11H4l2.5 2.5' },
 ];
 const actionButton = ({ id, label, shortcut, icon }: typeof editorActions[number]) =>
-  `<button type="button" data-editor-action="${id}" aria-label="${label}" title="${label} (${shortcut})"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="${icon}"/></svg></button>`;
+  `<button type="button" data-editor-action="${id}" aria-label="${label}" title="${label} (${shortcutLabel(shortcut)})"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="${icon}"/></svg></button>`;
 
 const button = ({ action, label, icon, bold, shortcut }: ToolbarItem) =>
-  `<button type="button" data-format="${action}" aria-label="${label}" title="${shortcut ? `${label} (${shortcut})` : label}"${bold ? ' class="heavy"' : ''}><svg viewBox="0 0 16 16" aria-hidden="true"><path d="${icon}"/></svg></button>`;
+  `<button type="button" data-format="${action}" aria-label="${label}" title="${shortcut ? `${label} (${shortcutLabel(shortcut)})` : label}"${bold ? ' class="heavy"' : ''}><svg viewBox="0 0 16 16" aria-hidden="true"><path d="${icon}"/></svg></button>`;
 
 export const formatToolbarHtml = `<div class="format-toolbar" role="toolbar" aria-label="Markdown 서식">${[...groups.map(group => group.map(button).join('')), editorActions.map(actionButton).join('')].join('<span class="format-separator" aria-hidden="true"></span>')}</div>`;

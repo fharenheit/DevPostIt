@@ -1,3 +1,4 @@
+import { editorTarget } from './platform';
 import { applyTypography, defaultEditorPreferences, defaultFontSettings, editorTextSize, isSafeFontName, maxEditorSize, maxLineHeight, maxTextSize, minEditorSize, minLineHeight, minTextSize, previewTextSize, readFontSettings, saveFontSettings, supportsLigatures, type EditorPreferences, type FontKey } from './fonts';
 import './style.css';
 
@@ -40,7 +41,7 @@ function render(): void {
   button('#line-smaller').disabled = settings.lineHeight <= minLineHeight;
   button('#line-larger').disabled = settings.lineHeight >= maxLineHeight;
   ligatures.disabled = !supportsLigatures(settings.font);
-  ligatures.title = ligatures.disabled ? 'Consolas에는 합자가 없습니다.' : '';
+  ligatures.title = ligatures.disabled ? `${editorTarget === 'macos' ? 'Menlo' : 'Consolas'}에는 합자가 없습니다.` : '';
   applyTypography(settings);
 }
 function save(): void {

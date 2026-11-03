@@ -5,6 +5,39 @@ public sealed record HelpSection(string Title, IReadOnlyList<string> Paragraphs)
 // 도움말 본문입니다. 기능이 바뀌면 함께 고칩니다. 모든 문장은 합니다체로 씁니다.
 public static class HelpContent
 {
+    // 먼저 적은 항목부터 바꿉니다. 긴 표현을 앞에 둡니다.
+    private static readonly (string From, string To)[] MacTerms =
+    [
+        ("앱을 실행하면 작업 표시줄 알림 영역에 노란 메모 아이콘이 나타납니다.", "앱을 실행하면 메뉴 막대에 메모 아이콘이 나타납니다."),
+        ("트레이 아이콘을 왼쪽 클릭하면 새 메모를 만듭니다. 오른쪽 클릭하면", "메뉴 막대 아이콘을 왼쪽 클릭하면 새 메모를 만듭니다. 오른쪽 클릭이나 ⌃클릭을 하면"),
+        ("Windows 제목 표시줄을 더블클릭하거나 최소화하면", "제목 표시줄을 더블클릭하거나 노란 버튼이나 ⌘M을 누르면"),
+        ("메모 창의 X를 누르면", "메모 창의 빨간 버튼이나 ⌘W를 누르면"),
+        ("메모를 보존한 채 앱을 끄려면 트레이의 ‘종료’를 사용합니다.", "메모를 보존한 채 앱을 끄려면 ⌘Q나 메뉴 막대의 ‘종료’를 사용합니다."),
+        ("UTF-8과 한글 Windows의 옛 메모장 형식을 읽습니다.", "UTF-8과 예전 한글 메모장 형식을 읽습니다."),
+        ("%LOCALAPPDATA%\\DevPostIt\\Data에 저장합니다. 이 폴더는 OneDrive로 동기화되지 않습니다.", "~/Library/Application Support/DevPostIt/Data에 저장합니다."),
+        ("게시된 실행 파일은 새 버전을 자동으로 확인해 알립니다. 트레이의 ‘업데이트 설치’를 누르면 내려받아 설치하고 앱을 다시 시작합니다. 자동 확인은 설정에서 끕니다.", "macOS 버전은 아직 자동 업데이트를 지원하지 않습니다. 새 버전은 GitHub 릴리즈에서 받습니다."),
+        ("Ctrl+Shift+PrintScreen", "⌃⇧⌘C"),
+        ("Windows 휴지통", "휴지통"),
+        ("탐색기", "Finder"),
+        ("트레이", "메뉴 막대"),
+        ("Ctrl+Alt+", "⌃⌥"),
+        ("Ctrl+Shift+", "⇧⌘"),
+        ("Ctrl+H", "⌥⌘F"),
+        ("Ctrl+G", "⌃G"),
+        ("Ctrl+Space", "⌃Space"),
+        ("Ctrl+", "⌘"),
+        ("Alt+", "⌥"),
+    ];
+    private const string MacCapturePermission = "macOS에서는 처음 캡처할 때 화면 기록 권한이 필요합니다. 시스템 설정에서 허용한 뒤 앱을 다시 시작합니다. 손쉬운 사용 권한도 허용하면 창 안의 요소까지 고르고, 허용하지 않으면 창 단위로 고릅니다.";
+
+    public static IReadOnlyList<HelpSection> ForMacOS =>
+        [.. Sections.Select(section =>
+        {
+            var paragraphs = section.Paragraphs.Select(paragraph => MacTerms.Aggregate(paragraph, (text, term) => text.Replace(term.From, term.To, StringComparison.Ordinal))).ToList();
+            if (section.Title == "화면 캡처") paragraphs.Add(MacCapturePermission);
+            return new HelpSection(section.Title, paragraphs);
+        })];
+
     public static readonly IReadOnlyList<HelpSection> Sections =
     [
         new("시작하기", [

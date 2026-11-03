@@ -1,4 +1,4 @@
-import { isPrimary } from './platform';
+import { isPrimary, shortcutLabel } from './platform';
 import { Editor, normalizeTitle } from './editor';
 import { applyTypography, defaultTextSize, editorTextSize, fontStack, maxTextSize, minTextSize, readFontSettings, saveFontSettings } from './fonts';
 import { connectEditor, noteColors, type EditorConnection } from './bridge';
@@ -23,7 +23,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
         <button type="button" id="note-images" aria-label="이미지 폴더 열기" title="이 메모의 이미지 폴더 열기">${folderIcon}</button>
       </div>
       <div class="note-actions">
-        <button type="button" id="capture" aria-label="화면 캡처" title="화면 캡처 (Ctrl+Shift+C)">${captureIcon}</button>
+        <button type="button" id="capture" aria-label="화면 캡처" title="화면 캡처 (${shortcutLabel('Ctrl+Shift+C')})">${captureIcon}</button>
         <button type="button" id="new-diagram" aria-label="draw.io 다이어그램 추가" title="draw.io 다이어그램 추가">${diagramIcon}</button>
         <button type="button" id="save-pdf" aria-label="PDF로 저장" title="PDF로 저장">${pdfIcon}</button>
         <button type="button" id="pin" aria-pressed="false" aria-label="항상 위" title="항상 위">${pinIcon}</button>
@@ -36,7 +36,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
     <div class="editor-area"><div id="source"></div><article id="preview" class="preview" aria-label="Markdown 미리보기" hidden></article></div>
     <footer class="note-bar">
       <div class="note-status"><span id="status" role="status">편집 준비</span><span id="host-status" role="status">변경 내용은 이 창에서만 유지됩니다.</span><span id="format-status" role="status"></span></div>
-      <div class="code-tools"><label><span class="visually-hidden">코드 언어</span><select id="code-language" title="코드 언어"><option value="">블록 언어 자동</option></select></label><button id="format-code" title="커서가 있는 코드 블록 정리 (Ctrl+Alt+F)">코드 정리</button></div>
+      <div class="code-tools"><label><span class="visually-hidden">코드 언어</span><select id="code-language" title="코드 언어"><option value="">블록 언어 자동</option></select></label><button id="format-code" title="커서가 있는 코드 블록 정리 (${shortcutLabel('Ctrl+Alt+F')})">코드 정리</button></div>
     </footer>
   </section>`;
 
@@ -108,7 +108,8 @@ async function formatCode(): Promise<void> {
 }
 formatButton.addEventListener('click', () => void formatCode());
 window.addEventListener('keydown', event => {
-  if (event.ctrlKey && event.altKey && event.key.toLowerCase() === 'f') { event.preventDefault(); void formatCode(); }
+  // macOS의 Option 조합은 다른 글자를 만들므로 키 위치로도 봅니다.
+  if (event.ctrlKey && event.altKey && (event.key.toLowerCase() === 'f' || event.code === 'KeyF')) { event.preventDefault(); void formatCode(); }
 });
 
 function applySettings(): void {

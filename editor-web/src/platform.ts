@@ -9,3 +9,14 @@ export function isPrimary(event: { ctrlKey: boolean; metaKey: boolean }, target:
 export function noteAssetUrl(path: string, target: EditorTarget = editorTarget): string {
   return `${target === 'macos' ? 'devpostit-assets://notes' : 'https://devpostit-assets.local'}/${path}`;
 }
+
+// 표기만 바꿉니다. Windows 문구를 원본으로 둡니다.
+export function shortcutLabel(text: string, target: EditorTarget = editorTarget): string {
+  if (target !== 'macos') return text;
+  return text
+    .replaceAll('Ctrl+H', '⌥⌘F')
+    .replaceAll('Ctrl+Alt+', '⌃⌥')
+    .replaceAll('Shift+Alt+', '⇧⌥')
+    .replaceAll('Ctrl+Shift+', '⇧⌘')
+    .replaceAll('Ctrl+', '⌘');
+}

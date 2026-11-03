@@ -1,3 +1,4 @@
+import { isPrimary } from './platform';
 import './style.css';
 import './tools.css';
 import { applyTypography, readFontSettings } from './fonts';
@@ -787,7 +788,7 @@ $('#mm-open-link').addEventListener('click', () => { const link = selected()?.no
 $('#mm-new-map').addEventListener('click', () => createMap());
 $('#mm-map-search').addEventListener('input', renderMaps);
 window.addEventListener('keydown', event => {
-  if (event.ctrlKey && event.key.toLowerCase() === 'n') { event.preventDefault(); createMap(); }
+  if (isPrimary(event) && event.key.toLowerCase() === 'n') { event.preventDefault(); createMap(); }
 });
 window.addEventListener('beforeunload', flushCurrent);
 window.addEventListener('resize', applyTransform);

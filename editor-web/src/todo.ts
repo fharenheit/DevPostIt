@@ -1,3 +1,4 @@
+import { isPrimary } from './platform';
 import './style.css';
 import './tools.css';
 import { applyTypography, readFontSettings } from './fonts';
@@ -266,8 +267,8 @@ $('#todo-rename-list').addEventListener('click', () => {
   field.focus();
 });
 window.addEventListener('keydown', event => {
-  if (event.ctrlKey && event.key.toLowerCase() === 'n') { event.preventDefault(); input.focus(); }
-  if (event.ctrlKey && event.key.toLowerCase() === 'f') { event.preventDefault(); search.focus(); }
+  if (isPrimary(event) && event.key.toLowerCase() === 'n') { event.preventDefault(); input.focus(); }
+  if (isPrimary(event) && event.key.toLowerCase() === 'f') { event.preventDefault(); search.focus(); }
 });
 client.subscribe(render);
 render();
