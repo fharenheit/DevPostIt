@@ -34,18 +34,21 @@ Java WASM과 파서는 앱에 포함합니다. Monaco 청크 크기와 Java 런�
 | --- | --- |
 | 0. 관문 | 실제 한글 IME 시험 통과(2026-11-03, 두벌식). GitHub Actions는 첫 두 실행에서 Windows의 제작 빌드 웹 시험이 `dist` 없음으로 실패했고, 고친 워크플로를 확인 중입니다. Xcode와 `macos` 워크로드 조합이 맞지 않습니다 |
 | 1. 이식성 | macOS 통과. Windows는 CI의 `dotnet test DevPostIt.sln`까지 통과했습니다. 끝나는 조건인 양쪽 CI 통과는 아직입니다 |
-| 2~6 | 시작 전 |
+| 2 | 시작 전. `DevPostIt.Desktop`은 만들었지만 트레이 메뉴 모델뿐이고 WPF는 아직 쓰지 않습니다 |
+| 3 | 일부 시작. 사용자 요청으로 메뉴 막대 아이콘과 메뉴를 먼저 만들었습니다. **동작하는 항목은 ‘종료’뿐이고 나머지는 비활성입니다.** 왼쪽 클릭도 지금은 메뉴를 엽니다. 새 메모를 연결할 때 왼쪽 클릭을 새 메모로 바꿉니다 |
+| 4~6 | 시작 전 |
 
 ### 다음에 할 일
 
 1. CI의 Windows 작업을 다시 확인합니다. 첫 두 실행은 워크플로가 `npm run build`를 하지 않아 제작 빌드 웹 시험이 `dist` 없음으로 시작하지 못했습니다(테스트 실패가 아님). 고친 워크플로와 DesktopSmoke는 아직 러너에서 실행되지 않았습니다. macOS 작업은 .NET 시험과 웹 빌드만 하며, 웹 시험은 실패를 분류하는 4단계에서 추가합니다.
-2. 3단계 전에 Xcode와 `macos` 워크로드 조합을 정합니다.
+2. 메뉴 막대 아이콘의 실제 표시와 메뉴 클릭은 사용자 확인이 필요합니다. 자동으로는 실행 중에만 메뉴 막대 항목이 하나 늘어나는 것까지만 확인했습니다.
 3. 양쪽 CI가 통과하면 2단계 `DevPostIt.Desktop` 분리를 시작합니다. WPF 변경은 Windows에서 시험한 뒤 병합합니다.
 
 ### 이 Mac의 준비 상태
 
 - Xcode 27.2의 라이선스 동의와 첫 실행 설정이 끝났습니다.
-- `.tools`의 SDK에 `macos` 워크로드 27.0.10742를 설치했습니다. 이 버전은 Xcode 27.1을 요구해 27.2에서는 기본 빌드가 오류로 멈춥니다. `-p:ValidateXcodeVersion=false`로 검사를 끄면 임시 템플릿 앱은 경고·오류 없이 빌드되고 애드혹 서명된 arm64 번들이 나오지만(2026-11-03), 실행해 보지 않았고 지원되는 조합도 아닙니다. 3단계 전에 Xcode 27.1 또는 맞는 워크로드 조합을 정해야 합니다.
+- `.tools`의 SDK에 `macos` 워크로드 27.0.10742를 설치했습니다. 이 버전은 Xcode 27.1을 요구합니다. 사용자 결정(2026-11-03)에 따라 `DevPostIt.Mac`에 `ValidateXcodeVersion=false`를 넣어 Xcode 27.2로 빌드합니다. 지원되는 조합이 아니므로 맞는 워크로드가 나오면 지웁니다. CI는 아직 이 프로젝트를 빌드하지 않습니다.
+- macOS 앱 빌드·실행: `dotnet build src/DevPostIt.Mac` 후 `open src/DevPostIt.Mac/bin/Debug/net10.0-macos/osx-arm64/DevPostIt.app`
 - `.tools`(Git 제외)에 .NET, Node, Playwright가 있습니다. `DevPostIt.sln`의 WPF 프로젝트는 macOS에서 빌드되지 않으므로 `DevPostIt.Mac.slnf`를 씁니다.
 
 ```zsh

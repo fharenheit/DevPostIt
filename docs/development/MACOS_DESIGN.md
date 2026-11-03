@@ -93,7 +93,7 @@ WebView2의 가상 호스트와 요청 필터에 해당하는 기능을 아래�
 - 실제 한글 IME는 시험 도구의 WKWebView에서 통과했습니다(HANDOFF.md). 두벌식에서 조합 이벤트가 발생하지 않아 조합 상태에 기대는 보호가 동작하지 않으며, 실제 앱 호스트에서 다시 확인해야 합니다.
 - `navigator.clipboard.writeText`의 실제 복사, 실제 Excel 붙여넣기
 - 실제 제작 번들(Mermaid, 정리 도구 WASM, Java 파서) 동작과 성능
-- AppKit 호스트 빌드: `macos` 워크로드 27.0.10742는 Xcode 27.1을 요구하는데 이 Mac에는 27.2가 있습니다. 진행 상황은 HANDOFF.md에 있습니다.
+- AppKit 호스트: 메뉴 막대 앱은 빌드·실행했지만 Xcode 버전 검사를 끈 상태입니다(HANDOFF.md). WKWebView를 올린 빌드는 아직입니다.
 
 ## 6. 공유 코드의 이식성 수정
 

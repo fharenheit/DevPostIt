@@ -26,6 +26,8 @@
 | `src/DevPostIt.Storage` | Markdown/frontmatter, 원자적 파일 IO, 저널, SQLite 파생 인덱스, 공유 저장 세션 |
 | `src/DevPostIt.EditorHost` | 신뢰 출처·브리지 메시지 검증, 종료 초안, 비동기 작업 수명 |
 | `src/DevPostIt.App` | WPF·WebView2, 트레이, 다중 창·작은 아이콘·닫기 동작 |
+| `src/DevPostIt.Desktop` | 운영체제와 무관한 데스크톱 규칙. 지금은 트레이 메뉴 모델만 있으며 WPF는 아직 쓰지 않습니다 |
+| `src/DevPostIt.Mac` | macOS 앱. 지금은 메뉴 막대 아이콘과 메뉴만 있습니다. `macos` 워크로드가 필요해 `.sln`과 `.slnf`에 넣지 않습니다 |
 | `editor-web/src` | Monaco, 미리보기, 코드 정리, 글꼴 설정, 웹 브리지 |
 | `tests` / `editor-web/tests` | .NET 테스트·WPF 하네스 / Playwright |
 
