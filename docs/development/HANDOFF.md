@@ -39,7 +39,7 @@ Java WASM과 파서는 앱에 포함합니다. Monaco 청크 크기와 Java 런�
 ### 다음에 할 일
 
 1. 사용자에게 IME 결과를 묻습니다. 시험 항목은 메모의 조합 중 Enter, 방향키·Backspace, ⌘Z/⌘⇧Z, 제목 이름 변경, 마인드맵 바로 입력, 할 일 Enter입니다. 기록 파일이 있다는 것만으로 통과로 판단하지 않습니다.
-2. CI의 Windows 작업 실패 원인을 확인합니다. 제작 빌드 웹 시험에서 멈춰 DesktopSmoke는 실행되지 않았고, 러너에서 동작하는지 아직 모릅니다. 로그는 인증 없이 받을 수 없습니다(403). macOS 작업은 .NET 시험과 웹 빌드만 하며, 웹 시험은 실패를 분류하는 4단계에서 추가합니다.
+2. CI의 Windows 작업을 다시 확인합니다. 첫 두 실행은 워크플로가 `npm run build`를 하지 않아 제작 빌드 웹 시험이 `dist` 없음으로 시작하지 못했습니다(테스트 실패가 아님). 고친 워크플로와 DesktopSmoke는 아직 러너에서 실행되지 않았습니다. macOS 작업은 .NET 시험과 웹 빌드만 하며, 웹 시험은 실패를 분류하는 4단계에서 추가합니다.
 3. 3단계 전에 Xcode와 `macos` 워크로드 조합을 정합니다.
 4. 관문을 통과하면 2단계 `DevPostIt.Desktop` 분리를 시작합니다. WPF 변경은 Windows에서 시험한 뒤 병합합니다.
 
@@ -67,12 +67,12 @@ dotnet test DevPostIt.Mac.slnf --no-restore
 
 ### IME 시험 중간 결과 (2026-11-03)
 
-실제 입력 1회의 기록입니다. 합격 판정이 아닙니다.
+실제 입력 시험의 기록입니다. **관문은 아직 통과하지 않았습니다.** 입력기 종류는 받지 못했습니다.
 
-- 메모 창의 한글은 ‘한글이 잘 입력이 되고..’처럼 올바른 글자로 기록되었고, 조합 중 오타도 고쳐졌습니다.
-- **조합 이벤트가 0건입니다.** 한글 키의 `keydown`은 `keyCode=229`, `isComposing=false`였고 `compositionstart`와 조합 `beforeinput`이 없었습니다. 입력 소스 종류는 확인하지 못했습니다.
-- 그래서 `compositionstart`와 `event.isComposing`에 기대는 코드(`editor.ts`, `bridge.ts`, `mindmap.ts`, `todo.ts`)의 보호가 이 환경에서 동작하지 않을 수 있습니다. 조합 도중의 글자도 `note.changed`로 나갔습니다.
-- 기록에 없는 항목: 조합 중 Enter, 이름 변경, 마인드맵, 할 일. 실행 취소는 기록만으로 판단할 수 없습니다.
+- **조합 이벤트가 전체 시험에서 0건입니다.** 한글 키의 `keydown`은 `keyCode=229`, `isComposing=false`였습니다. `compositionstart`와 `event.isComposing`에 기대는 코드(`editor.ts`, `bridge.ts`, `mindmap.ts`, `todo.ts`)의 보호가 이 환경에서는 동작하지 않고, 조합 도중의 글자도 `note.changed`로 나갑니다.
+- 기록으로 확인: 메모 한글 직후 Enter, Backspace, 실행 취소·다시 실행(안내 문구 유지), 이름 변경 직후 Enter, 할 일과 새 목록 직후 Enter, 마인드맵 편집 칸 직후 Enter와 Esc. 화면에 표시된 글자는 메모 외에는 로그에 없어 사용자의 관찰을 따릅니다.
+- **의심되는 결함:** 마인드맵에서 주제를 선택하고 바로 입력하면 첫 자음이 편집 칸에 도달하지 않습니다(3회 중 3회, `ㅏㄴㅏㄷㅏ`, `ㅜㅣㅅㅗ` 순서로 기록). `mindmap.ts`의 캔버스 `keydown`이 편집 칸을 여는 첫 키입니다. 화면 결과는 사용자에게 확인하지 못했습니다.
+- 기록에 없는 항목: 메모 조합 중 ←, 마인드맵 이름 칸(`#mm-title`) 직후 Enter.
 
 ### IME 시험 도구
 
