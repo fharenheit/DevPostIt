@@ -179,7 +179,8 @@ internal static class Program
         var settings = application.Windows.OfType<SettingsWindow>().Single();
         Check(settings.IsVisible && settings.OwnedWindows.Count == 0 && first.OwnedWindows.Count == 0, "트레이 설정은 독립 창으로 열림");
         Check(await editor.ExecuteScriptAsync("document.querySelector('dialog[aria-label=설정], #settings') === null") == "true", "메모 안에 설정 모달을 띄우지 않음");
-        await UntilAsync(async () => settings.View.CoreWebView2 is not null && await settings.View.ExecuteScriptAsync("document.readyState") == "\"complete\"");
+        // 이동 전의 about:blank도 readyState가 complete이므로 설정 페이지의 단추까지 확인합니다. 단추가 없으면 click 오류는 조용히 사라집니다.
+        await UntilAsync(async () => settings.View.CoreWebView2 is not null && await settings.View.ExecuteScriptAsync("document.readyState === 'complete' && document.querySelector('#larger') !== null") == "true");
         var baseSize = await editor.ExecuteScriptAsync("getComputedStyle(document.documentElement).fontSize");
         await settings.View.ExecuteScriptAsync("document.querySelector('#larger').click()");
         await UntilAsync(async () => await editor.ExecuteScriptAsync("getComputedStyle(document.documentElement).fontSize") != baseSize);
