@@ -26,10 +26,10 @@
 | `src/DevPostIt.Storage` | Markdown/frontmatter, 원자적 파일 IO, 저널, SQLite 파생 인덱스, 공유 저장 세션 |
 | `src/DevPostIt.EditorHost` | 신뢰 출처·브리지 메시지 검증, 종료 초안, 비동기 작업 수명 |
 | `src/DevPostIt.App` | WPF·WebView2, 트레이, 다중 창·작은 아이콘·닫기 동작 |
-| `src/DevPostIt.Desktop` | 운영체제와 무관한 데스크톱 규칙. 지금은 트레이 메뉴 모델만 있으며 WPF는 아직 쓰지 않습니다 |
-| `src/DevPostIt.Mac` | macOS 앱. 지금은 메뉴 막대 아이콘과 메뉴만 있습니다. `macos` 워크로드가 필요해 `.sln`과 `.slnf`에 넣지 않습니다 |
+| `src/DevPostIt.Desktop` | 운영체제와 무관한 데스크톱 규칙. 트레이 메뉴 모델, 메모 창 포트, 공유 `NoteSession`이 있고 WPF와 macOS가 함께 씁니다 |
+| `src/DevPostIt.Mac` | macOS 앱. 메뉴 막대, WKWebView 메모 창, 접기, 휴지통, 세션 복원, ⌘Q가 있고 보조 창과 캡처는 없습니다. `macos` 워크로드가 필요해 `.sln`과 `.slnf`에 넣지 않습니다 |
 | `editor-web/src` | Monaco, 미리보기, 코드 정리, 글꼴 설정, 웹 브리지 |
-| `tests` / `editor-web/tests` | .NET 테스트·WPF 하네스 / Playwright |
+| `tests` / `editor-web/tests` | .NET 테스트·WPF 하네스(`DesktopSmoke`)·macOS 하네스(`MacSmoke`) / Playwright |
 
 ## 유지할 동작
 
@@ -89,9 +89,17 @@ dotnet run --project tests/DevPostIt.DesktopSmoke --no-restore
 
 하네스는 기본적으로 실제 마우스 입력을 보내지 않습니다. 접힌 아이콘의 실제 드래그까지 확인하려면 다른 창이 앞에 없는지 확인하고 사용자 동의를 받은 뒤 `DEVPOSTIT_SMOKE_REAL_INPUT=1`로 실행합니다. 사용자 데스크톱에 합성 입력을 보내는 검증 스크립트를 임의로 실행하지 않습니다.
 
+macOS 메모 창·수명 변경은 저장소 루트에서 macOS 하네스도 실행합니다. 고유 임시 데이터와 별도 웹 저장소를 쓰고 합성 입력을 보내지 않으며, 성공하면 종료 코드 0과 `MacSmoke 통과`를 남깁니다.
+
+```zsh
+dotnet build tests/DevPostIt.MacSmoke
+DEVPOSTIT_SMOKE_LOG="$PWD/.tools/mac-smoke.log" "tests/DevPostIt.MacSmoke/bin/Debug/net10.0-macos/osx-arm64/DevPostIt Smoke.app/Contents/MacOS/DevPostIt.MacSmoke"
+```
+
 ## 데이터와 검증 주의점
 
 - 기본 사용자 메모는 `%LOCALAPPDATA%/DevPostIt/Data/notes`, 저널·검색 DB는 `Data/.hunmin`, 설정은 `%LOCALAPPDATA%/DevPostIt/WebView2`에 있습니다. 새 위치가 없으면 시작할 때 이전 위치(문서 폴더의 `DevPostIt`)를 복사·검증해 옮기며 원본은 지우지 않습니다.
+- macOS 기본 데이터는 `~/Library/Application Support/DevPostIt/Data`입니다. `DEVPOSTIT_DATA_DIR`로 시험 위치를 지정합니다.
 - 실행·삭제·크래시 시험은 반드시 별도 `DEVPOSTIT_DATA_DIR`와 `WEBVIEW2_USER_DATA_FOLDER`를 지정합니다. 하네스는 위의 고유 임시 루트를 사용합니다. 사용자 메모를 시험 데이터로 사용하지 않습니다.
 - 브라우저 편집기만 실행하면 네이티브 저장·트레이·삭제는 검증되지 않습니다. WPF를 실행하지 못한 환경에서는 그 한계를 보고합니다.
 - 셸 알림 영역의 물리 클릭·드래그, 실제 Windows IME, 강제 종료 시험을 합성 이벤트·소스 검토와 구분해 기록합니다.

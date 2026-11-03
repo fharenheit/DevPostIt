@@ -183,7 +183,7 @@ Apple Developer ID 없이 배포합니다(사용자 결정). 공증과 강화 �
 시험 구성:
 
 - `playwright.config.ts`에 `webkit` 프로젝트를 추가해 기존 웹 시험을 재사용합니다. Playwright WebKit은 WKWebView와 같지 않으므로 IME와 스킴 동작의 증거로 쓰지 않습니다.
-- `tests/DevPostIt.MacSmoke`는 `DesktopSmoke`에 대응합니다. 별도 `DEVPOSTIT_DATA_DIR`와 웹 저장소 UUID를 쓰고 합성 입력을 보내지 않습니다. 끝나면 `WKWebsiteDataStore.remove(forIdentifier:)`로 지웁니다.
+- `tests/DevPostIt.MacSmoke`는 `DesktopSmoke`에 대응합니다. 별도 `DEVPOSTIT_DATA_DIR`와 웹 저장소 UUID를 쓰고 합성 입력을 보내지 않습니다. 쓰는 중인 저장소는 지울 수 없어 다음 실행을 시작할 때 이전 저장소를 `WKWebsiteDataStore.remove(forIdentifier:)`로 지웁니다. 그래서 시험 앱의 저장소가 하나 남습니다.
 
 ## 12. 주요 위험
 

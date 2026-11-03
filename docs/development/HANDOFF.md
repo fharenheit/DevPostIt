@@ -34,21 +34,35 @@ Java WASM과 파서는 앱에 포함합니다. Monaco 청크 크기와 Java 런�
 | --- | --- |
 | 0. 관문 | 실제 한글 IME 시험 통과(2026-11-03, 두벌식). GitHub Actions는 첫 두 실행에서 Windows의 제작 빌드 웹 시험이 `dist` 없음으로 실패했고, 고친 워크플로를 확인 중입니다. Xcode와 `macos` 워크로드 조합이 맞지 않습니다 |
 | 1. 이식성 | macOS 통과. Windows는 CI의 `dotnet test DevPostIt.sln`까지 통과했습니다. 끝나는 조건인 양쪽 CI 통과는 아직입니다 |
-| 2 | 시작 전. `DevPostIt.Desktop`은 만들었지만 트레이 메뉴 모델뿐이고 WPF는 아직 쓰지 않습니다 |
-| 3 | 일부 시작. 사용자 요청으로 메뉴 막대 아이콘과 메뉴를 먼저 만들었습니다. **동작하는 항목은 ‘종료’뿐이고 나머지는 비활성입니다.** 왼쪽 클릭도 지금은 메뉴를 엽니다. 새 메모를 연결할 때 왼쪽 클릭을 새 메모로 바꿉니다 |
+| 2. 공유 분리 | 코드 완료. `NoteSession`과 포트(`DevPostIt.Desktop`)로 WPF `MainWindow`를 옮겼습니다. 끝나는 조건인 Windows CI의 시험과 DesktopSmoke 통과는 **확인 중**입니다. 이 Mac에서는 WPF를 컴파일까지만 확인했습니다 |
+| 3. 메모 MVP | MacSmoke 통과(Debug, Release). 실제 마우스·IME·메뉴 막대 클릭은 사용자 확인이 필요합니다 |
 | 4~6 | 시작 전 |
+
+### 3단계에서 동작하는 것
+
+- 메뉴 막대: 왼쪽 클릭은 새 메모, 오른쪽·⌃클릭은 메뉴. 새 메모, 메모 목록, 휴지통, 모두 표시, 모두 접기, 종료가 동작하고 나머지 항목은 비활성입니다.
+- 메모 창: WKWebView(`devpostit://`, `devpostit-assets://`), 자동 저장, 24×24 접기와 복원, X의 휴지통 확인, 휴지통 복원과 영구 삭제, 색상과 항상 위, 세션 복원, ⌘Q 저장.
+- 아직 없는 것(4~5단계): 설정, 검색, 도움말, 정보, PDF, 클립보드 이미지, draw.io, 이미지 정리, 캡처, 마인드맵·할 일·달력 창, 알림.
+
+### MacSmoke가 확인하지 않는 것
+
+- 합성 입력을 보내지 않으므로 실제 마우스·키보드, 메뉴 막대 아이콘의 모양과 클릭, 빨간 X와 노란 버튼의 실제 클릭, 실제 ⌘Q 키는 확인하지 않습니다. 종료 경로는 `NSApplication.Terminate`로 시험합니다.
+- 실제 앱 호스트에서의 한글 IME는 아직 시험하지 않았습니다. 0단계 통과는 시험 도구의 WKWebView 결과입니다.
+- 복구 경로는 `NoteSession`으로 그대로 옮겼으며 새 자동 시험이 없습니다.
+- CI는 `DevPostIt.Mac`과 `MacSmoke`를 빌드하지 않습니다. 러너의 Xcode가 워크로드와 맞는지 확인하지 않았습니다.
 
 ### 다음에 할 일
 
-1. CI의 Windows 작업을 다시 확인합니다. 첫 두 실행은 워크플로가 `npm run build`를 하지 않아 제작 빌드 웹 시험이 `dist` 없음으로 시작하지 못했습니다(테스트 실패가 아님). 고친 워크플로와 DesktopSmoke는 아직 러너에서 실행되지 않았습니다. macOS 작업은 .NET 시험과 웹 빌드만 하며, 웹 시험은 실패를 분류하는 4단계에서 추가합니다.
-2. 메뉴 막대 아이콘의 실제 표시와 메뉴 클릭은 사용자 확인이 필요합니다. 자동으로는 실행 중에만 메뉴 막대 항목이 하나 늘어나는 것까지만 확인했습니다.
-3. 양쪽 CI가 통과하면 2단계 `DevPostIt.Desktop` 분리를 시작합니다. WPF 변경은 Windows에서 시험한 뒤 병합합니다.
+1. CI의 Windows 작업에서 `dotnet test`, 웹 시험, DesktopSmoke 통과를 확인합니다. 이것이 2단계의 끝나는 조건입니다.
+2. 실제 앱에서 위 항목을 사용자가 확인합니다. 시험용 메모를 쓰려면 `DEVPOSTIT_DATA_DIR`를 지정해 실행 파일을 직접 실행합니다.
+3. `main` 병합 전에 Windows에서 WPF를 직접 시험합니다.
 
 ### 이 Mac의 준비 상태
 
 - Xcode 27.2의 라이선스 동의와 첫 실행 설정이 끝났습니다.
 - `.tools`의 SDK에 `macos` 워크로드 27.0.10742를 설치했습니다. 이 버전은 Xcode 27.1을 요구합니다. 사용자 결정(2026-11-03)에 따라 `DevPostIt.Mac`에 `ValidateXcodeVersion=false`를 넣어 Xcode 27.2로 빌드합니다. 지원되는 조합이 아니므로 맞는 워크로드가 나오면 지웁니다. CI는 아직 이 프로젝트를 빌드하지 않습니다.
 - macOS 앱 빌드·실행: `dotnet build src/DevPostIt.Mac` 후 `open src/DevPostIt.Mac/bin/Debug/net10.0-macos/osx-arm64/DevPostIt.app`
+- 기본 실행은 실제 데이터 폴더 `~/Library/Application Support/DevPostIt/Data`를 씁니다. 빌드는 `EDITOR_TARGET=macos` 웹 빌드(`editor-web/dist-macos`)를 번들에 넣습니다.
 - `.tools`(Git 제외)에 .NET, Node, Playwright가 있습니다. `DevPostIt.sln`의 WPF 프로젝트는 macOS에서 빌드되지 않으므로 `DevPostIt.Mac.slnf`를 씁니다.
 
 ```zsh
@@ -65,7 +79,7 @@ dotnet test DevPostIt.Mac.slnf --no-restore
 - 웹 개발 모드 379개: Chromium 통과 337, 실패 42. WebKit 통과 323, 실패 56.
   - 공통 실패 42개는 Windows에서 통과하던 시험이라 OS 차이로 보며, Ctrl/⌘ 차이가 유력합니다. 실패 메시지를 하나씩 확인하지는 않았습니다.
   - WebKit에서만 실패한 14개는 4단계에서 분류합니다: `bridge.spec.ts:159`, `font-settings.spec.ts:8,115,148,167`, `fonts.spec.ts:4,19`, `ime.spec.ts:4`, `note-features.spec.ts:44,233`, `preview-tools.spec.ts:65,81,173,186`. `ime.spec.ts:4`(CDP)와 `note-features.spec.ts`의 2개(클립보드 권한, PDF)는 시험 도구의 한계일 수 있습니다. `bridge.spec.ts:159`(한글 조합 중간값)는 먼저 확인합니다.
-- 실제 WKWebView(macOS 26.6.2, 작은 시험 페이지)에서 확인한 내용은 설계 문서 5절에 있습니다. 제작 번들에서 `.NET` 호스트로 실행한 적은 없습니다.
+- 실제 WKWebView(macOS 26.6.2, 작은 시험 페이지)에서 확인한 내용은 설계 문서 5절에 있습니다. 제작 번들을 `.NET` 호스트로 실행하는 것은 이후 MacSmoke가 확인합니다.
 
 ### IME 시험 결과 (2026-11-03)
 
