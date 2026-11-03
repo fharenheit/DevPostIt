@@ -129,6 +129,8 @@
 
 코드 서명이 없어 SmartScreen 경고가 뜨거나 Smart App Control에 차단될 수 있습니다.
 
+macOS(Apple Silicon, macOS 14 이상)는 릴리즈의 `DevPostIt-*-macos-arm64.zip`을 풀어 `DevPostIt.app`을 응용 프로그램 폴더로 옮깁니다. 공증하지 않아 처음 실행이 막히면 내용을 확인한 뒤 `xattr -dr com.apple.quarantine /Applications/DevPostIt.app`을 실행합니다. 자동 업데이트는 없으므로 새 버전은 직접 교체합니다.
+
 ## 주요 단축키
 
 | 키 | 동작 |

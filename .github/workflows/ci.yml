@@ -53,6 +53,24 @@ jobs:
         run: |
           $env:DEVPOSTIT_DESKTOP_SMOKE_ROOT = Join-Path $env:RUNNER_TEMP "desktop-check-$([Guid]::NewGuid().ToString('N'))"
           dotnet run --project tests/DevPostIt.DesktopSmoke --no-restore
+      - name: Publish the Windows exe
+        run: dotnet publish src/DevPostIt.App -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeAllContentForSelfExtract=true -p:EnableCompressionInSingleFile=true -o publish
+      # 업데이트 설치가 부르는 시험 실행과 별도 데이터 폴더의 실제 시작을 확인합니다.
+      - name: Check the Windows exe
+        run: |
+          $selfTest = Start-Process publish/DevPostIt.exe -ArgumentList '--update-self-test' -PassThru
+          if (-not $selfTest.WaitForExit(120000)) { $selfTest.Kill(); throw 'self test timed out' }
+          if ($selfTest.ExitCode -ne 0) { throw "self test exited with $($selfTest.ExitCode)" }
+          $env:DEVPOSTIT_DATA_DIR = Join-Path $env:RUNNER_TEMP 'exe-check-data'
+          $env:WEBVIEW2_USER_DATA_FOLDER = Join-Path $env:RUNNER_TEMP 'exe-check-webview'
+          $app = Start-Process publish/DevPostIt.exe -PassThru
+          if ($app.WaitForExit(20000)) { throw "app exited with $($app.ExitCode)" }
+          $app.Kill()
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DevPostIt-win-x64
+          path: publish/DevPostIt.exe
+          if-no-files-found: error
 
   macos:
     runs-on: macos-latest

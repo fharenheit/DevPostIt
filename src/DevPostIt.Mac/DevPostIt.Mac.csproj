@@ -13,8 +13,8 @@
     <SupportedOSPlatformVersion>14.0</SupportedOSPlatformVersion>
     <ApplicationId>io.github.fharenheit.devpostit</ApplicationId>
     <ApplicationTitle>DevPostIt</ApplicationTitle>
-    <ApplicationDisplayVersion>0.6.3</ApplicationDisplayVersion>
-    <ApplicationVersion>0.6.3</ApplicationVersion>
+    <ApplicationDisplayVersion>0.7.0</ApplicationDisplayVersion>
+    <ApplicationVersion>0.7.0</ApplicationVersion>
     <!-- 저장 코드는 리플렉션 기반 JSON을 쓰므로 어셈블리를 잘라 내지 않습니다. -->
     <LinkMode>None</LinkMode>
     <EnableTrimAnalyzer>false</EnableTrimAnalyzer>
