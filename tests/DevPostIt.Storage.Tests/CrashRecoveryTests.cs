@@ -9,6 +9,16 @@ public sealed class CrashRecoveryTests : IDisposable
     private readonly string root = Path.Combine(Path.GetTempPath(), "DevPostItCrashTests", Guid.NewGuid().ToString("N"));
     public CrashRecoveryTests() => Directory.CreateDirectory(root);
 
+    // Windows는 프로세스가 끝난 직후에도 파일 핸들을 잠시 잡고 있을 수 있습니다.
+    private static async Task<DataDirectoryLease> AcquireLeaseAsync(string root, CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            try { return new DataDirectoryLease(root); }
+            catch (IOException) { await Task.Delay(50, cancellationToken); }
+        }
+    }
+
     [Fact]
     public async Task KilledProcessLeavesOriginalFileAndRestartRecoversJournaledDraft()
     {
@@ -34,7 +44,7 @@ public sealed class CrashRecoveryTests : IDisposable
             child.Kill(entireProcessTree: true);
             await child.WaitForExitAsync(timeout.Token);
             Assert.Equal("원본 파일", (await repository.GetAsync(note.Id, default))!.Markdown);
-            using var lease = new DataDirectoryLease(root);
+            using var lease = await AcquireLeaseAsync(root, timeout.Token);
             await using var restarted = new NoteService(repository, new FileRecoveryJournal(Path.Combine(root, "recovery")), new SqliteNoteIndex(Path.Combine(root, "index.db")));
             var state = await restarted.OpenAsync(note.Id, default);
             Assert.True(state.RecoveryPending);
