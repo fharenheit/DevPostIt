@@ -399,6 +399,16 @@ internal sealed class SmokeDelegate : NSApplicationDelegate
         discarded.Close();
         await Task.Delay(300);
         Check(captureBoard.ChangeCount == copies, "버린 그림은 클립보드에 넣지 않음");
+        await manager.FinishCaptureAsync(window, png, 1);
+        var copier = manager.Annotators.Single();
+        Check(copier.ToolbarWidth <= copier.MinSize.Width, $"가장 좁은 주석 창에 툴바가 들어감 (툴바 {copier.ToolbarWidth}, 창 {copier.MinSize.Width})");
+        copier.AddAnnotation(mosaic);
+        var mosaicOnly = CaptureImage.Render(png, [mosaic], 1);
+        copier.CopyToClipboard();
+        await Task.Delay(300);
+        Check(manager.Annotators.Count == 0, "클립보드에 넣으면 주석 창 닫힘");
+        Check(boardPng() is { } onlyCopied && onlyCopied.SequenceEqual(mosaicOnly), "클립보드에 넣기는 주석을 넣은 그림을 복사");
+        Check(Directory.EnumerateFiles(Path.Combine(workspace.AssetsRoot, window.NoteId.ToString("N"))).Count() == before + 1, "클립보드에 넣기는 메모와 파일을 바꾸지 않음");
         Check(manager.Annotators.Count == 0 && Directory.EnumerateFiles(Path.Combine(workspace.AssetsRoot, window.NoteId.ToString("N"))).Count() == before + 1, "주석 창을 닫으면 그림을 버림");
     }
 

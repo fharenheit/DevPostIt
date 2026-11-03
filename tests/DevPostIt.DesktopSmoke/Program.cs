@@ -531,6 +531,15 @@ internal static class Program
             Check(System.Windows.Clipboard.GetData("PNG") is MemoryStream copied && copied.ToArray().SequenceEqual(plainCapture) && System.Windows.Clipboard.ContainsImage(), "실제 클립보드에 PNG와 비트맵이 들어감");
         }
         manager.AnnotateCapture = true;
+        var beforeCopy = await imageEditor.ExecuteScriptAsync("window.hunminEditor.getDraft().markdown");
+        await manager.FinishCaptureAsync(pdfWindow, plainCapture);
+        var copier = application.Windows.OfType<CaptureAnnotationWindow>().Single();
+        copier.AddAnnotation(new Annotation(AnnotationTool.Rectangle, 20, 20, 80, 60, CaptureAnnotations.Red));
+        copier.CopyToClipboard();
+        Check(!application.Windows.OfType<CaptureAnnotationWindow>().Any(), "클립보드에 넣으면 주석 창 닫힘");
+        Check(clipboardCopies.Count == 3 && !clipboardCopies[2].SequenceEqual(plainCapture), "클립보드에 넣기는 주석을 넣은 그림을 복사");
+        await Task.Delay(300);
+        Check(await imageEditor.ExecuteScriptAsync("window.hunminEditor.getDraft().markdown") == beforeCopy, "클립보드에 넣기는 메모를 바꾸지 않음");
         // 가져오기와 이미지 정리: 파일 대화상자, 확인 창, Windows 휴지통 없이 분리한 데이터 폴더에서만 확인합니다.
         var importFile = Path.Combine(root, "가져올 메모.md");
         File.WriteAllText(importFile, "# 가져온 본문");

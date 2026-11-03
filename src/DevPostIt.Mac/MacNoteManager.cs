@@ -297,7 +297,7 @@ internal sealed class MacNoteManager(NoteWorkspace workspace, AppSettingsStore s
     {
         if (exiting) return Task.CompletedTask;
         if (!store.Current.AnnotateCapture) return InsertCaptureAsync(target, png);
-        var window = new MacCaptureAnnotationWindow(png, density, result => _ = RunAsync(() => InsertCaptureAsync(target, result)));
+        var window = new MacCaptureAnnotationWindow(png, density, result => _ = RunAsync(() => InsertCaptureAsync(target, result)), result => MacClipboard.WritePng(CaptureClipboard, result));
         annotators.Add(window);
         window.WindowClosed += () => annotators.Remove(window);
         window.BringToFront();

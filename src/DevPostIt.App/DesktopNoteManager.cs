@@ -176,7 +176,7 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
     {
         if (exiting) return Task.CompletedTask;
         if (!AnnotateCapture) return InsertCaptureAsync(target, png);
-        var window = new CaptureAnnotationWindow(png, result => _ = RunAsync(() => InsertCaptureAsync(target, result)));
+        var window = new CaptureAnnotationWindow(png, result => _ = RunAsync(() => InsertCaptureAsync(target, result)), result => CaptureClipboard(result));
         annotators.Add(window);
         window.Closed += (_, _) => annotators.Remove(window);
         window.Show();

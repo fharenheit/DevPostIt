@@ -102,12 +102,14 @@ internal static class CaptureImage
 // 캡처한 그림에 주석을 달고 메모에 넣기 전에 확인하는 창입니다. 닫으면 그림을 버립니다.
 internal sealed class MacCaptureAnnotationWindow : NSWindow
 {
-    private const double ToolbarHeight = 44, Margin = 12, MinDrag = 3;
+    private const double ToolbarHeight = 44, Margin = 12, MinDrag = 3, MinWidth = 880;
     private const int MaxTextLength = 200;
     private static readonly (string Name, AnnotationTool Tool)[] Tools = [("화살표", AnnotationTool.Arrow), ("사각형", AnnotationTool.Rectangle), ("글자", AnnotationTool.Text), ("모자이크", AnnotationTool.Mosaic)];
     private static readonly (string Name, uint Color)[] Colors = [("빨강", CaptureAnnotations.Red), ("파랑", CaptureAnnotations.Blue), ("검정", CaptureAnnotations.Black), ("노랑", CaptureAnnotations.Yellow)];
     private readonly byte[] original;
     private readonly Action<byte[]> finished;
+    private readonly Action<byte[]>? copied;
+    private NSStackView? toolbar;
     private readonly double density;
     private readonly int imageWidth, imageHeight;
     private readonly byte[] pixels;
@@ -121,20 +123,21 @@ internal sealed class MacCaptureAnnotationWindow : NSWindow
 
     public event Action? WindowClosed;
     internal int AnnotationCount => annotations.Count;
+    internal nfloat ToolbarWidth => toolbar!.FittingSize.Width + 2 * (nfloat)Margin;
 
-    public MacCaptureAnnotationWindow(byte[] png, double density, Action<byte[]> finished)
+    public MacCaptureAnnotationWindow(byte[] png, double density, Action<byte[]> finished, Action<byte[]>? copied = null)
         : base(new CGRect(0, 0, 640, 360), NSWindowStyle.Titled | NSWindowStyle.Closable | NSWindowStyle.Resizable, NSBackingStore.Buffered, false)
     {
-        original = png; this.finished = finished; this.density = density;
+        original = png; this.finished = finished; this.copied = copied; this.density = density;
         (imageWidth, imageHeight, pixels) = CaptureImage.Read(png);
         ReleaseWhenClosed(false);
         Title = "캡처 주석";
         Level = NSWindowLevel.Floating;
         BackgroundColor = NSColor.FromRgb(255, 253, 245);
-        MinSize = new CGSize(760, 300);
+        MinSize = new CGSize(MinWidth, 300);
         var area = NSScreen.MainScreen?.VisibleFrame.Size ?? new CGSize(1200, 800);
         SetContentSize(new CGSize(
-            Math.Clamp(imageWidth / density + 2 * Margin, 760, Math.Max(760, area.Width * .9)),
+            Math.Clamp(imageWidth / density + 2 * Margin, MinWidth, Math.Max(MinWidth, area.Width * .9)),
             Math.Clamp(imageHeight / density + ToolbarHeight + 2 * Margin, 360, Math.Max(360, area.Height * .9))));
         canvas = new Canvas(this);
         var content = ContentView!;
@@ -165,6 +168,7 @@ internal sealed class MacCaptureAnnotationWindow : NSWindow
             tools, colors,
             NSButton.CreateButton("실행 취소", Undo),
             NSButton.CreateButton("그대로 넣기", InsertOriginal),
+            NSButton.CreateButton("클립보드에 넣기", CopyToClipboard),
             NSButton.CreateButton("취소", Close),
             NSButton.CreateButton("메모에 넣기", Finish),
         ]);
@@ -172,6 +176,7 @@ internal sealed class MacCaptureAnnotationWindow : NSWindow
         bar.Spacing = 8;
         bar.Frame = new CGRect(Margin, bounds.Height - ToolbarHeight, bounds.Width - 2 * Margin, ToolbarHeight);
         bar.AutoresizingMask = NSViewResizingMask.WidthSizable | NSViewResizingMask.MinYMargin;
+        toolbar = bar;
         return bar;
     }
 
@@ -192,6 +197,14 @@ internal sealed class MacCaptureAnnotationWindow : NSWindow
     {
         CommitText();
         finished(annotations.Count == 0 ? original : CaptureImage.Render(original, annotations, density));
+        Close();
+    }
+
+    // 메모에 넣지 않고 파일도 만들지 않습니다.
+    internal void CopyToClipboard()
+    {
+        CommitText();
+        copied?.Invoke(annotations.Count == 0 ? original : CaptureImage.Render(original, annotations, density));
         Close();
     }
 

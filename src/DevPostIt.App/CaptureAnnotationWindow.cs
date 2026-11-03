@@ -27,6 +27,7 @@ public sealed class CaptureAnnotationWindow : Window
     private static readonly FontFamily TextFont = new("Segoe UI, Malgun Gothic");
     private readonly byte[] original;
     private readonly Action<byte[]> finished;
+    private readonly Action<byte[]>? copied;
     private readonly int imageWidth, imageHeight;
     private readonly byte[] pixels;
     private readonly List<Annotation> annotations = [];
@@ -39,9 +40,9 @@ public sealed class CaptureAnnotationWindow : Window
 
     internal int AnnotationCount => annotations.Count;
 
-    public CaptureAnnotationWindow(byte[] png, Action<byte[]> finished)
+    public CaptureAnnotationWindow(byte[] png, Action<byte[]> finished, Action<byte[]>? copied = null)
     {
-        original = png; this.finished = finished;
+        original = png; this.finished = finished; this.copied = copied;
         (imageWidth, imageHeight, pixels) = Read(png);
         Title = "캡처 주석";
         Icon = NoteIcon.WindowImage;
@@ -90,6 +91,7 @@ public sealed class CaptureAnnotationWindow : Window
         }
         bar.Children.Add(Action("실행 취소", Undo, new Thickness(8, 0, 12, 0)));
         bar.Children.Add(Action("그대로 넣기", InsertOriginal, new Thickness(0, 0, 4, 0)));
+        bar.Children.Add(Action("클립보드에 넣기", CopyToClipboard, new Thickness(0, 0, 4, 0)));
         bar.Children.Add(Action("취소", Close, new Thickness(0, 0, 4, 0)));
         bar.Children.Add(Action("메모에 넣기", Finish, new Thickness(0)));
         return bar;
@@ -117,6 +119,13 @@ public sealed class CaptureAnnotationWindow : Window
     {
         CommitText();
         finished(annotations.Count == 0 ? original : Render(original, annotations));
+        Close();
+    }
+    // 메모에 넣지 않고 파일도 만들지 않습니다.
+    internal void CopyToClipboard()
+    {
+        CommitText();
+        copied?.Invoke(annotations.Count == 0 ? original : Render(original, annotations));
         Close();
     }
     internal void InsertOriginal()
