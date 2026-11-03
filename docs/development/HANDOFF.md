@@ -80,7 +80,8 @@ Java WASM과 파서는 앱에 포함합니다. Monaco 청크 크기와 Java 런�
 - 실제 앱 호스트에서의 한글 IME는 아직 시험하지 않았습니다. 0단계 통과는 시험 도구의 WKWebView 결과입니다.
 - 할 일 알림과 백업 복원의 전체 흐름은 시험하지 않습니다.
 - 복구 경로는 `NoteSession`으로 그대로 옮겼으며 새 자동 시험이 없습니다.
-- CI는 `DevPostIt.Mac`과 `MacSmoke`를 빌드하지 않으므로 CI는 이 앱을 시험하지 않습니다. 러너의 Xcode가 워크로드와 맞는지 확인하지 않았습니다.
+- CI의 `macos-app` 작업은 Release 앱을 빌드해 압축 파일로 올리기만 하고 `MacSmoke`는 실행하지 않습니다. 이 작업은 아직 GitHub에서 실행해 보지 않았고, 같은 명령을 깨끗한 복제본과 새 SDK로 로컬에서만 확인했습니다.
+- `MacSmoke`가 한 번 `⌃클릭은 메뉴만 표시 (메뉴 3번)`로 실패했습니다(워크로드 27.0, Debug). 같은 조건의 재실행 3번과 워크로드 26.5의 Debug·Release 각 3번은 통과했습니다. 원인을 모르며, 시험 중 실제 메뉴 막대 아이콘을 누른 것인지도 확인하지 못했습니다.
 
 ### 다음에 할 일
 
@@ -90,8 +91,8 @@ Java WASM과 파서는 앱에 포함합니다. Monaco 청크 크기와 Java 런�
 
 ### 이 Mac의 준비 상태
 
-- Xcode 27.2의 라이선스 동의와 첫 실행 설정이 끝났습니다.
-- `.tools`의 SDK에 `macos` 워크로드 27.0.10742를 설치했습니다. 이 버전은 Xcode 27.1을 요구합니다. 사용자 결정(2026-11-03)에 따라 `DevPostIt.Mac`에 `ValidateXcodeVersion=false`를 넣어 Xcode 27.2로 빌드합니다. 지원되는 조합이 아니므로 맞는 워크로드가 나오면 지웁니다. CI는 아직 이 프로젝트를 빌드하지 않습니다.
+- 빌드 조합은 Xcode 26.6과 `macos` 워크로드 26.5.10318입니다. 워크로드 버전은 저장소 루트의 `macos-workload.json`에 고정했습니다. 설치: `dotnet workload install macos --from-rollback-file macos-workload.json`. 이미 다른 버전이 있으면 `dotnet workload config --update-mode manifests` 후 `dotnet workload update --from-rollback-file macos-workload.json`을 쓰고, 이전 워크로드로 만든 `bin`과 `obj`를 지웁니다. 남겨 두면 빌드는 되지만 실행할 때 `__Internal` 오류로 중단됩니다.
+- 이렇게 고정한 이유(2026-11-03): 워크로드 27.0.10742는 macOS 27.0 SDK(Xcode 27.1)를 요구합니다. Xcode 27.1은 macOS 26.6 이상이 필요하고, GitHub의 `macos-26` 이미지에는 Xcode가 26.6까지만 있습니다. Xcode 26.6에서 27.0 워크로드는 Debug만 빌드되고 Release는 `MT0179`로 실패합니다. 예전 Mac의 Xcode 27.2와 워크로드 26.5 조합은 시험하지 않았습니다.
 - macOS 앱 빌드·실행: `dotnet build src/DevPostIt.Mac` 후 `open src/DevPostIt.Mac/bin/Debug/net10.0-macos/osx-arm64/DevPostIt.app`
 - 기본 실행은 실제 데이터 폴더 `~/Library/Application Support/DevPostIt/Data`를 씁니다. 빌드는 `EDITOR_TARGET=macos` 웹 빌드(`editor-web/dist-macos`)를 번들에 넣습니다.
 - `.tools`(Git 제외)에 .NET, Node, Playwright가 있습니다. `DevPostIt.sln`의 WPF 프로젝트는 macOS에서 빌드되지 않으므로 `DevPostIt.Mac.slnf`를 씁니다.
