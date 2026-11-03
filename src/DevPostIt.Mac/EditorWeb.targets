@@ -1,4 +1,6 @@
 <Project>
+  <!-- scripts/macos-signing/create-certificate.sh가 만듭니다. 없으면 임시 서명으로 빌드합니다. -->
+  <Import Project="$(MSBuildThisFileDirectory)../../.tools/macos-signing.props" Condition="Exists('$(MSBuildThisFileDirectory)../../.tools/macos-signing.props')" />
   <!-- macOS용 웹 파일을 빌드해 번들의 Resources/editor-web에 넣습니다. -->
   <PropertyGroup>
     <EditorWebRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../editor-web'))</EditorWebRoot>

@@ -179,7 +179,7 @@ dotnet publish src/DevPostIt.App -c Release -r win-x64 --self-contained true -p:
 
 버전은 `src/DevPostIt.App/DevPostIt.App.csproj`의 `Version`에 있습니다.
 
-macOS(Apple Silicon)는 Xcode 26.6에서 고정된 워크로드로 빌드합니다. 임시 서명만 있고 공증하지 않았습니다.
+macOS(Apple Silicon)는 Xcode 26.6에서 고정된 워크로드로 빌드합니다. 개발 중에는 `scripts/macos-signing/create-certificate.sh`로 이 Mac 전용 인증서를 만들면 빌드가 바뀌어도 권한이 유지됩니다. 없으면 임시 서명으로 빌드합니다. 공증하지 않았고 배포용 서명이 아닙니다.
 
 ```zsh
 dotnet workload install macos --from-rollback-file macos-workload.json
