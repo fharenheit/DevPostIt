@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\DevPostIt.Desktop\DevPostIt.Desktop.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-macos</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <RuntimeIdentifier>osx-arm64</RuntimeIdentifier>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <SupportedOSPlatformVersion>14.0</SupportedOSPlatformVersion>
+    <ApplicationId>io.github.fharenheit.devpostit</ApplicationId>
+    <ApplicationTitle>DevPostIt</ApplicationTitle>
+    <ApplicationDisplayVersion>0.6.3</ApplicationDisplayVersion>
+    <ApplicationVersion>0.6.3</ApplicationVersion>
+    <!-- 워크로드 27.0.10742는 Xcode 27.1을 요구합니다. 맞는 워크로드가 나오면 이 설정을 지웁니다. -->
+    <ValidateXcodeVersion>false</ValidateXcodeVersion>
+  </PropertyGroup>
+
+</Project>

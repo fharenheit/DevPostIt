@@ -5,6 +5,7 @@
       "src/DevPostIt.Core/DevPostIt.Core.csproj",
       "src/DevPostIt.Storage/DevPostIt.Storage.csproj",
       "src/DevPostIt.EditorHost/DevPostIt.EditorHost.csproj",
+      "src/DevPostIt.Desktop/DevPostIt.Desktop.csproj",
       "tests/DevPostIt.Core.Tests/DevPostIt.Core.Tests.csproj",
       "tests/DevPostIt.Storage.Tests/DevPostIt.Storage.Tests.csproj",
       "tests/DevPostIt.App.Tests/DevPostIt.App.Tests.csproj",

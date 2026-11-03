@@ -102,6 +102,9 @@
       "devpostit.core": {
         "type": "Project"
       },
+      "devpostit.desktop": {
+        "type": "Project"
+      },
       "devpostit.editorhost": {
         "type": "Project",
         "dependencies": {
