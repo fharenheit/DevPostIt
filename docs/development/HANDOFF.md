@@ -34,7 +34,7 @@ Java WASM과 파서는 앱에 포함합니다. Monaco 청크 크기와 Java 런�
 | --- | --- |
 | 0. 관문 | 실제 한글 IME 시험 통과(2026-11-03, 두벌식). GitHub Actions는 첫 두 실행에서 Windows의 제작 빌드 웹 시험이 `dist` 없음으로 실패했고, 고친 워크플로를 확인 중입니다. Xcode와 `macos` 워크로드 조합이 맞지 않습니다 |
 | 1. 이식성 | macOS 통과. Windows는 CI의 `dotnet test DevPostIt.sln`까지 통과했습니다. 끝나는 조건인 양쪽 CI 통과는 아직입니다 |
-| 2. 공유 분리 | 코드 완료. `NoteSession`과 포트(`DevPostIt.Desktop`)로 WPF `MainWindow`를 옮겼습니다. Windows CI의 DesktopSmoke가 불안정합니다(아래 ‘CI의 DesktopSmoke’). 이 Mac에서는 WPF를 컴파일까지만 확인했습니다 |
+| 2. 공유 분리 | 코드 완료. `NoteSession`과 포트(`DevPostIt.Desktop`)로 WPF `MainWindow`를 옮겼습니다. Windows CI의 DesktopSmoke가 불안정합니다(아래 ‘CI 실패 원인’). 이 Mac에서는 WPF를 컴파일까지만 확인했습니다 |
 | 3. 메모 MVP | MacSmoke 통과(Debug, Release). 실제 마우스·IME·메뉴 막대 클릭은 사용자 확인이 필요합니다 |
 | 4. 보조 창 | 구현 완료. 끝나는 조건인 Playwright WebKit은 이 Mac에서 통과했습니다(결과는 아래). CI에 WebKit 시험을 넣었으나 CI 결과는 아직 없습니다 |
 | 5. 이미지·캡처 | 구현 완료. 끝나는 조건인 **수동 시험표는 아직 하지 않았습니다**(‘수동 시험이 남은 항목’) |
@@ -63,12 +63,11 @@ Java WASM과 파서는 앱에 포함합니다. Monaco 청크 크기와 Java 런�
 
 이미지를 누르는 시험(`preview-tools` 4개)은 Playwright WebKit에서 가로챈 이미지가 표시되지 않아 건너뛰고, 같은 동작을 MacSmoke `CheckPreviewImagesAsync`가 실제 WKWebView로 확인합니다. 건너뛰기를 늘릴 때는 대신 무엇이 확인하는지 실제로 맞춰 보세요. 이 작업에서 `src` 속성만 보는 시험을 잘못 건너뛰었다가 macOS에서 메모 이미지가 표시되지 않는 결함을 놓칠 뻔했습니다. 원인은 DOMPurify가 `devpostit-assets:` 스킴을 지운 것과 자원 검사가 draw.io 그림의 `?v=`를 거부한 것이었습니다. `ALLOWED_URI_REGEXP`는 `data-line` 같은 일반 속성 값에도 적용되므로 좁히면 속성까지 사라집니다.
 
-### CI의 DesktopSmoke
+### CI 실패 원인 (2026-11-03, `9672e35`)
 
-같은 오류(`편집기 준비 시간 초과`, 30초 대기)가 두 곳에서 났습니다. Windows가 없어 재현하지 못했습니다.
-
-- `7fea35c`, `Program.cs`의 설정 창 글자 크기 확인: 시험이 `#larger` 단추가 보이자마자 눌렀는데, 모듈 스크립트는 문서 해석 뒤에 실행되므로 클릭 처리기가 아직 없었을 수 있습니다. 유력한 원인이지만 증명하지 못했습니다. `document.readyState`가 `complete`일 때까지 기다리도록 시험을 고쳤고 CI에서 확인해야 합니다.
-- `7d53122` 첫 시도, 첫 창의 `ReadyAsync`(초기화 중 삭제 취소 직후): 재실행은 통과했습니다. **원인을 모르며 위 수정으로 해결되지 않습니다.** 앱의 경합일 가능성도 배제하지 못했으므로 다시 나면 조사합니다.
+- **macOS의 웹 시험 `size.spec.ts`:** 앱 결함이 아니라 시험 문제입니다. 미리보기 상태에서 숨겨진 Monaco의 옵션과 인라인 스타일은 바로 14px로 바뀌지만, 변경 전에 같은 요소를 읽어 둔 WebKit의 `getComputedStyle`은 8초 뒤에도 13px을 돌려줍니다. 시험이 그 요소를 변경 직전에 읽게 하면 CI와 같은 실패(`Expected 1.0769`, `Received 1`)가 항상 납니다. CI에서 왜 그 조건이 되는지는 확인하지 못했습니다. 이제 원문 모드로 돌아와 보이는 상태로 확인합니다. WebKit에서는 숨겨진 편집기의 계산된 스타일을 시험에 쓰지 마세요.
+- **Windows의 DesktopSmoke (`Program.cs`의 `#larger` 다음 대기):** 코드로 찾은 원인이며 Windows에서 재현하지 못했습니다. `EnsureCoreWebView2Async` 뒤 이동 전의 `about:blank`도 `readyState`가 `complete`이고, 이때 `#larger`가 없으면 `click` 오류가 조용히 사라져 30초 뒤 시간 초과가 납니다. 이전의 `readyState` 대기(`8f249db`)가 들어간 실행에서도 실패한 이유입니다. 단추까지 기다리도록 고쳤고 CI에서 확인해야 합니다.
+- **`7d53122` 첫 시도의 `ReadyAsync` 시간 초과(초기화 중 삭제 취소 직후):** 재실행은 통과했습니다. **원인을 모르며 위 수정으로 해결되지 않습니다.** 앱의 경합일 가능성도 배제하지 못했으므로 다시 나면 조사합니다.
 
 ### 메뉴 막대 오른쪽 클릭 (2026-11-03)
 
