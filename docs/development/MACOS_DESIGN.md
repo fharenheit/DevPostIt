@@ -93,7 +93,7 @@ WebView2의 가상 호스트와 요청 필터에 해당하는 기능을 아래�
 - 🔴 **실제 한글 IME + Monaco** (11절 관문). Safari 계열은 조합 이벤트 순서가 Chromium과 다르고 현재 코드와 시험은 Chromium 기준입니다.
 - `navigator.clipboard.writeText`의 실제 복사, 실제 Excel 붙여넣기
 - 실제 제작 번들(Mermaid, 정리 도구 WASM, Java 파서) 동작과 성능
-- AppKit 호스트 빌드: `macos` 워크로드는 전체 Xcode를 요구하는데 이 Mac에는 Command Line Tools만 있습니다.
+- AppKit 호스트 빌드: `macos` 워크로드 27.0.10742는 Xcode 27.1을 요구하는데 이 Mac에는 27.2가 있습니다. 진행 상황은 HANDOFF.md에 있습니다.
 
 ## 6. 공유 코드의 이식성 수정
 

@@ -32,7 +32,7 @@ Java WASM과 파서는 앱에 포함합니다. Monaco 청크 크기와 Java 런�
 
 | 단계 | 상태 |
 | --- | --- |
-| 0. 관문 | **진행 중.** 실제 한글 IME 시험 결과를 사용자에게서 아직 받지 못했습니다. GitHub Actions도 없습니다 |
+| 0. 관문 | **진행 중.** 실제 한글 IME 시험 결과를 사용자에게서 아직 받지 못했습니다. GitHub Actions는 `.github/workflows/ci.yml`에 작성했지만 아직 푸시·실행하지 않았습니다. Xcode와 `macos` 워크로드 조합이 맞지 않습니다 |
 | 1. 이식성 | macOS에서는 통과. Windows에서는 아직 실행하지 않았습니다 |
 | 2~6 | 시작 전. **IME 관문을 통과해야 2단계로 넘어갑니다.** 실패하면 CEF 안을 다시 검토합니다 |
 
@@ -40,12 +40,13 @@ Java WASM과 파서는 앱에 포함합니다. Monaco 청크 크기와 Java 런�
 
 1. 사용자에게 IME 결과를 묻습니다. 시험 항목은 메모의 조합 중 Enter, 방향키·Backspace, ⌘Z/⌘⇧Z, 제목 이름 변경, 마인드맵 바로 입력, 할 일 Enter입니다. 기록 파일이 있다는 것만으로 통과로 판단하지 않습니다.
 2. Windows에서 `dotnet test DevPostIt.sln`을 실행합니다. `DevPostIt.Storage`의 `StoragePathGuard`, `NoteFileName`, `SqliteNoteIndex`, `MarkdownNoteRepository`, `NoteBackup`이 바뀌어 Windows 동작에도 영향이 있을 수 있습니다.
-3. GitHub Actions(windows, macos)를 작성합니다.
+3. `feature/macos`를 푸시해 GitHub Actions(windows, macos)를 처음 실행합니다. macOS 작업은 .NET 시험과 웹 빌드만 하며, 웹 시험은 실패를 분류하는 4단계에서 추가합니다. Windows 러너에서 DesktopSmoke가 동작하는지는 확인하지 못했습니다.
 4. 관문을 통과하면 2단계 `DevPostIt.Desktop` 분리를 시작합니다. WPF 변경은 Windows에서 시험한 뒤 병합합니다.
 
 ### 이 Mac의 준비 상태
 
-- Xcode를 설치했지만 라이선스에 동의하지 않아 `git` 등이 거부됩니다. 사용자가 터미널에서 `sudo xcodebuild -license`를 실행해야 합니다. 3단계의 `macos` 워크로드에 필요합니다. 동의 전에는 명령 앞에 `DEVELOPER_DIR=/Library/Developer/CommandLineTools`를 붙이면 Command Line Tools의 `git`을 쓸 수 있습니다.
+- Xcode 27.2의 라이선스 동의는 끝났지만 첫 실행 설정은 끝나지 않았습니다(`xcodebuild -checkFirstLaunchStatus`가 69 반환, `actool`이 ‘A required plugin failed to load’로 실패). 사용자가 터미널에서 `sudo xcodebuild -runFirstLaunch`를 실행해야 합니다.
+- `.tools`의 SDK에 `macos` 워크로드 27.0.10742를 설치했습니다. 이 버전은 Xcode 27.1을 요구해 27.2에서는 빌드가 오류로 멈춥니다(2026-11-03 임시 프로젝트로 확인). `-p:ValidateXcodeVersion=false`로 검사를 끄고도 첫 실행 설정 때문에 빌드를 끝내지 못해, 27.2에서 실제로 빌드되는지는 아직 모릅니다. 3단계 전에 Xcode 27.1 또는 맞는 워크로드 조합을 정해야 합니다.
 - `.tools`(Git 제외)에 .NET, Node, Playwright가 있습니다. `DevPostIt.sln`의 WPF 프로젝트는 macOS에서 빌드되지 않으므로 `DevPostIt.Mac.slnf`를 씁니다.
 
 ```zsh
