@@ -47,15 +47,17 @@ Java WASM과 파서는 앱에 포함합니다. Monaco 청크 크기와 Java 런�
 - 메모 창: WKWebView(`devpostit://`, `devpostit-assets://`), 자동 저장, 24×24 접기와 복원, X의 휴지통 확인, 휴지통 복원과 영구 삭제, 색상과 항상 위, 세션 복원, ⌘Q 저장, PDF, 클립보드 이미지, draw.io.
 - 보조 창: 설정, 검색, 도움말, 정보, 포맷터, 마인드맵, 할 일, 달력. `MacWebWindow.cs`, `MacToolWindows.cs`, `MacInfoWindows.cs`에 있습니다.
 - 그 밖: 알림(`MacNotifications.cs`), 할 일 알림, 공휴일 받기, 백업과 복원, Markdown 가져오기, 쓰지 않는 이미지 정리.
-- 캡처: 메모에 넣는 최종 그림을 클립보드에도 복사합니다(Windows도 같음, 사용자 요청 2026-11-03). `MacCaptureSession.cs`(화면마다 투명 패널, 전역 후크 없음), `MacScreenCapture.cs`(ScreenCaptureKit, 창·요소 찾기, ⌃⇧⌘C), `MacCaptureAnnotationWindow.cs`(주석).
-- 없는 것: 자동 업데이트(설정에서 숨김), 서명·공증·설치 패키지.
+- 캡처: 메모에 넣는 최종 그림을 클립보드에도 복사합니다(Windows도 같음, 사용자 요청 2026-11-03). 주석 창에서 상하좌우 테두리를 끌어 자릅니다(Windows도 같음, 사용자 요청 2026-11-03). 모자이크와 주석은 원본 좌표로 그린 뒤 자르고, ‘그대로 넣기’는 자르지 않은 원본을 넣습니다. 그림보다 큰 빈 곳을 눌러도 테두리가 잡히지 않도록 그림 안으로 당기기 전의 좌표로 찾습니다. `MacCaptureSession.cs`(화면마다 투명 패널, 전역 후크 없음), `MacScreenCapture.cs`(ScreenCaptureKit, 창·요소 찾기, ⌃⇧⌘C), `MacCaptureAnnotationWindow.cs`(주석).
+- 앱 아이콘: `src/DevPostIt.Mac/Resources/AppIcon.icns`, `Info.plist`의 `CFBundleIconFile`. 다시 만들려면 `scripts/macos-icon/make-icon.swift`로 `.iconset`을 만들고 `iconutil -c icns`로 변환합니다. `Info.plist`만 고치면 증분 빌드가 번들의 목록을 갱신하지 않은 적이 있어(2026-11-03) `bin`과 `obj`의 해당 구성을 지우고 빌드했습니다.
+- 없는 것: 자동 업데이트(설정에서 숨김), 공증, 설치 패키지.
 
 ### 수동 시험이 남은 항목
 
 자동 시험으로 확인하지 못했습니다. 5단계의 끝나는 조건이며, 절차는 [MACOS_MANUAL_TEST.md](MACOS_MANUAL_TEST.md)에 있습니다.
 
 - 캡처: 실제 드래그, 손쉬운 사용 권한을 허용한 뒤의 요소 단위 선택(앱에 직접 묻도록 고쳤으나 권한이 있는 환경에서 실행하지 못했고, 휠로 상위 요소 고르기 포함), 화면 기록과 손쉬운 사용 권한 안내, ⌃⇧⌘C, Esc·오른쪽 클릭·60초 종료, 여러 모니터. 임시 서명이라 빌드마다 화면 기록 권한이 초기화될 수 있습니다.
-- 주석 창: 실제 마우스 그리기와 글자 입력(한글 포함).
+- 주석 창: 실제 마우스 그리기와 글자 입력(한글 포함), 테두리를 실제로 끌어 자르기와 커서 모양. MacSmoke는 이벤트 객체를 캔버스에 직접 넘겨 확인합니다. Windows는 시험 코드가 `DragCrop`을 직접 부르므로 마우스 처리와 표시가 자동으로 확인되지 않습니다.
+- 앱 아이콘의 Dock·Finder 실제 표시. 이전에 실행한 번들이면 시스템의 아이콘 캐시 때문에 늦게 바뀔 수 있습니다.
 - 실제 앱 호스트에서의 한글 IME, 마인드맵·할 일·달력의 실제 조작.
 - 알림 표시와 클릭, 할 일 알림의 전체 흐름, 백업 복원 후 재시작, 실제 휴지통 이동, 파일 선택 창, 인쇄·PDF 저장 창.
 - draw.io 실제 연동. MacSmoke는 그림 표시, 메뉴의 편집 단추, 돌아왔을 때 다시 읽기까지만 확인하고 편집 단추를 누르지 않습니다.
@@ -90,7 +92,7 @@ Java WASM과 파서는 앱에 포함합니다. Monaco 청크 크기와 Java 런�
 
 ### 다음에 할 일
 
-1. CI의 Windows 작업에서 `dotnet test`, 웹 시험, DesktopSmoke를 다시 확인합니다. macOS 작업의 WebKit 시험도 처음 확인합니다.
+1. CI를 다시 확인합니다. `3a39329`(실행 `41620305694`)에서 세 작업이 모두 통과해 Windows의 DesktopSmoke와 macOS의 WebKit 시험을 처음 확인했습니다. 한 번의 통과이므로 위의 간헐 실패가 사라졌다는 뜻은 아닙니다. 그 뒤의 자르기(Windows 포함)와 아이콘은 CI에서 아직 확인하지 않았습니다.
 2. 위 ‘수동 시험이 남은 항목’을 사용자가 확인합니다. 시험용 메모를 쓰려면 `DEVPOSTIT_DATA_DIR`를 지정해 실행 파일을 직접 실행합니다.
 3. `main` 병합 전에 Windows에서 WPF를 직접 시험합니다.
 

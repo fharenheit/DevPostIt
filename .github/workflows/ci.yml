@@ -99,6 +99,11 @@ jobs:
       - run: dotnet workload install macos --from-rollback-file macos-workload.json
       - run: dotnet restore src/DevPostIt.Mac --locked-mode
       - run: dotnet build src/DevPostIt.Mac -c Release --no-restore
+      - name: Check the app icon
+        run: |
+          app=src/DevPostIt.Mac/bin/Release/net10.0-macos/osx-arm64/DevPostIt.app
+          test "$(plutil -extract CFBundleIconFile raw "$app/Contents/Info.plist")" = AppIcon
+          test -f "$app/Contents/Resources/AppIcon.icns"
       - name: Package
         run: ditto -c -k --keepParent src/DevPostIt.Mac/bin/Release/net10.0-macos/osx-arm64/DevPostIt.app DevPostIt-macos-arm64.zip
       - uses: actions/upload-artifact@v4
