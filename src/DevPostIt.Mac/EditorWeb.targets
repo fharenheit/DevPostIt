@@ -1,0 +1,18 @@
+<Project>
+  <!-- macOS용 웹 파일을 빌드해 번들의 Resources/editor-web에 넣습니다. -->
+  <PropertyGroup>
+    <EditorWebRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../editor-web'))</EditorWebRoot>
+    <EditorNode>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../.tools/node/node-v24.22.1-darwin-arm64/bin'))</EditorNode>
+  </PropertyGroup>
+  <PropertyGroup>
+    <CollectBundleResourcesDependsOn>$(CollectBundleResourcesDependsOn);BuildEditorWebForMac</CollectBundleResourcesDependsOn>
+  </PropertyGroup>
+  <Target Name="BuildEditorWebForMac" Condition="'$(DesignTimeBuild)' != 'true'">
+    <Exec WorkingDirectory="$(EditorWebRoot)" Command="npm ci" EnvironmentVariables="PATH=$(EditorNode):$(PATH)" Condition="!Exists('$(EditorWebRoot)/node_modules/.package-lock.json')" />
+    <Exec WorkingDirectory="$(EditorWebRoot)" Command="npm run build" EnvironmentVariables="PATH=$(EditorNode):$(PATH);EDITOR_TARGET=macos" />
+    <ItemGroup>
+      <_EditorWebAsset Include="$(EditorWebRoot)/dist-macos/**/*" />
+      <BundleResource Include="@(_EditorWebAsset)" Link="Resources/editor-web/%(RecursiveDir)%(Filename)%(Extension)" />
+    </ItemGroup>
+  </Target>
+</Project>

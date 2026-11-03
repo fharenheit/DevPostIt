@@ -1,37 +1,106 @@
 using CoreGraphics;
 using DevPostIt.Desktop;
+using DevPostIt.Storage;
 
 namespace DevPostIt.Mac;
 
-// Windows의 트레이에 해당하는 메뉴 막대 아이콘입니다.
+// Windows의 트레이에 해당하는 메뉴 막대 아이콘입니다. 왼쪽 클릭은 새 메모, 오른쪽이나 ⌃클릭은 메뉴입니다.
 internal sealed class StatusBarMenu
 {
-    // 아직 구현하지 않은 항목은 비활성으로 표시합니다. 새 메모를 연결하면 왼쪽 클릭을 새 메모로 바꿉니다.
-    private static readonly IReadOnlySet<TrayCommand> Available = new HashSet<TrayCommand> { TrayCommand.Exit };
-    private readonly NSStatusItem item = NSStatusBar.SystemStatusBar.CreateStatusItem(NSStatusItemLength.Square);
-
-    public StatusBarMenu()
+    private const int MaxListedNotes = 15;
+    private const int MaxTitleLength = 40;
+    private static readonly IReadOnlySet<TrayCommand> Available = new HashSet<TrayCommand>
     {
-        item.Button.Image = CreateIcon();
-        item.Button.ToolTip = "메모장";
-        item.Menu = CreateMenu();
+        TrayCommand.NewNote, TrayCommand.NoteList, TrayCommand.Trash, TrayCommand.ShowAll, TrayCommand.CollapseAll, TrayCommand.Exit,
+    };
+    private readonly NSStatusItem item = NSStatusBar.SystemStatusBar.CreateStatusItem(NSStatusItemLength.Square);
+    private readonly MacNoteManager manager;
+    private readonly NoteWorkspace workspace;
+
+    public StatusBarMenu(MacNoteManager manager, NoteWorkspace workspace)
+    {
+        this.manager = manager;
+        this.workspace = workspace;
+        var button = item.Button;
+        button.Image = CreateIcon();
+        button.ToolTip = "메모장";
+        // 바인딩의 인수 형식은 NSEventType이지만 Cocoa가 받는 값은 NSEventMask입니다.
+        button.SendActionOn((NSEventType)(ulong)(NSEventMask.LeftMouseUp | NSEventMask.RightMouseUp));
+        button.Activated += (_, _) => Clicked();
     }
 
-    private static NSMenu CreateMenu()
+    private void Clicked()
+    {
+        var current = NSApplication.SharedApplication.CurrentEvent;
+        var showMenu = current?.Type == NSEventType.RightMouseUp || current?.ModifierFlags.HasFlag(NSEventModifierMask.ControlKeyMask) == true;
+        if (!showMenu) { _ = MacNoteManager.RunAsync(manager.CreateAsync); return; }
+        // 메뉴를 붙여 두면 왼쪽 클릭도 메뉴를 열므로 표시할 때만 붙입니다.
+        item.Menu = CreateMenu();
+        item.Button.PerformClick(item.Button);
+        item.Menu = null!;
+    }
+
+    private NSMenu CreateMenu()
     {
         var menu = new NSMenu { AutoEnablesItems = false };
         foreach (var entry in TrayMenu.Build(Available))
         {
             if (entry.IsSeparator) { menu.AddItem(NSMenuItem.SeparatorItem); continue; }
             var menuItem = new NSMenuItem(entry.Title, (_, _) => Run(entry.Command!.Value)) { Enabled = entry.Enabled };
+            if (entry.Command == TrayCommand.NoteList) menuItem.Submenu = CreateNoteList();
+            if (entry.Command == TrayCommand.Trash) menuItem.Submenu = CreateTrash();
             menu.AddItem(menuItem);
         }
         return menu;
     }
 
-    private static void Run(TrayCommand command)
+    private NSMenu CreateNoteList()
     {
-        if (command == TrayCommand.Exit) NSApplication.SharedApplication.Terminate(NSApplication.SharedApplication);
+        var menu = new NSMenu { AutoEnablesItems = false };
+        var all = workspace.Notes;
+        foreach (var note in all.Take(MaxListedNotes)) menu.AddItem(new NSMenuItem(Label(note.Title), (_, _) => manager.ShowNote(note.Id)));
+        if (all.Count > MaxListedNotes) menu.AddItem(new NSMenuItem($"전체 {all.Count}개 중 최근 {MaxListedNotes}개") { Enabled = false });
+        return menu;
+    }
+
+    private NSMenu CreateTrash()
+    {
+        var menu = new NSMenu { AutoEnablesItems = false };
+        var items = workspace.TrashedNotes;
+        if (items.Count == 0) { menu.AddItem(new NSMenuItem("비어 있음") { Enabled = false }); return menu; }
+        foreach (var note in items.Take(MaxListedNotes))
+        {
+            var entry = new NSMenuItem(Label(note.Title));
+            var actions = new NSMenu { AutoEnablesItems = false };
+            actions.AddItem(new NSMenuItem("복원", (_, _) => _ = MacNoteManager.RunAsync(() => manager.RestoreFromTrashAsync(note.Id))));
+            actions.AddItem(new NSMenuItem("영구 삭제", (_, _) =>
+            {
+                if (MacDialogs.Ask($"‘{note.Title}’ 메모를 영구 삭제하시겠습니까?", "되돌릴 수 없습니다.", "아니요", "예") == 1)
+                    _ = MacNoteManager.RunAsync(() => manager.PurgeAsync(note.Id));
+            }));
+            entry.Submenu = actions;
+            menu.AddItem(entry);
+        }
+        menu.AddItem(NSMenuItem.SeparatorItem);
+        menu.AddItem(new NSMenuItem("휴지통 비우기", (_, _) =>
+        {
+            if (MacDialogs.Ask($"휴지통의 메모 {items.Count}개를 영구 삭제하시겠습니까?", "되돌릴 수 없습니다.", "아니요", "예") == 1)
+                _ = MacNoteManager.RunAsync(() => workspace.EmptyTrashAsync(CancellationToken.None));
+        }));
+        return menu;
+    }
+
+    private static string Label(string title) => title.Length <= MaxTitleLength ? title : title[..MaxTitleLength] + "…";
+
+    private void Run(TrayCommand command)
+    {
+        switch (command)
+        {
+            case TrayCommand.NewNote: _ = MacNoteManager.RunAsync(manager.CreateAsync); break;
+            case TrayCommand.ShowAll: manager.ShowAll(); break;
+            case TrayCommand.CollapseAll: manager.CollapseAll(); break;
+            case TrayCommand.Exit: NSApplication.SharedApplication.Terminate(NSApplication.SharedApplication); break;
+        }
     }
 
     // Windows 아이콘과 같은 줄 있는 메모지입니다. 템플릿 이미지라 메뉴 막대의 밝기에 맞춰 색이 바뀝니다.
