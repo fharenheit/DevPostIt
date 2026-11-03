@@ -118,16 +118,22 @@ internal sealed class SmokeDelegate : NSApplicationDelegate
         var status = new StatusBarMenu(manager, workspace) { PresentMenu = _ => opened++ };
         var notes = workspace.Notes.Count;
 
-        status.HandleClick(Click(NSEventType.RightMouseUp));
+        var button = status.ClickView.Superview!;
+        var center = button.Superview is { } parent ? button.ConvertPointToView(new CGPoint(button.Bounds.Width / 2, button.Bounds.Height / 2), parent) : CGPoint.Empty;
+        Check(button.Superview is not null && button.HitTest(center) == status.ClickView, "메뉴 막대 아이콘의 클릭을 ClickView가 받음");
+
+        status.ClickView.RightMouseDown(Click(NSEventType.RightMouseDown));
         await Task.Delay(1000);
         Check(opened == 1 && workspace.Notes.Count == notes, $"오른쪽 클릭은 메뉴만 표시 (메뉴 {opened}번, 새 메모 {workspace.Notes.Count - notes}개)");
 
-        status.HandleClick(Click(NSEventType.LeftMouseUp, NSEventModifierMask.ControlKeyMask));
+        status.ClickView.MouseDown(Click(NSEventType.LeftMouseDown, NSEventModifierMask.ControlKeyMask));
+        status.ClickView.MouseUp(Click(NSEventType.LeftMouseUp, NSEventModifierMask.ControlKeyMask));
         await Task.Delay(1000);
         Check(opened == 2 && workspace.Notes.Count == notes, $"⌃클릭은 메뉴만 표시 (메뉴 {opened}번, 새 메모 {workspace.Notes.Count - notes}개)");
 
         var before = workspace.Notes.Count;
-        status.HandleClick(Click(NSEventType.LeftMouseUp));
+        status.ClickView.MouseDown(Click(NSEventType.LeftMouseDown));
+        status.ClickView.MouseUp(Click(NSEventType.LeftMouseUp));
         await UntilAsync(() => workspace.Notes.Count == before + 1, "왼쪽 클릭의 새 메모");
         Check(opened == 2, "왼쪽 클릭은 메뉴 없이 새 메모");
     }

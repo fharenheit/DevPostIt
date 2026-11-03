@@ -29,18 +29,19 @@ internal sealed class StatusBarMenu
         var button = item.Button;
         button.Image = CreateIcon();
         button.ToolTip = "메모장";
-        // 바인딩의 인수 형식은 NSEventType이지만 Cocoa가 받는 값은 NSEventMask입니다.
-        button.SendActionOn((NSEventType)(ulong)(NSEventMask.LeftMouseUp | NSEventMask.RightMouseUp));
-        button.Activated += (_, _) => HandleClick(NSApplication.SharedApplication.CurrentEvent);
+        // 보조 기능의 누르기는 버튼의 동작으로 옵니다. 마우스는 ClickView가 먼저 받습니다.
+        button.Activated += (_, _) => _ = MacNoteManager.RunAsync(manager.CreateAsync);
+        ClickView = new StatusClickView(HandleClick) { Frame = button.Bounds, AutoresizingMask = NSViewResizingMask.WidthSizable | NSViewResizingMask.HeightSizable };
+        button.AddSubview(ClickView);
     }
+
+    internal NSView ClickView { get; }
 
     internal void HandleClick(NSEvent? current)
     {
-        var showMenu = current?.Type == NSEventType.RightMouseUp || current?.ModifierFlags.HasFlag(NSEventModifierMask.ControlKeyMask) == true;
-        if (!showMenu) { _ = MacNoteManager.RunAsync(manager.CreateAsync); return; }
-        // 클릭 처리가 끝난 뒤에 엽니다. 처리 중에 열면 메뉴 추적이 이 클릭과 겹칩니다.
-        var menu = CreateMenu();
-        item.Button.BeginInvokeOnMainThread(() => PresentMenu(menu));
+        var showMenu = current?.Type is NSEventType.RightMouseDown or NSEventType.RightMouseUp || current?.ModifierFlags.HasFlag(NSEventModifierMask.ControlKeyMask) == true;
+        if (showMenu) PresentMenu(CreateMenu());
+        else _ = MacNoteManager.RunAsync(manager.CreateAsync);
     }
 
     private void OpenBelowButton(NSMenu menu)
@@ -133,5 +134,27 @@ internal sealed class StatusBarMenu
         image.Template = true;
         image.AccessibilityDescription = "메모장";
         return image;
+    }
+}
+
+// 버튼의 동작 대신 마우스 이벤트를 직접 받아 오른쪽 클릭과 왼쪽 클릭을 나눕니다. 메뉴는 누르는 순간 엽니다.
+internal sealed class StatusClickView(Action<NSEvent> clicked) : NSView
+{
+    private bool leftPressed;
+
+    public override bool AcceptsFirstMouse(NSEvent? theEvent) => true;
+
+    public override void RightMouseDown(NSEvent theEvent) => clicked(theEvent);
+
+    public override void MouseDown(NSEvent theEvent)
+    {
+        leftPressed = !theEvent.ModifierFlags.HasFlag(NSEventModifierMask.ControlKeyMask);
+        if (!leftPressed) clicked(theEvent);
+    }
+
+    public override void MouseUp(NSEvent theEvent)
+    {
+        if (leftPressed) clicked(theEvent);
+        leftPressed = false;
     }
 }
