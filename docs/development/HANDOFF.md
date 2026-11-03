@@ -34,15 +34,41 @@ Java WASM과 파서는 앱에 포함합니다. Monaco 청크 크기와 Java 런�
 | --- | --- |
 | 0. 관문 | 실제 한글 IME 시험 통과(2026-11-03, 두벌식). GitHub Actions는 첫 두 실행에서 Windows의 제작 빌드 웹 시험이 `dist` 없음으로 실패했고, 고친 워크플로를 확인 중입니다. Xcode와 `macos` 워크로드 조합이 맞지 않습니다 |
 | 1. 이식성 | macOS 통과. Windows는 CI의 `dotnet test DevPostIt.sln`까지 통과했습니다. 끝나는 조건인 양쪽 CI 통과는 아직입니다 |
-| 2. 공유 분리 | 코드 완료. `NoteSession`과 포트(`DevPostIt.Desktop`)로 WPF `MainWindow`를 옮겼습니다. 끝나는 조건인 Windows CI의 시험과 DesktopSmoke 통과는 **확인 중**입니다. 이 Mac에서는 WPF를 컴파일까지만 확인했습니다 |
+| 2. 공유 분리 | 코드 완료. `NoteSession`과 포트(`DevPostIt.Desktop`)로 WPF `MainWindow`를 옮겼습니다. Windows CI의 DesktopSmoke가 불안정합니다(아래 ‘CI의 DesktopSmoke’). 이 Mac에서는 WPF를 컴파일까지만 확인했습니다 |
 | 3. 메모 MVP | MacSmoke 통과(Debug, Release). 실제 마우스·IME·메뉴 막대 클릭은 사용자 확인이 필요합니다 |
-| 4~6 | 시작 전 |
+| 4. 보조 창 | 구현 완료. 끝나는 조건인 Playwright WebKit은 이 Mac에서 통과했습니다(결과는 아래). CI에 WebKit 시험을 넣었으나 CI 결과는 아직 없습니다 |
+| 5. 이미지·캡처 | 구현 완료. 끝나는 조건인 **수동 시험표는 아직 하지 않았습니다**(‘수동 시험이 남은 항목’) |
+| 6. 배포 | 시작 전. 서명과 공증 결정이 필요합니다 |
 
-### 3단계에서 동작하는 것
+### macOS에 있는 기능
 
-- 메뉴 막대: 왼쪽 클릭은 새 메모, 오른쪽·⌃클릭은 메뉴. 새 메모, 메모 목록, 휴지통, 모두 표시, 모두 접기, 종료가 동작하고 나머지 항목은 비활성입니다.
-- 메모 창: WKWebView(`devpostit://`, `devpostit-assets://`), 자동 저장, 24×24 접기와 복원, X의 휴지통 확인, 휴지통 복원과 영구 삭제, 색상과 항상 위, 세션 복원, ⌘Q 저장.
-- 아직 없는 것(4~5단계): 설정, 검색, 도움말, 정보, PDF, 클립보드 이미지, draw.io, 이미지 정리, 캡처, 마인드맵·할 일·달력 창, 알림.
+- 메뉴 막대: 왼쪽 클릭은 새 메모, 오른쪽·⌃클릭은 메뉴입니다.
+- 메모 창: WKWebView(`devpostit://`, `devpostit-assets://`), 자동 저장, 24×24 접기와 복원, X의 휴지통 확인, 휴지통 복원과 영구 삭제, 색상과 항상 위, 세션 복원, ⌘Q 저장, PDF, 클립보드 이미지, draw.io.
+- 보조 창: 설정, 검색, 도움말, 정보, 포맷터, 마인드맵, 할 일, 달력. `MacWebWindow.cs`, `MacToolWindows.cs`, `MacInfoWindows.cs`에 있습니다.
+- 그 밖: 알림(`MacNotifications.cs`), 할 일 알림, 공휴일 받기, 백업과 복원, Markdown 가져오기, 쓰지 않는 이미지 정리.
+- 캡처: `MacCaptureSession.cs`(화면마다 투명 패널, 전역 후크 없음), `MacScreenCapture.cs`(ScreenCaptureKit, 창·요소 찾기, ⌃⇧⌘C), `MacCaptureAnnotationWindow.cs`(주석).
+- 없는 것: 자동 업데이트(설정에서 숨김), 서명·공증·설치 패키지.
+
+### 수동 시험이 남은 항목
+
+자동 시험으로 확인하지 못했습니다. 5단계의 끝나는 조건입니다.
+
+- 캡처: 실제 드래그, 화면 기록과 손쉬운 사용 권한 안내, ⌃⇧⌘C, Esc·오른쪽 클릭·60초 종료, 여러 모니터. 임시 서명이라 빌드마다 화면 기록 권한이 초기화될 수 있습니다.
+- 주석 창: 실제 마우스 그리기와 글자 입력(한글 포함).
+- 실제 앱 호스트에서의 한글 IME, 마인드맵·할 일·달력의 실제 조작.
+- 알림 표시와 클릭, 할 일 알림의 전체 흐름, 백업 복원 후 재시작, 실제 휴지통 이동, 파일 선택 창, 인쇄·PDF 저장 창.
+- draw.io 실제 연동. MacSmoke는 그림 표시, 메뉴의 편집 단추, 돌아왔을 때 다시 읽기까지만 확인하고 편집 단추를 누르지 않습니다.
+
+### 웹 시험의 건너뛰기
+
+이미지를 누르는 시험(`preview-tools` 4개)은 Playwright WebKit에서 가로챈 이미지가 표시되지 않아 건너뛰고, 같은 동작을 MacSmoke `CheckPreviewImagesAsync`가 실제 WKWebView로 확인합니다. 건너뛰기를 늘릴 때는 대신 무엇이 확인하는지 실제로 맞춰 보세요. 이 작업에서 `src` 속성만 보는 시험을 잘못 건너뛰었다가 macOS에서 메모 이미지가 표시되지 않는 결함을 놓칠 뻔했습니다. 원인은 DOMPurify가 `devpostit-assets:` 스킴을 지운 것과 자원 검사가 draw.io 그림의 `?v=`를 거부한 것이었습니다. `ALLOWED_URI_REGEXP`는 `data-line` 같은 일반 속성 값에도 적용되므로 좁히면 속성까지 사라집니다.
+
+### CI의 DesktopSmoke
+
+같은 오류(`편집기 준비 시간 초과`, 30초 대기)가 두 곳에서 났습니다. Windows가 없어 재현하지 못했습니다.
+
+- `7fea35c`, `Program.cs`의 설정 창 글자 크기 확인: 시험이 `#larger` 단추가 보이자마자 눌렀는데, 모듈 스크립트는 문서 해석 뒤에 실행되므로 클릭 처리기가 아직 없었을 수 있습니다. 유력한 원인이지만 증명하지 못했습니다. `document.readyState`가 `complete`일 때까지 기다리도록 시험을 고쳤고 CI에서 확인해야 합니다.
+- `7d53122` 첫 시도, 첫 창의 `ReadyAsync`(초기화 중 삭제 취소 직후): 재실행은 통과했습니다. **원인을 모르며 위 수정으로 해결되지 않습니다.** 앱의 경합일 가능성도 배제하지 못했으므로 다시 나면 조사합니다.
 
 ### 메뉴 막대 오른쪽 클릭 (2026-11-03)
 
@@ -52,13 +78,14 @@ Java WASM과 파서는 앱에 포함합니다. Monaco 청크 크기와 Java 런�
 
 - 합성 입력을 보내지 않으므로 실제 마우스·키보드, 메뉴 막대 아이콘의 모양과 클릭, 빨간 X와 노란 버튼의 실제 클릭, 실제 ⌘Q 키는 확인하지 않습니다. 종료 경로는 `NSApplication.Terminate`로 시험합니다.
 - 실제 앱 호스트에서의 한글 IME는 아직 시험하지 않았습니다. 0단계 통과는 시험 도구의 WKWebView 결과입니다.
+- 할 일 알림과 백업 복원의 전체 흐름은 시험하지 않습니다.
 - 복구 경로는 `NoteSession`으로 그대로 옮겼으며 새 자동 시험이 없습니다.
-- CI는 `DevPostIt.Mac`과 `MacSmoke`를 빌드하지 않습니다. 러너의 Xcode가 워크로드와 맞는지 확인하지 않았습니다.
+- CI는 `DevPostIt.Mac`과 `MacSmoke`를 빌드하지 않으므로 CI는 이 앱을 시험하지 않습니다. 러너의 Xcode가 워크로드와 맞는지 확인하지 않았습니다.
 
 ### 다음에 할 일
 
-1. CI의 Windows 작업에서 `dotnet test`, 웹 시험, DesktopSmoke 통과를 확인합니다. 이것이 2단계의 끝나는 조건입니다.
-2. 실제 앱에서 위 항목을 사용자가 확인합니다. 시험용 메모를 쓰려면 `DEVPOSTIT_DATA_DIR`를 지정해 실행 파일을 직접 실행합니다.
+1. CI의 Windows 작업에서 `dotnet test`, 웹 시험, DesktopSmoke를 다시 확인합니다. macOS 작업의 WebKit 시험도 처음 확인합니다.
+2. 위 ‘수동 시험이 남은 항목’을 사용자가 확인합니다. 시험용 메모를 쓰려면 `DEVPOSTIT_DATA_DIR`를 지정해 실행 파일을 직접 실행합니다.
 3. `main` 병합 전에 Windows에서 WPF를 직접 시험합니다.
 
 ### 이 Mac의 준비 상태
@@ -74,15 +101,15 @@ export DOTNET_ROOT="$PWD/.tools/dotnet" DOTNET_CLI_HOME="$PWD/.tools/cli" DOTNET
 export PATH="$PWD/.tools/dotnet:$PWD/.tools/node/node-v24.22.1-darwin-arm64/bin:$PATH"
 export PLAYWRIGHT_BROWSERS_PATH="$PWD/.tools/playwright"
 dotnet test DevPostIt.Mac.slnf --no-restore
-(cd editor-web && EDITOR_BROWSER=webkit npm test)   # EDITOR_BROWSER가 없으면 Chromium
+(cd editor-web && EDITOR_TARGET=macos EDITOR_BROWSER=webkit npm test)   # EDITOR_BROWSER가 없으면 Chromium
 ```
 
-### macOS에서 확인한 결과 (2026-11-02)
+### macOS에서 확인한 결과 (2026-11-03)
 
-- .NET: Core 18, EditorHost(`DevPostIt.App.Tests`) 144, Storage 234 모두 통과.
-- 웹 개발 모드 379개: Chromium 통과 337, 실패 42. WebKit 통과 323, 실패 56.
-  - 공통 실패 42개는 Windows에서 통과하던 시험이라 OS 차이로 보며, Ctrl/⌘ 차이가 유력합니다. 실패 메시지를 하나씩 확인하지는 않았습니다.
-  - WebKit에서만 실패한 14개는 4단계에서 분류합니다: `bridge.spec.ts:159`, `font-settings.spec.ts:8,115,148,167`, `fonts.spec.ts:4,19`, `ime.spec.ts:4`, `note-features.spec.ts:44,233`, `preview-tools.spec.ts:65,81,173,186`. `ime.spec.ts:4`(CDP)와 `note-features.spec.ts`의 2개(클립보드 권한, PDF)는 시험 도구의 한계일 수 있습니다. `bridge.spec.ts:159`(한글 조합 중간값)는 먼저 확인합니다.
+- .NET(`DevPostIt.Mac.slnf`): Core 18, EditorHost(`DevPostIt.App.Tests`) 231, Storage 234 모두 통과.
+- MacSmoke: Debug와 Release 각 87개 통과.
+- 웹 개발 모드: WebKit(macOS 대상) 통과 375, 건너뜀 9. Chromium(Windows 대상) 통과 384.
+- 웹 제작 빌드 시험은 이 Mac에서 돌리지 않았고 CI의 Windows 작업에서 확인합니다. macOS 제작 번들은 MacSmoke가 실행합니다.
 - 실제 WKWebView(macOS 26.6.2, 작은 시험 페이지)에서 확인한 내용은 설계 문서 5절에 있습니다. 제작 번들을 `.NET` 호스트로 실행하는 것은 이후 MacSmoke가 확인합니다.
 
 ### IME 시험 결과 (2026-11-03)
