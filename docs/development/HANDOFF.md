@@ -1,6 +1,6 @@
 # 개발 인계
 
-릴리즈 버전: 0.7.0. macOS(Apple Silicon) 앱을 처음 포함하고, 캡처의 클립보드 복사와 테두리 자르기를 더했습니다. Windows exe는 CI의 `windows` 작업이 만들고 시험 실행한 파일(`DevPostIt-win-x64` 묶음)을 올립니다. macOS 앱은 이 Mac의 인증서로 서명한 Release 빌드를 올립니다. 릴리즈 빌드 명령은 `README.md`의 ‘릴리즈 빌드’에 있습니다.
+릴리즈 버전: 0.7.1. 메모가 하나도 없을 때의 캡처 오류를 고치고 접은 아이콘을 항상 위에 표시합니다. 0.7.0에서 macOS(Apple Silicon) 앱을 처음 포함하고, 캡처의 클립보드 복사와 테두리 자르기를 더했습니다. Windows exe는 CI의 `windows` 작업이 만들고 시험 실행한 파일(`DevPostIt-win-x64` 묶음)을 올립니다. macOS 앱은 이 Mac의 인증서로 서명한 Release 빌드를 올립니다. 릴리즈 빌드 명령은 `README.md`의 ‘릴리즈 빌드’에 있습니다.
 
 이 문서는 상태 기록이며 다음 기능을 자동으로 실행하라는 지시가 아닙니다. 시작할 때 현재 요청, 브랜치, 차이를 다시 확인하세요. 설계 결정은 [DESIGN.md](DESIGN.md), 지켜야 할 동작은 `AGENTS.md`에 있습니다.
 
