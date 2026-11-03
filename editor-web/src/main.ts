@@ -1,3 +1,4 @@
+import { isPrimary } from './platform';
 import { Editor, normalizeTitle } from './editor';
 import { applyTypography, defaultTextSize, editorTextSize, fontStack, maxTextSize, minTextSize, readFontSettings, saveFontSettings } from './fonts';
 import { connectEditor, noteColors, type EditorConnection } from './bridge';
@@ -131,7 +132,7 @@ function changeTextSize(next: (size: number) => number): void {
 }
 // 전체 글자 크기 단축키입니다. 저장하면 다른 메모 창과 설정 창도 storage 이벤트로 따라옵니다.
 window.addEventListener('keydown', event => {
-  if (!event.ctrlKey || event.altKey || event.shiftKey && event.key !== '+') return;
+  if (!isPrimary(event) || event.altKey || event.shiftKey && event.key !== '+') return;
   if (event.key === '=' || event.key === '+') changeTextSize(size => size + 1);
   else if (event.key === '-') changeTextSize(size => size - 1);
   else if (event.key === '0') changeTextSize(() => defaultTextSize);
@@ -153,7 +154,7 @@ window.addEventListener('keydown', event => {
   }
 });
 window.addEventListener('keydown', event => {
-  if (event.ctrlKey && event.key === ',') { event.preventDefault(); connection?.command('window.settingsRequested'); }
+  if (isPrimary(event) && event.key === ',') { event.preventDefault(); connection?.command('window.settingsRequested'); }
 });
 editor.imagePasteRequested = () => {
   if (connection) connection.command('note.imagePasteRequested');
@@ -164,7 +165,7 @@ editor.linkRequested = url => {
   else document.querySelector('#host-status')!.textContent = '링크는 앱에서 열 수 있습니다.';
 };
 window.addEventListener('keydown', event => {
-  if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'f') { event.preventDefault(); connection?.command('window.searchRequested'); }
+  if (isPrimary(event) && event.shiftKey && event.key.toLowerCase() === 'f') { event.preventDefault(); connection?.command('window.searchRequested'); }
 }, true);
 
 const pin = document.querySelector<HTMLButtonElement>('#pin')!;
@@ -224,7 +225,7 @@ function requestCapture(): void {
 }
 document.querySelector('#capture')!.addEventListener('click', requestCapture);
 window.addEventListener('keydown', event => {
-  if (event.ctrlKey && event.shiftKey && !event.altKey && event.key.toLowerCase() === 'c') { event.preventDefault(); event.stopPropagation(); requestCapture(); }
+  if (isPrimary(event) && event.shiftKey && !event.altKey && event.key.toLowerCase() === 'c') { event.preventDefault(); event.stopPropagation(); requestCapture(); }
 }, true);
 
 document.querySelector('#note-images')!.addEventListener('click', () => {

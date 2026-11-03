@@ -5,6 +5,7 @@
 TestResults/
 **/node_modules/
 editor-web/dist/
+editor-web/dist-macos/
 editor-web/test-results/
 editor-web/playwright-report/
 CLAUDE.local.md

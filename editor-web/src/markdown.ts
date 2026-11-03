@@ -1,3 +1,4 @@
+import { noteAssetUrl } from './platform';
 import MarkdownIt from 'markdown-it';
 import DOMPurify from 'dompurify';
 import { parseImageAlt } from './image-size';
@@ -27,7 +28,7 @@ markdown.renderer.rules.image = (tokens, index) => {
   if (!match) return `[이미지: ${alt}]`;
   const { line, end, order } = tokens[index].meta ?? {};
   const position = Number.isInteger(line) ? ` data-line="${line}" data-end="${end}" data-index="${order}"` : '';
-  return `<img src="https://devpostit-assets.local/${match[1]}" alt="${alt}"${width ? ` width="${width}"` : ''}${position}>`;
+  return `<img src="${noteAssetUrl(match[1])}" alt="${alt}"${width ? ` width="${width}"` : ''}${position}>`;
 };
 // 미리보기에서 크기를 고치려면 이미지가 원문의 어느 문단에 있는지 알아야 합니다.
 markdown.core.ruler.after('inline', 'image-positions', state => {
