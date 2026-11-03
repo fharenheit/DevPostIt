@@ -14,7 +14,7 @@ DEVPOSTIT_DATA_DIR="$PWD/.tools/manual-test/data" DEVPOSTIT_WEBKIT_STORE=$(uuidg
   src/DevPostIt.Mac/bin/Debug/net10.0-macos/osx-arm64/DevPostIt.app/Contents/MacOS/DevPostIt.Mac
 ```
 
-- 앱은 메뉴 막대 아이콘에서 시작합니다. 왼쪽 클릭은 새 메모, 오른쪽 클릭과 ⌃클릭은 메뉴입니다.
+- 앱은 메뉴 막대 아이콘에서 시작합니다. 클릭하면 메뉴가 열리고, 새 메모는 메뉴의 ‘새 메모’로 만듭니다.
 - 임시 서명이라 빌드할 때마다 화면 기록 권한이 초기화될 수 있습니다. 허용했는데도 캡처가 실패하면 시스템 설정에서 항목을 지우고 다시 허용합니다.
 
 ## 절차

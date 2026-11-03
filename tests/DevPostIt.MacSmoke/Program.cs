@@ -416,11 +416,10 @@ internal sealed class SmokeDelegate : NSApplicationDelegate
         await Task.Delay(1000);
         Check(opened == 2 && workspace.Notes.Count == notes, $"⌃클릭은 메뉴만 표시 (메뉴 {opened}번, 새 메모 {workspace.Notes.Count - notes}개)");
 
-        var before = workspace.Notes.Count;
         status.ClickView.MouseDown(Click(NSEventType.LeftMouseDown));
         status.ClickView.MouseUp(Click(NSEventType.LeftMouseUp));
-        await UntilAsync(() => workspace.Notes.Count == before + 1, "왼쪽 클릭의 새 메모");
-        Check(opened == 2, "왼쪽 클릭은 메뉴 없이 새 메모");
+        await Task.Delay(1000);
+        Check(opened == 3 && workspace.Notes.Count == notes, $"왼쪽 클릭은 메뉴만 표시 (메뉴 {opened}번, 새 메모 {workspace.Notes.Count - notes}개)");
     }
 
     private async Task RunAsync(string root)

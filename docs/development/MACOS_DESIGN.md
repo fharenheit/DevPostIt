@@ -154,7 +154,7 @@ Apple Developer ID 없이 배포합니다(사용자 결정). 공증과 강화 �
 | --- | --- | --- |
 | 메모·저장·복구·검색·백업·마인드맵·할 일·달력·공휴일·포맷터 | 공유 | 그대로 |
 | 트레이 | `NotifyIcon` | `NSStatusItem` |
-| 트레이 왼쪽 클릭 = 새 메모 | 클릭 | 왼쪽 클릭 동일, 메뉴는 오른쪽/⌃클릭 + ‘새 메모’ 항목 |
+| 트레이 왼쪽 클릭 = 새 메모 | 클릭 | 클릭하면 메뉴(버튼 구분 없음). 새 메모는 메뉴의 ‘새 메모’ 항목 |
 | 알림 풍선 | `ShowBalloonTip` | `UNUserNotificationCenter`, 클릭 시 할 일·달력 열기 |
 | 전역 캡처 | Ctrl+Shift+PrtSc | ⌃⇧⌘C (PrtSc 없음) |
 | 메모 안 캡처 | Ctrl+Shift+C | ⌘⇧C |
