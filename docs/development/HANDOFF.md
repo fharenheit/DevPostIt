@@ -20,6 +20,7 @@
 - 링크 확인 창과 실제 브라우저 열기, 이미지 폴더의 실제 탐색기 창
 - Windows 휴지통 이동, 파일 선택 창
 - 트레이의 ‘업데이트 설치’ 전체 흐름, 재시작을 포함한 실제 복원
+- 캡처 그림을 실제 앱에 붙여 넣기 (Windows의 클립보드 쓰기는 DesktopSmoke가 CI에서만 확인합니다)
 - 실제 트레이 아이콘 클릭, 실제 Excel 복사, 실제 Windows IME 조합 중 툴바 동작
 
 Smart App Control이 새로 빌드한 하네스 DLL을 가끔 차단합니다(0x800711C7). 정책을 바꾸거나 우회하지 말고 차단되면 그대로 보고합니다.
@@ -46,7 +47,7 @@ Java WASM과 파서는 앱에 포함합니다. Monaco 청크 크기와 Java 런�
 - 메모 창: WKWebView(`devpostit://`, `devpostit-assets://`), 자동 저장, 24×24 접기와 복원, X의 휴지통 확인, 휴지통 복원과 영구 삭제, 색상과 항상 위, 세션 복원, ⌘Q 저장, PDF, 클립보드 이미지, draw.io.
 - 보조 창: 설정, 검색, 도움말, 정보, 포맷터, 마인드맵, 할 일, 달력. `MacWebWindow.cs`, `MacToolWindows.cs`, `MacInfoWindows.cs`에 있습니다.
 - 그 밖: 알림(`MacNotifications.cs`), 할 일 알림, 공휴일 받기, 백업과 복원, Markdown 가져오기, 쓰지 않는 이미지 정리.
-- 캡처: 메모에 넣는 최종 그림을 클립보드에도 복사합니다(macOS만, 사용자 요청 2026-11-03). `MacCaptureSession.cs`(화면마다 투명 패널, 전역 후크 없음), `MacScreenCapture.cs`(ScreenCaptureKit, 창·요소 찾기, ⌃⇧⌘C), `MacCaptureAnnotationWindow.cs`(주석).
+- 캡처: 메모에 넣는 최종 그림을 클립보드에도 복사합니다(Windows도 같음, 사용자 요청 2026-11-03). `MacCaptureSession.cs`(화면마다 투명 패널, 전역 후크 없음), `MacScreenCapture.cs`(ScreenCaptureKit, 창·요소 찾기, ⌃⇧⌘C), `MacCaptureAnnotationWindow.cs`(주석).
 - 없는 것: 자동 업데이트(설정에서 숨김), 서명·공증·설치 패키지.
 
 ### 수동 시험이 남은 항목

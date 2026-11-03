@@ -509,16 +509,27 @@ internal static class Program
         // 캡처에서 메모까지: 설정이 켜져 있으면 주석 창을 거치고, 끄면 바로 넣습니다.
         await imageEditor.ExecuteScriptAsync("window.hunminEditor.setMode('source')");
         var beforeAnnotated = await imageEditor.ExecuteScriptAsync("window.hunminEditor.getDraft().markdown");
+        var clipboardCopies = new List<byte[]>();
+        manager.CaptureClipboard = clipboardCopies.Add;
         await manager.FinishCaptureAsync(pdfWindow, plainCapture);
         var flow = application.Windows.OfType<CaptureAnnotationWindow>().Single();
+        Check(clipboardCopies.Count == 0, "주석을 마치기 전에는 클립보드를 바꾸지 않음");
         Check(await imageEditor.ExecuteScriptAsync("window.hunminEditor.getDraft().markdown") == beforeAnnotated, "주석을 마치기 전에는 메모에 넣지 않음");
         flow.Finish();
         await UntilAsync(async () => await imageEditor.ExecuteScriptAsync("window.hunminEditor.getDraft().markdown") != beforeAnnotated);
+        Check(clipboardCopies.Count == 1, "주석을 마친 그림을 클립보드에 넣음");
         manager.AnnotateCapture = false;
         var beforeDirect = await imageEditor.ExecuteScriptAsync("window.hunminEditor.getDraft().markdown");
         await manager.FinishCaptureAsync(pdfWindow, plainCapture);
         await UntilAsync(async () => await imageEditor.ExecuteScriptAsync("window.hunminEditor.getDraft().markdown") != beforeDirect);
         Check(!application.Windows.OfType<CaptureAnnotationWindow>().Any(), "주석을 끄면 바로 메모에 넣음");
+        Check(clipboardCopies.Count == 2 && clipboardCopies[1].SequenceEqual(plainCapture), "주석을 끄면 캡처한 그림을 클립보드에 넣음");
+        // 실제 클립보드는 사용자의 내용을 덮어쓰므로 CI에서만 확인합니다.
+        if (Environment.GetEnvironmentVariable("CI") == "true")
+        {
+            Check(DesktopNoteManager.CopyCaptureToClipboard(plainCapture), "실제 클립보드에 씀");
+            Check(System.Windows.Clipboard.GetData("PNG") is MemoryStream copied && copied.ToArray().SequenceEqual(plainCapture) && System.Windows.Clipboard.ContainsImage(), "실제 클립보드에 PNG와 비트맵이 들어감");
+        }
         manager.AnnotateCapture = true;
         // 가져오기와 이미지 정리: 파일 대화상자, 확인 창, Windows 휴지통 없이 분리한 데이터 폴더에서만 확인합니다.
         var importFile = Path.Combine(root, "가져올 메모.md");

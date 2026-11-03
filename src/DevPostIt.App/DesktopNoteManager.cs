@@ -45,6 +45,8 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
     private DispatcherTimer? updateTimer;
     internal Action Relauncher { get; set; } = () => { if (Environment.ProcessPath is { } path) Process.Start(new ProcessStartInfo(path) { UseShellExecute = true })?.Dispose(); };
     internal AppUpdate? AvailableUpdate { get; private set; }
+    // 시험은 사용자의 클립보드를 덮어쓰지 않도록 이 값을 바꿉니다.
+    internal Action<byte[]> CaptureClipboard { get; set; } = png => CopyCaptureToClipboard(png);
     internal Action<string> ImageDeleter { get; set; } = path => Microsoft.VisualBasic.FileIO.FileSystem.DeleteFile(path, Microsoft.VisualBasic.FileIO.UIOption.OnlyErrorDialogs, Microsoft.VisualBasic.FileIO.RecycleOption.SendToRecycleBin);
     internal Func<string[]> ImportPathPicker { get; set; } = PickMarkdownFiles;
     internal Action<string> ImportReporter { get; set; } = message => System.Windows.MessageBox.Show(message, "Markdown 가져오기", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -180,8 +182,23 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
         window.Show();
         return Task.CompletedTask;
     }
+    // PNG 형식은 원본 그대로, 비트맵은 PNG를 못 읽는 앱을 위해 넣습니다. 다른 앱이 클립보드를 잡고 있어도 메모에는 넣습니다.
+    internal static bool CopyCaptureToClipboard(byte[] png)
+    {
+        try
+        {
+            var data = new System.Windows.DataObject();
+            data.SetData("PNG", new System.IO.MemoryStream(png), false);
+            using var source = new System.IO.MemoryStream(png);
+            data.SetImage(System.Windows.Media.Imaging.BitmapFrame.Create(source, System.Windows.Media.Imaging.BitmapCreateOptions.None, System.Windows.Media.Imaging.BitmapCacheOption.OnLoad));
+            System.Windows.Clipboard.SetDataObject(data, true);
+            return true;
+        }
+        catch (Exception error) when (error is System.Runtime.InteropServices.ExternalException or NotSupportedException or System.IO.FileFormatException) { return false; }
+    }
     private async Task InsertCaptureAsync(MainWindow target, byte[] png)
     {
+        CaptureClipboard(png);
         if (ShowNote(target.NoteId) is not { } window) return;
         for (var attempt = 0; attempt < 100 && !window.IsEditorReady; attempt++) await Task.Delay(100);
         await window.InsertImageAsync(png);
