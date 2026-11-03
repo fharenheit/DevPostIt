@@ -61,6 +61,13 @@
       "devpostit.core": {
         "type": "Project"
       },
+      "devpostit.desktop": {
+        "type": "Project",
+        "dependencies": {
+          "DevPostIt.EditorHost": "[1.0.0, )",
+          "DevPostIt.Storage": "[1.0.0, )"
+        }
+      },
       "devpostit.editorhost": {
         "type": "Project",
         "dependencies": {

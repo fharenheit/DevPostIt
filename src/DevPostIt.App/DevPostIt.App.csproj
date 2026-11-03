@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\DevPostIt.Core\DevPostIt.Core.csproj" />
+    <ProjectReference Include="..\DevPostIt.Desktop\DevPostIt.Desktop.csproj" />
     <ProjectReference Include="..\DevPostIt.EditorHost\DevPostIt.EditorHost.csproj" />
     <ProjectReference Include="..\DevPostIt.Storage\DevPostIt.Storage.csproj" />
   </ItemGroup>
@@ -25,12 +26,14 @@
     <EditorWebRoot>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)/../../editor-web'))</EditorWebRoot>
     <BundledNode>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)/../../.tools/node/node-v24.22.1-win-x64'))</BundledNode>
     <EditorNpm Condition="Exists('$(BundledNode)/npm.cmd')">$(BundledNode)/npm.cmd</EditorNpm>
-    <EditorNpm Condition="'$(EditorNpm)' == ''">npm.cmd</EditorNpm>
+    <!-- PATH의 npm.cmd를 따옴표로 실행하면 스크립트가 자기 위치를 현재 폴더로 잘못 잡습니다. -->
+    <EditorNpmCommand Condition="'$(EditorNpm)' != ''">&quot;$(EditorNpm)&quot;</EditorNpmCommand>
+    <EditorNpmCommand Condition="'$(EditorNpm)' == ''">npm</EditorNpmCommand>
   </PropertyGroup>
 
   <Target Name="BuildEditorWeb" BeforeTargets="PrepareForBuild" Condition="'$(DesignTimeBuild)' != 'true'">
-    <Exec WorkingDirectory="$(EditorWebRoot)" Command="&quot;$(EditorNpm)&quot; ci" EnvironmentVariables="PATH=$([MSBuild]::Escape('$(BundledNode);$(PATH)'))" Condition="!Exists('$(EditorWebRoot)/node_modules/.package-lock.json')" />
-    <Exec WorkingDirectory="$(EditorWebRoot)" Command="&quot;$(EditorNpm)&quot; run build" EnvironmentVariables="PATH=$([MSBuild]::Escape('$(BundledNode);$(PATH)'))" />
+    <Exec WorkingDirectory="$(EditorWebRoot)" Command="$(EditorNpmCommand) ci" EnvironmentVariables="PATH=$([MSBuild]::Escape('$(BundledNode);$(PATH)'))" Condition="!Exists('$(EditorWebRoot)/node_modules/.package-lock.json')" />
+    <Exec WorkingDirectory="$(EditorWebRoot)" Command="$(EditorNpmCommand) run build" EnvironmentVariables="PATH=$([MSBuild]::Escape('$(BundledNode);$(PATH)'))" />
   </Target>
 
   <Target Name="CopyEditorWeb" AfterTargets="Build">
