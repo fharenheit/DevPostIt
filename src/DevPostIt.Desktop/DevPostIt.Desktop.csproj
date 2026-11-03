@@ -1,5 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <ItemGroup>
+    <ProjectReference Include="..\DevPostIt.EditorHost\DevPostIt.EditorHost.csproj" />
+    <ProjectReference Include="..\DevPostIt.Storage\DevPostIt.Storage.csproj" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

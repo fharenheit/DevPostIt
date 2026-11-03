@@ -10,6 +10,9 @@ public static class EditorOrigin
     public const string TodoPage = "https://devpostit.local/todo.html";
     public const string CalendarPage = "https://devpostit.local/calendar.html";
     public const string AssetHost = "devpostit-assets.local";
+    public const string MacScheme = "devpostit";
+    public const string MacAssetScheme = "devpostit-assets";
+    public const string MacPage = "devpostit://app/index.html";
     public static bool IsTrustedPage(string source) => IsLocalResource(source) &&
         Uri.TryCreate(source, UriKind.Absolute, out var uri) && uri.AbsolutePath == "/index.html" &&
         uri.Query.Length == 0 && uri.Fragment.Length == 0;
@@ -38,6 +41,19 @@ public static class EditorOrigin
         System.Text.RegularExpressions.Regex.IsMatch(uri.AbsolutePath, "^/[0-9a-f]{32}/[0-9a-f]{32}\\.(png|drawio\\.svg)$");
 
     public static bool IsDiagramFile(string? file) => file is not null && System.Text.RegularExpressions.Regex.IsMatch(file, "^[0-9a-f]{32}/[0-9a-f]{32}\\.drawio\\.svg\\z");
+
+    // macOS의 WKWebView는 https 처리기를 등록할 수 없어 사용자 지정 스킴을 씁니다.
+    public static bool IsLocalMacResource(string source) => Uri.TryCreate(source, UriKind.Absolute, out var uri) &&
+        uri.Scheme == MacScheme && uri.Host == "app" && uri.IsDefaultPort && uri.UserInfo.Length == 0;
+
+    public static bool IsTrustedMacPage(string source) => IsLocalMacResource(source) &&
+        Uri.TryCreate(source, UriKind.Absolute, out var uri) && uri.AbsolutePath == "/index.html" &&
+        uri.Query.Length == 0 && uri.Fragment.Length == 0;
+
+    public static bool IsMacNoteAsset(string source) => Uri.TryCreate(source, UriKind.Absolute, out var uri) &&
+        uri.Scheme == MacAssetScheme && uri.Host == "notes" && uri.IsDefaultPort && uri.UserInfo.Length == 0 &&
+        uri.Query.Length == 0 && uri.Fragment.Length == 0 &&
+        System.Text.RegularExpressions.Regex.IsMatch(uri.AbsolutePath, "^/[0-9a-f]{32}/[0-9a-f]{32}\\.(png|drawio\\.svg)\\z");
 
     public static bool IsLocalResource(string source) => Uri.TryCreate(source, UriKind.Absolute, out var uri) &&
         uri.Scheme == Uri.UriSchemeHttps && uri.Host == "devpostit.local" && uri.Port == 443 && uri.UserInfo.Length == 0;

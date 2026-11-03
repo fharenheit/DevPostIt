@@ -14,7 +14,7 @@ public static class NoteColors
     public static bool IsKnown(string? color) => color is not null && All.Contains(color);
 }
 
-public sealed class EditorBridge(Guid noteId, long revision)
+public sealed class EditorBridge(Guid noteId, long revision, Func<string, bool>? isTrustedPage = null)
 {
     public void SyncRevision(long value) => Revision = value;
     public const int MaxMessageBytes = 1024 * 1024;
@@ -92,7 +92,7 @@ public sealed class EditorBridge(Guid noteId, long revision)
     public async Task<BridgeResult> ReceiveAsync(string json, string source, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (!EditorOrigin.IsTrustedPage(source) || Encoding.UTF8.GetByteCount(json) > MaxMessageBytes)
+        if (!(isTrustedPage ?? EditorOrigin.IsTrustedPage)(source) || Encoding.UTF8.GetByteCount(json) > MaxMessageBytes)
             throw new EditorProtocolException("메시지 출처 또는 크기를 거부했습니다.");
         EditorMessage message;
         try
