@@ -604,6 +604,7 @@ internal static class Program
         NoNotesAnnotator().Finish();
         await UntilAsync(async () => { await Task.Yield(); return noNotesWorkspace.Notes.Count == 1; });
         var createdForCapture = noNotes.ShowNote(noNotesWorkspace.Notes[0].Id)!;
+        await ReadyAsync(createdForCapture);
         await UntilAsync(async () => (await ((WebView2)createdForCapture.FindName("EditorView")).ExecuteScriptAsync("window.hunminEditor.getDraft().markdown")).Contains("!["));
         Check(true, "메모가 없을 때 새 메모를 만들어 그림을 넣음");
         Check(await createdForCapture.RequestCloseAsync(), "메모가 없던 데이터 폴더의 창 닫기");
