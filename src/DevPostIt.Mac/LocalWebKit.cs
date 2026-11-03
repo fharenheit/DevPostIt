@@ -33,14 +33,14 @@ internal static class LocalWebKit
     private static WKWebsiteDataStore Store => store ??= WKWebsiteDataStore.Create(
         Environment.GetEnvironmentVariable("DEVPOSTIT_WEBKIT_STORE") is { Length: > 0 } id ? new NSUuid(id) : ProfileId);
 
-    public static async Task<WKWebView> CreateAsync(string assetsRoot, IWKScriptMessageHandler bridge, IWKNavigationDelegate navigation, IWKUIDelegate ui)
+    public static async Task<WKWebView> CreateAsync(string? assetsRoot, IWKScriptMessageHandler bridge, IWKNavigationDelegate navigation, IWKUIDelegate ui)
     {
         var editorRoot = Path.Combine(NSBundle.MainBundle.ResourcePath ?? "", "editor-web");
         if (!File.Exists(Path.Combine(editorRoot, "index.html"))) throw new InvalidOperationException("편집기 파일이 없습니다. 프로젝트를 다시 빌드하세요.");
         var compiled = await (rules ??= WKContentRuleListStore.DefaultStore.CompileContentRuleListAsync("devpostit-block-external", BlockRules));
         var configuration = new WKWebViewConfiguration { WebsiteDataStore = Store };
         configuration.SetUrlSchemeHandler(new EditorSchemeHandler(editorRoot), EditorOrigin.MacScheme);
-        configuration.SetUrlSchemeHandler(new AssetSchemeHandler(assetsRoot), EditorOrigin.MacAssetScheme);
+        if (assetsRoot is not null) configuration.SetUrlSchemeHandler(new AssetSchemeHandler(assetsRoot), EditorOrigin.MacAssetScheme);
         configuration.UserContentController.AddContentRuleList(compiled);
         configuration.UserContentController.AddScriptMessageHandler(bridge, BridgeName);
         configuration.UserContentController.AddUserScript(new WKUserScript(new NSString(Shim), WKUserScriptInjectionTime.AtDocumentStart, true));
@@ -50,6 +50,18 @@ internal static class LocalWebKit
             NavigationDelegate = navigation,
             UIDelegate = ui,
         };
+    }
+
+    // WebView2의 ExecuteScriptAsync처럼 결과를 JSON 문자열로 돌려줍니다.
+    public static Task<string> EvaluateAsync(WKWebView view, string expression)
+    {
+        var completion = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        view.CallAsyncJavaScript($"return JSON.stringify(await ({expression})) ?? 'null';", null, null, WKContentWorld.Page, (result, error) =>
+        {
+            if (error is not null) completion.TrySetException(new InvalidOperationException(error.LocalizedDescription));
+            else completion.TrySetResult((result as NSString)?.ToString() ?? "null");
+        });
+        return completion.Task;
     }
 
     public static void Detach(WKWebView view)

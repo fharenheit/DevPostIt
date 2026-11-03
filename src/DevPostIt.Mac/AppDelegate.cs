@@ -9,6 +9,7 @@ public sealed class AppDelegate : NSApplicationDelegate
     private MacNoteManager? manager;
     private StatusBarMenu? statusBar;
     private string? lastSyncError;
+    private MacNotifications? notifications;
 
     public override async void DidFinishLaunching(NSNotification notification)
     {
@@ -29,9 +30,12 @@ public sealed class AppDelegate : NSApplicationDelegate
             var local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
             // 시험용 데이터 폴더를 지정하면 앱 상태도 그 안에 두어 사용자 설정과 섞이지 않게 합니다.
             var store = new AppSettingsStore(configured is null ? Path.Combine(local, "DevPostIt", "app-settings.json") : Path.Combine(configured, ".hunmin", "app-settings.json"));
-            var root = configured ?? store.Current.DataRoot ?? NoteDataLocation.DefaultRoot(local);
+            var root = configured ?? await ResolveDataRootAsync(store, local);
+            var previousData = await Task.Run(() => NoteBackup.ApplyPending(root));
+            if (previousData is not null) MacDialogs.Ask("백업에서 복원했습니다.", $"복원 전 데이터는 아래 폴더에 남아 있습니다.\n{previousData}", "확인");
             workspace = await Task.Run(() => NoteWorkspace.OpenAsync(root, CancellationToken.None));
-            manager = new MacNoteManager(workspace, store);
+            manager = new MacNoteManager(workspace, store, configured is null);
+            if (previousData is not null) manager.PendingPreferences = NoteWorkspace.ReadPreferences(root);
             statusBar = new StatusBarMenu(manager, workspace);
             workspace.ExternalSyncFailed += message => BeginInvokeOnMainThread(() =>
             {
@@ -41,6 +45,10 @@ public sealed class AppDelegate : NSApplicationDelegate
             });
             workspace.StartWatching();
             manager.RestoreSession();
+            notifications = new MacNotifications(kind => { if (kind == "todo") manager?.ShowTodo(); else if (kind == "event") manager?.ShowCalendar(); });
+            manager.ReminderDue += reminder => notifications.Show(reminder.Kind, reminder.Title);
+            manager.StartReminders();
+            manager.StartHolidayUpdates();
         }
         catch (Exception error)
         {
@@ -52,16 +60,44 @@ public sealed class AppDelegate : NSApplicationDelegate
         }
     }
 
+    private static async Task<string> ResolveDataRootAsync(AppSettingsStore store, string local)
+    {
+        var fallback = NoteDataLocation.DefaultRoot(local);
+        var settings = store.Current;
+        if (settings.DataRoot is null) return fallback;
+        if (settings.PendingMigrationFrom is not { } previous) return settings.DataRoot;
+        var target = settings.DataRoot;
+        try
+        {
+            await Task.Run(() => NoteDataLocation.MigrateLegacy(previous, target));
+            settings.PendingMigrationFrom = null;
+            store.Save();
+            return target;
+        }
+        catch (Exception error)
+        {
+            MacDialogs.Ask("데이터 폴더로 메모를 복사하지 못해 이전 폴더를 계속 사용합니다.", $"{target}\n{error.Message}", "확인");
+            settings.DataRoot = string.Equals(previous, fallback, StringComparison.Ordinal) ? null : previous;
+            settings.PendingMigrationFrom = null;
+            store.Save();
+            return previous;
+        }
+    }
+
     // 메뉴가 없으면 WKWebView에서 ⌘C/V/X/A/Z가 동작하지 않습니다.
     private NSMenu CreateMainMenu()
     {
         var main = new NSMenu();
         var application = new NSMenu("DevPostIt");
+        application.AddItem(new NSMenuItem("정보", "", (_, _) => manager?.ShowAbout()));
+        application.AddItem(new NSMenuItem("설정…", ",", (_, _) => manager?.ShowSettings()));
+        application.AddItem(NSMenuItem.SeparatorItem);
         application.AddItem(new NSMenuItem("DevPostIt 종료", new ObjCRuntime.Selector("terminate:"), "q"));
         Add(main, application);
 
         var file = new NSMenu("파일");
         file.AddItem(new NSMenuItem("새 메모", "n", (_, _) => { if (manager is { } current) _ = MacNoteManager.RunAsync(current.CreateAsync); }));
+        file.AddItem(new NSMenuItem("메모 검색", "f", (_, _) => manager?.ShowSearch()) { KeyEquivalentModifierMask = NSEventModifierMask.CommandKeyMask | NSEventModifierMask.ShiftKeyMask });
         file.AddItem(new NSMenuItem("닫기", new ObjCRuntime.Selector("performClose:"), "w"));
         Add(main, file);
 
@@ -80,6 +116,10 @@ public sealed class AppDelegate : NSApplicationDelegate
         window.AddItem(new NSMenuItem("접기", new ObjCRuntime.Selector("performMiniaturize:"), "m"));
         Add(main, window);
         NSApplication.SharedApplication.WindowsMenu = window;
+        var help = new NSMenu("도움말");
+        help.AddItem(new NSMenuItem("도움말", "", (_, _) => manager?.ShowHelp()));
+        Add(main, help);
+        NSApplication.SharedApplication.HelpMenu = help;
         return main;
     }
 

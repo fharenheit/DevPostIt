@@ -2,6 +2,7 @@ using CoreGraphics;
 using DevPostIt.Desktop;
 using DevPostIt.EditorHost;
 using DevPostIt.Storage;
+using UniformTypeIdentifiers;
 using WebKit;
 
 namespace DevPostIt.Mac;
@@ -30,6 +31,7 @@ internal sealed class MacNoteWindow : NSWindow, IWebSurface, INoteWindow, INoteD
     public event Action<MacNoteWindow>? BecameKey;
     // 시험은 대화 상자 대신 답을 정합니다.
     internal Func<bool>? TrashConfirmation { get; set; }
+    internal Func<string?>? PdfPathPicker { get; set; }
 
     public MacNoteWindow(NoteWorkspace workspace, Guid noteId)
         : base(new CGRect(0, 0, DefaultWidth, DefaultHeight), NSWindowStyle.Titled | NSWindowStyle.Closable | NSWindowStyle.Miniaturizable | NSWindowStyle.Resizable, NSBackingStore.Buffered, false)
@@ -106,19 +108,28 @@ internal sealed class MacNoteWindow : NSWindow, IWebSurface, INoteWindow, INoteD
 
     Task<string> IWebSurface.EvaluateAsync(string expression) => EvaluateAsync(expression);
 
-    internal Task<string> EvaluateAsync(string expression)
-    {
-        var completion = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
-        // WebView2의 ExecuteScriptAsync처럼 결과를 JSON 문자열로 돌려줍니다.
-        view!.CallAsyncJavaScript($"return JSON.stringify(await ({expression})) ?? 'null';", null, null, WKContentWorld.Page, (result, error) =>
-        {
-            if (error is not null) completion.TrySetException(new InvalidOperationException(error.LocalizedDescription));
-            else completion.TrySetResult((result as NSString)?.ToString() ?? "null");
-        });
-        return completion.Task;
-    }
+    internal Task<string> EvaluateAsync(string expression) => LocalWebKit.EvaluateAsync(view!, expression);
 
-    Task<bool> IWebSurface.PrintToPdfAsync(string path) => Task.FromResult(false);
+    Task<bool> IWebSurface.PrintToPdfAsync(string path) => PrintToPdfAsync(path);
+
+    // createPDF는 쪽을 나누지 않아 인쇄 작업으로 저장합니다. A4, 여백 0.6인치입니다.
+    internal Task<bool> PrintToPdfAsync(string path)
+    {
+        const double A4Width = 8.27 * 72, A4Height = 11.69 * 72, Margin = 0.6 * 72;
+        using var info = new NSPrintInfo
+        {
+            PaperSize = new CGSize(A4Width, A4Height), TopMargin = (nfloat)Margin, BottomMargin = (nfloat)Margin, LeftMargin = (nfloat)Margin, RightMargin = (nfloat)Margin,
+            HorizontalPagination = NSPrintingPaginationMode.Fit, VerticalPagination = NSPrintingPaginationMode.Auto, JobDisposition = "NSPrintSaveJob",
+        };
+        info.Dictionary[new NSString("NSJobSavingURL")] = NSUrl.CreateFileUrl(path, false, null);
+        var operation = view!.GetPrintOperation(info);
+        operation.ShowsPrintPanel = false;
+        operation.ShowsProgressPanel = false;
+        operation.View!.Frame = new CGRect(0, 0, A4Width - 2 * Margin, A4Height - 2 * Margin);
+        var done = new PrintCompletion();
+        operation.RunOperationModal(this, done, new ObjCRuntime.Selector(PrintCompletion.Selector), IntPtr.Zero);
+        return done.Finished.Task;
+    }
 
     void INoteWindow.SetNoteTitle(string title) => MiniWindowTitle = title;
     void INoteWindow.HideLoading() => loading.RemoveFromSuperview();
@@ -176,14 +187,26 @@ internal sealed class MacNoteWindow : NSWindow, IWebSurface, INoteWindow, INoteD
 
     void INoteShell.OpenLink(string url) => NSWorkspace.SharedWorkspace.OpenUrl(new NSUrl(url));
     void INoteShell.OpenFolder(string path) => NSWorkspace.SharedWorkspace.OpenUrl(NSUrl.CreateFileUrl(path, true, null));
-    string? INoteShell.FindDiagramApp() => null;
-    void INoteShell.OpenDiagram(string application, string path) { }
-    void INoteShell.ReportDiagramAppMissing() => MacDialogs.ShowUnsupported("draw.io 연동");
-    byte[]? INoteShell.ReadClipboardPng() => null;
+    string? INoteShell.FindDiagramApp() => MacDiagramApp.Find();
+    void INoteShell.OpenDiagram(string application, string path) => MacDiagramApp.Open(application, path);
+    void INoteShell.ReportDiagramAppMissing()
+    {
+        if (MacDialogs.Ask("다이어그램을 편집하려면 draw.io Desktop이 필요합니다.", "내려받기 페이지를 기본 브라우저로 열까요?", "아니요", "예") == 1)
+            NSWorkspace.SharedWorkspace.OpenUrl(new NSUrl(MacDiagramApp.DownloadPage));
+    }
+    byte[]? INoteShell.ReadClipboardPng() => MacClipboard.ReadPng(NSPasteboard.GeneralPasteboard);
     string? INoteShell.PickPdfPath(string title)
     {
-        MacDialogs.ShowUnsupported("PDF 저장");
-        return null;
+        if (PdfPathPicker is { } picker) return picker();
+        var safe = string.Concat(title.Select(character => Path.GetInvalidFileNameChars().Contains(character) ? '_' : character)).Trim();
+        return MacDialogs.PickSavePath("PDF로 저장", (safe.Length == 0 ? "메모" : safe) + ".pdf", "pdf");
+    }
+
+    private sealed class PrintCompletion : NSObject
+    {
+        public const string Selector = "printOperationDidRun:success:contextInfo:";
+        public TaskCompletionSource<bool> Finished { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        [Export(Selector)] public void DidRun(NSPrintOperation operation, bool success, IntPtr context) => Finished.TrySetResult(success);
     }
 
     private sealed class NoteWindowDelegate(MacNoteWindow owner) : NSWindowDelegate
@@ -258,5 +281,35 @@ internal static class MacDialogs
         return (int)alert.RunModal() - 1000;
     }
 
-    public static void ShowUnsupported(string feature) => Ask($"{feature}은(는) macOS 버전에서 아직 지원하지 않습니다.", "이후 단계에서 추가할 예정입니다.", "확인");
+    public static string? PickSavePath(string title, string name, string extension)
+    {
+        NSApplication.SharedApplication.Activate();
+        var panel = NSSavePanel.SavePanel;
+        panel.Title = title;
+        panel.NameFieldStringValue = name;
+        panel.AllowedContentTypes = [UTType.CreateFromExtension(extension)!];
+        return panel.RunModal() == 1 ? panel.Url?.Path : null;
+    }
+
+    public static string[] PickOpenPaths(string title, bool multiple, string? extension = null)
+    {
+        NSApplication.SharedApplication.Activate();
+        var panel = NSOpenPanel.OpenPanel;
+        panel.Title = title;
+        panel.AllowsMultipleSelection = multiple;
+        if (extension is not null) panel.AllowedContentTypes = [UTType.CreateFromExtension(extension)!];
+        return panel.RunModal() == 1 ? [.. panel.Urls.Select(url => url.Path).OfType<string>()] : [];
+    }
+
+    public static string? PickFolder(string title, string start)
+    {
+        NSApplication.SharedApplication.Activate();
+        var panel = NSOpenPanel.OpenPanel;
+        panel.Message = title;
+        panel.CanChooseFiles = false;
+        panel.CanChooseDirectories = true;
+        panel.CanCreateDirectories = true;
+        panel.DirectoryUrl = NSUrl.CreateFileUrl(start, true, null);
+        return panel.RunModal() == 1 ? panel.Url?.Path : null;
+    }
 }

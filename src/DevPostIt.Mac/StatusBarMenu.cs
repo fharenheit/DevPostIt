@@ -10,10 +10,7 @@ internal sealed class StatusBarMenu
     private const int MaxListedNotes = 15;
     private const int MaxTitleLength = 40;
     private const int MenuGap = 4;
-    private static readonly IReadOnlySet<TrayCommand> Available = new HashSet<TrayCommand>
-    {
-        TrayCommand.NewNote, TrayCommand.NoteList, TrayCommand.Trash, TrayCommand.ShowAll, TrayCommand.CollapseAll, TrayCommand.Exit,
-    };
+    private static readonly IReadOnlySet<TrayCommand> Available = new HashSet<TrayCommand>(Enum.GetValues<TrayCommand>().Where(command => command != TrayCommand.Capture));
     private readonly NSStatusItem item = NSStatusBar.SystemStatusBar.CreateStatusItem(NSStatusItemLength.Square);
     private readonly MacNoteManager manager;
     private readonly NoteWorkspace workspace;
@@ -69,7 +66,11 @@ internal sealed class StatusBarMenu
         var menu = new NSMenu { AutoEnablesItems = false };
         var all = workspace.Notes;
         foreach (var note in all.Take(MaxListedNotes)) menu.AddItem(new NSMenuItem(Label(note.Title), (_, _) => manager.ShowNote(note.Id)));
-        if (all.Count > MaxListedNotes) menu.AddItem(new NSMenuItem($"전체 {all.Count}개 중 최근 {MaxListedNotes}개") { Enabled = false });
+        if (all.Count > MaxListedNotes)
+        {
+            menu.AddItem(NSMenuItem.SeparatorItem);
+            menu.AddItem(new NSMenuItem($"전체 {all.Count}개 검색…", (_, _) => manager.ShowSearch()));
+        }
         return menu;
     }
 
@@ -107,6 +108,15 @@ internal sealed class StatusBarMenu
         switch (command)
         {
             case TrayCommand.NewNote: _ = MacNoteManager.RunAsync(manager.CreateAsync); break;
+            case TrayCommand.Search: manager.ShowSearch(); break;
+            case TrayCommand.Formatter: manager.ShowFormatter(); break;
+            case TrayCommand.MindMap: manager.ShowMindMap(); break;
+            case TrayCommand.Todo: manager.ShowTodo(); break;
+            case TrayCommand.Calendar: manager.ShowCalendar(); break;
+            case TrayCommand.ImportMarkdown: _ = MacNoteManager.RunAsync(manager.ImportMarkdownAsync); break;
+            case TrayCommand.Settings: manager.ShowSettings(); break;
+            case TrayCommand.Help: manager.ShowHelp(); break;
+            case TrayCommand.About: manager.ShowAbout(); break;
             case TrayCommand.ShowAll: manager.ShowAll(); break;
             case TrayCommand.CollapseAll: manager.CollapseAll(); break;
             case TrayCommand.Exit: NSApplication.SharedApplication.Terminate(NSApplication.SharedApplication); break;

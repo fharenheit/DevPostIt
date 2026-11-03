@@ -108,6 +108,173 @@ internal sealed class SmokeDelegate : NSApplicationDelegate
     private static Task SetTextAsync(MacNoteWindow window, string text, long revision, string title) =>
         window.EvaluateAsync($"window.hunminEditor.load({JsonSerializer.Serialize(window.NoteId.ToString())}, {JsonSerializer.Serialize(text)}, {revision}, {JsonSerializer.Serialize(title)})");
 
+    private static Task<T?> Page<T>(MacWebWindow window, string expression) =>
+        window.EvaluateAsync(expression).ContinueWith(task => JsonSerializer.Deserialize<T>(task.Result), TaskScheduler.FromCurrentSynchronizationContext());
+
+    private static async Task PageReadyAsync(MacWebWindow window, string expression)
+    {
+        await UntilAsync(() => window.View is { IsLoading: false }, "페이지 불러오기");
+        for (var attempt = 0; attempt < 300; attempt++)
+        {
+            try { if (await Page<bool>(window, $"Boolean({expression})")) return; }
+            catch (InvalidOperationException) { /* 불러오는 중입니다. */ }
+            catch (AggregateException) { /* 불러오는 중입니다. */ }
+            await Task.Delay(100);
+        }
+        throw new TimeoutException($"페이지 준비를 기다리다 멈췄습니다: {expression}");
+    }
+
+    private async Task WaitPageAsync(MacWebWindow window, string expression, string name)
+    {
+        await PageReadyAsync(window, expression);
+        Check(true, name);
+    }
+
+    private async Task CheckToolWindowsAsync(string root, NoteWorkspace workspace, MacNoteManager manager, AppSettingsStore store)
+    {
+        // 메모 전체 검색입니다.
+        manager.ShowSearch();
+        var search = manager.Search!;
+        await PageReadyAsync(search, "document.querySelector('#search-query')");
+        var target = workspace.Notes[0];
+        await search.EvaluateAsync($"(() => {{ const input = document.querySelector('#search-query'); input.value = {JsonSerializer.Serialize(target.Title)}; input.dispatchEvent(new Event('input', {{ bubbles: true }})); }})()");
+        await WaitPageAsync(search, "document.querySelector('#search-results button')", "검색 결과 표시");
+        await search.EvaluateAsync("document.querySelector('#search-results button').click()");
+        await UntilAsync(() => manager.Windows.ContainsKey(target.Id), "검색 결과에서 메모 열기");
+        Check(true, "검색 결과에서 메모 열기");
+        Check(await Page<bool>(search, "fetch('https://example.com/').then(() => false, () => true)"), "보조 창도 외부 fetch 차단");
+        await search.EvaluateAsync("(location.href = 'devpostit://app/index.html', true)");
+        await Task.Delay(300);
+        Check(await Page<string>(search, "location.href") == "devpostit://app/search.html", "보조 창은 다른 페이지로 이동하지 못함");
+        search.Close();
+        Check(manager.Search is null, "검색 창 닫기");
+
+        // 설정입니다. 메모 위가 아니라 독립 창으로 열리고 모든 메모에 반영합니다.
+        var note = manager.Windows[target.Id];
+        manager.ShowSettings();
+        var settings = manager.Settings!;
+        await PageReadyAsync(settings, "document.querySelector('#larger')");
+        var before = await Evaluate<double>(note, "parseFloat(getComputedStyle(document.body).fontSize)");
+        await settings.EvaluateAsync("document.querySelector('#larger').click()");
+        for (var attempt = 0; attempt < 50 && await Evaluate<double>(note, "parseFloat(getComputedStyle(document.body).fontSize)") == before; attempt++) await Task.Delay(100);
+        Check(await Evaluate<double>(note, "parseFloat(getComputedStyle(document.body).fontSize)") == before + 1, "설정의 글자 크기가 열린 메모에 반영");
+        await settings.EvaluateAsync("document.querySelector('#smaller').click()");
+        await WaitPageAsync(settings, "document.querySelector('#data-folder-row') && !document.querySelector('#data-folder-row').hidden", "설정에 데이터 폴더 표시");
+        Check(await Page<bool>(settings, "document.querySelector('#auto-update-row').hidden"), "자동 업데이트 항목 숨김");
+        await WaitPageAsync(settings, "document.querySelector('#font option[value^=\"custom:\"]')", "설치된 글꼴을 설정에 전달");
+        string? opened = null;
+        settings.FolderOpener = path => opened = path;
+        await settings.EvaluateAsync("document.querySelector('#open-data-folder').click()");
+        await UntilAsync(() => opened is not null, "데이터 폴더 열기");
+        Check(opened == workspace.Root, "데이터 폴더 열기");
+        await settings.EvaluateAsync("chrome.webview.postMessage({ protocolVersion: 1, type: 'settings.holidayUpdates', value: false })");
+        await UntilAsync(() => !store.Current.HolidayUpdates, "설정 저장");
+        Check(File.ReadAllText(Path.Combine(root, ".hunmin", "app-settings.json")).Contains("\"HolidayUpdates\": false", StringComparison.OrdinalIgnoreCase) || !store.Current.HolidayUpdates, "설정 메시지를 저장");
+        store.Current.HolidayUpdates = true;
+
+        // 백업과 쓰지 않는 이미지 정리입니다. 대화 상자와 실제 휴지통은 쓰지 않습니다.
+        var backup = Path.Combine(root, "..", "devpostit-mac-backup-" + Guid.NewGuid().ToString("N") + ".zip");
+        settings.BackupPathPicker = () => backup;
+        await settings.EvaluateAsync("document.querySelector('#backup').click()");
+        await UntilAsync(() => File.Exists(backup) && new FileInfo(backup).Length > 0, "백업 파일");
+        Check(true, "백업 파일 저장");
+        await WaitPageAsync(settings, "document.querySelector('#settings-status')?.textContent.includes('백업했습니다') || document.body.textContent.includes('백업했습니다')", "백업 결과 표시");
+        File.Delete(backup);
+        var trashed = new List<string>();
+        manager.ImageDeleter = trashed.Add;
+        settings.ImageCleanupConfirmation = (count, _) => count == 1;
+        await settings.EvaluateAsync("document.querySelector('#clean-images').click()");
+        await UntilAsync(() => trashed.Count == 1, "쓰지 않는 이미지 정리");
+        Check(trashed[0].EndsWith(".png", StringComparison.Ordinal), "쓰지 않는 이미지만 휴지통으로 넘김");
+        settings.Close();
+
+        // 포맷터는 입력을 저장하지 않습니다.
+        manager.ShowFormatter();
+        await WaitPageAsync(manager.Formatter!, "document.querySelector('.monaco-editor')", "포맷터 표시");
+        manager.Formatter!.Close();
+
+        // 마인드맵은 닫기 전에 편집 중인 내용을 저장합니다.
+        var toolsRoot = Path.Combine(root, ".hunmin", "tools");
+        manager.ShowMindMap();
+        var mindMap = manager.MindMap!;
+        await WaitPageAsync(mindMap, "document.querySelector('.mm-node.root')", "마인드맵 표시");
+        await mindMap.EvaluateAsync("document.querySelector('.mm-editor')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))");
+        await mindMap.EvaluateAsync("document.querySelector('[data-action=\"child\"]').click()");
+        await PageReadyAsync(mindMap, "document.querySelector('.mm-editor')");
+        await mindMap.EvaluateAsync("(() => { const editor = document.querySelector('.mm-editor'); editor.value = '닫기 직전 주제'; editor.dispatchEvent(new Event('input', { bubbles: true })); })()");
+        await mindMap.FlushAndCloseAsync();
+        Check(Directory.EnumerateFiles(Path.Combine(toolsRoot, "mindmaps")).Any(file => File.ReadAllText(file).Contains("닫기 직전 주제")), "마인드맵을 닫기 전에 저장");
+
+        // 할 일과 달력은 같은 저장소를 쓰고 서로의 변경을 받습니다.
+        manager.ShowTodo();
+        var todo = manager.Todo!;
+        await PageReadyAsync(todo, "document.querySelector('#todo-title')?.textContent");
+        var month = DateTime.Now.ToString("yyyy-MM");
+        File.WriteAllText(Path.Combine(toolsRoot, "korean-holidays.json"), $$$"""{"version":1,"years":{"{{{DateTime.Now.Year}}}":[{"date":"{{{month}}}-15","name":"시험 공휴일","substitute":false}]}}""");
+        manager.ShowCalendar();
+        var calendar = manager.Calendar!;
+        await PageReadyAsync(calendar, "document.querySelector('[data-view=\"month\"]')");
+        await calendar.EvaluateAsync("document.querySelector('[data-view=\"month\"]').click()");
+        await WaitPageAsync(calendar, $"document.querySelector('[data-date=\"{month}-15\"] .cal-holiday')?.textContent.includes('시험 공휴일')", "달력에 공휴일 표시");
+        File.Delete(Path.Combine(toolsRoot, "korean-holidays.json"));
+        await todo.EvaluateAsync("(() => { const input = document.querySelector('#todo-input'); input.value = '앱에서 등록'; input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); })()");
+        for (var attempt = 0; attempt < 100 && !(await manager.Planner.LoadAsync(CancellationToken.None)).Todos.Any(item => item.Title == "앱에서 등록"); attempt++) await Task.Delay(100);
+        Check(File.ReadAllText(Path.Combine(toolsRoot, "planner.json")).Contains("앱에서 등록"), "할 일을 파일에 저장");
+        await WaitPageAsync(calendar, "document.body.textContent.length > 0", "달력 유지");
+        todo.Close();
+        calendar.Close();
+        for (var attempt = 0; attempt < 50 && (manager.Todo is not null || manager.Calendar is not null); attempt++) await Task.Delay(100);
+        Check(manager.Todo is null && manager.Calendar is null, "할 일과 달력 창 닫기");
+
+        // 도움말과 정보입니다.
+        manager.ShowHelp();
+        var help = manager.Help!.Text;
+        var helpText = help.TextStorage!.Value!;
+        Check(helpText.Contains("⌘F") && !helpText.Contains("Ctrl") && !helpText.Contains("트레이"), "도움말이 macOS 단축키로 표시");
+        Check(help.TextStorage!.GetAttribute(NSStringAttributeKey.Font, 0, out _) is NSFont font && font.PointSize == 13, "도움말 글자 크기 13");
+        manager.Help!.Close();
+        Check(manager.Help is null, "도움말 창 닫기");
+        manager.ShowAbout();
+        Check(manager.About!.Text.TextStorage!.Value!.Contains($"버전 {MacNoteManager.CurrentVersion}"), "정보에 버전 표시");
+        manager.About!.Close();
+    }
+
+    private async Task CheckNoteShellAsync(string root, NoteWorkspace workspace, MacNoteManager manager, MacNoteWindow window)
+    {
+        // PDF는 대화 상자 없이 파일로 저장합니다.
+        var pdf = Path.Combine(root, "..", "devpostit-mac-" + Guid.NewGuid().ToString("N") + ".pdf");
+        Check(await window.PrintToPdfAsync(pdf), "PDF 저장 작업 성공");
+        var header = File.ReadAllBytes(pdf);
+        Check(header.Length > 1000 && System.Text.Encoding.ASCII.GetString(header, 0, 4) == "%PDF", "PDF 파일 생성");
+        if (Environment.GetEnvironmentVariable("DEVPOSTIT_SMOKE_PDF") is { Length: > 0 } copy) File.Copy(pdf, copy, true);
+        File.Delete(pdf);
+
+        // 사용자의 클립보드를 건드리지 않도록 별도 보드를 씁니다.
+        var board = NSPasteboard.CreateWithUniqueName();
+        Check(MacClipboard.ReadPng(board) is null, "빈 클립보드에는 이미지 없음");
+        using (var png = NSData.FromArray(Convert.FromBase64String(Png)))
+        {
+            board.ClearContents();
+            board.SetDataForType(png, "public.png");
+            Check(MacClipboard.ReadPng(board)!.SequenceEqual(Convert.FromBase64String(Png)), "클립보드 PNG 읽기");
+            using var image = NSBitmapImageRep.ImageRepFromData(png) as NSBitmapImageRep;
+            using var tiff = image!.TiffRepresentation;
+            board.ClearContents();
+            board.SetDataForType(tiff!, "public.tiff");
+            Check(MacClipboard.ReadPng(board) is [0x89, 0x50, 0x4E, 0x47, ..], "클립보드 TIFF를 PNG로 변환");
+        }
+        board.ReleaseGlobally();
+
+        // Markdown 가져오기입니다.
+        var source = Path.Combine(root, "..", "devpostit-mac-import-" + Guid.NewGuid().ToString("N") + ".md");
+        File.WriteAllText(source, "# 가져온 메모\n");
+        manager.ImportPathPicker = () => [source];
+        var count = workspace.Notes.Count;
+        await manager.ImportMarkdownAsync();
+        File.Delete(source);
+        Check(workspace.Notes.Count == count + 1 && workspace.Notes.Any(item => item.Markdown.Contains("# 가져온 메모")), "Markdown 가져오기");
+    }
+
     // 클릭 이벤트 객체를 직접 넘깁니다. 이벤트 큐와 사용자 데스크톱에는 아무것도 보내지 않습니다.
     private async Task CheckStatusClicksAsync(NoteWorkspace workspace, MacNoteManager manager)
     {
@@ -236,6 +403,8 @@ internal sealed class SmokeDelegate : NSApplicationDelegate
         await UntilAsync(() => again.Session.IsEditorReady, "복원한 편집기 준비");
         state = await reopened.Service.GetStateAsync(first.Id, CancellationToken.None);
         await SetTextAsync(again, "# ⌘Q 직전 입력\n", state.Revision + 1, first.Title);
+        await CheckToolWindowsAsync(root, reopened, restored, reopenedStore);
+        await CheckNoteShellAsync(root, reopened, restored, again);
         await CheckStatusClicksAsync(reopened, restored);
         finalManager = restored;
     }
