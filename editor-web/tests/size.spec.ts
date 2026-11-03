@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { openEditor, draft, mode, openSettings } from './helpers';
 
 async function sizes(page: import('@playwright/test').Page) {
-  return page.evaluate(() => Object.fromEntries(['#source-mode', '.document-heading h1', '#status', '.monaco-editor .view-lines', '#preview', '#preview h1', '#preview code'].map(selector => [selector, parseFloat(getComputedStyle(document.querySelector(selector)!).fontSize)])));
+  return page.evaluate(() => Object.fromEntries(['#source-mode', '.document-heading h1', '#status', '#preview', '#preview h1', '#preview code'].map(selector => [selector, parseFloat(getComputedStyle(document.querySelector(selector)!).fontSize)])));
 }
 
 test('제품 표시 없이 작은 기본 크기를 유지하고 설정 창에서 전체 크기를 조절한다', async ({ page }) => {
@@ -21,9 +21,11 @@ test('제품 표시 없이 작은 기본 크기를 유지하고 설정 창에서
   await expect(settings.locator('#font')).toHaveCSS('font-size', '14px');
   await expect.poll(() => page.evaluate(() => document.documentElement.style.fontSize)).toBe('16px');
   const after = await sizes(page);
-  for (const selector of Object.keys(before)) expect(after[selector] / before[selector]).toBeCloseTo(selector.includes('view-lines') || selector.startsWith('#preview') ? 14 / 13 : 16 / 15, 2);
-  await settings.getByRole('button', { name: '글자 작게', exact: true }).click();
+  for (const selector of Object.keys(before)) expect(after[selector] / before[selector]).toBeCloseTo(selector.startsWith('#preview') ? 14 / 13 : 16 / 15, 2);
+  // 숨겨진 편집기의 계산된 글자 크기는 WebKit에서 옛 값으로 남을 수 있어 보이는 상태에서 확인합니다.
   await mode(page, 'source');
+  await expect(page.locator('.monaco-editor .view-lines')).toHaveCSS('font-size', '14px');
+  await settings.getByRole('button', { name: '글자 작게', exact: true }).click();
   expect((await draft(page)).dirty).toBe(false);
   expect((await draft(page)).revision).toBe(7);
 });
