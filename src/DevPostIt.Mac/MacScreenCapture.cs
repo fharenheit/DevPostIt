@@ -16,10 +16,27 @@ internal static class MacWindowLookup
     private const int PointType = 1, SizeType = 2;
     private const float MessagingTimeout = 0.2f;
 
-    public static ScreenRect? Find(int x, int y, int levels) => FindElement(x, y, levels) ?? FindWindow(x, y);
+    private static bool offeredElementAccess;
+
+    public static ScreenRect? Find(int x, int y, int levels) =>
+        TopWindow(x, y) is { } window ? FindElement(window.Pid, x, y, levels) ?? window.Bounds : null;
+
+    // 요소 단위로 고르려면 손쉬운 사용 권한이 필요하다고 앱을 켠 뒤 한 번 알립니다. 없어도 창 단위로 캡처할 수 있습니다.
+    // 허용하러 가면 false입니다. 캡처 패널이 시스템 설정 창을 덮지 않도록 이번 캡처를 시작하지 않습니다.
+    public static bool OfferElementAccess()
+    {
+        if (offeredElementAccess || AXIsProcessTrusted()) return true;
+        offeredElementAccess = true;
+        if (MacDialogs.Ask("창 안의 요소까지 고르려면 손쉬운 사용 권한이 필요합니다.", "권한이 없으면 창 단위로 캡처합니다. 허용한 뒤 다시 캡처해 주세요. 빌드가 바뀌면 다시 허용해야 할 수 있습니다.", "창 단위로 캡처", "권한 허용") != 1) return true;
+        using var options = NSDictionary.FromObjectAndKey(NSNumber.FromBoolean(true), new NSString("AXTrustedCheckOptionPrompt"));
+        AXIsProcessTrustedWithOptions(options.Handle);
+        return false;
+    }
 
     // 앞쪽 창부터 나옵니다. 이 앱의 창과 화면 전체를 덮는 시스템 창은 고르지 않습니다.
-    internal static ScreenRect? FindWindow(int x, int y)
+    internal static ScreenRect? FindWindow(int x, int y) => TopWindow(x, y)?.Bounds;
+
+    private static (ScreenRect Bounds, int Pid)? TopWindow(int x, int y)
     {
         var list = CGWindowListCopyWindowInfo(OnScreenOnly | ExcludeDesktop, 0);
         if (list == IntPtr.Zero) return null;
@@ -32,24 +49,25 @@ internal static class MacWindowLookup
             if (window["kCGWindowOwnerName"]?.ToString() == "Window Server") continue;
             if (window["kCGWindowBounds"] is not NSDictionary bounds) continue;
             var (left, top, width, height) = (Number(bounds, "X"), Number(bounds, "Y"), Number(bounds, "Width"), Number(bounds, "Height"));
-            if (x >= left && y >= top && x < left + width && y < top + height) return new ScreenRect((int)left, (int)top, (int)width, (int)height);
+            if (x >= left && y >= top && x < left + width && y < top + height) return (new ScreenRect((int)left, (int)top, (int)width, (int)height), (int)Number(window, "kCGWindowOwnerPID"));
         }
         return null;
     }
 
     private static double Number(NSDictionary dictionary, string key) => (dictionary[key] as NSNumber)?.DoubleValue ?? 0;
 
-    private static ScreenRect? FindElement(int x, int y, int levels)
+    // 시스템 전체에 물으면 맨 위의 캡처 패널이 걸리므로 커서 아래 창의 앱에 직접 묻습니다.
+    private static ScreenRect? FindElement(int pid, int x, int y, int levels)
     {
         if (!AXIsProcessTrusted()) return null;
-        var system = AXUIElementCreateSystemWide();
+        var application = AXUIElementCreateApplication(pid);
+        if (application == IntPtr.Zero) return null;
         try
         {
-            AXUIElementSetMessagingTimeout(system, MessagingTimeout);
-            if (AXUIElementCopyElementAtPosition(system, x, y, out var element) != 0 || element == IntPtr.Zero) return null;
+            AXUIElementSetMessagingTimeout(application, MessagingTimeout);
+            if (AXUIElementCopyElementAtPosition(application, x, y, out var element) != 0 || element == IntPtr.Zero) return null;
             try
             {
-                if (AXUIElementGetPid(element, out var pid) != 0 || pid == Environment.ProcessId) return null;
                 for (var level = 0; level < levels; level++)
                 {
                     using var parentKey = new NSString("AXParent");
@@ -61,7 +79,7 @@ internal static class MacWindowLookup
             }
             finally { CFRelease(element); }
         }
-        finally { CFRelease(system); }
+        finally { CFRelease(application); }
     }
 
     private static ScreenRect? Bounds(IntPtr element)
@@ -75,7 +93,7 @@ internal static class MacWindowLookup
             try
             {
                 if (!AXValueGetValue(position, PointType, out CGPoint point) || !AXValueGetValue(size, SizeType, out CGSize extent)) return null;
-                return new ScreenRect((int)point.X, (int)point.Y, (int)extent.Width, (int)extent.Height);
+                return extent.Width >= 1 && extent.Height >= 1 ? new ScreenRect((int)point.X, (int)point.Y, (int)extent.Width, (int)extent.Height) : null;
             }
             finally { CFRelease(size); }
         }
@@ -84,11 +102,11 @@ internal static class MacWindowLookup
 
     [DllImport(CoreGraphicsLibrary)] private static extern IntPtr CGWindowListCopyWindowInfo(uint option, uint relativeToWindow);
     [DllImport(ServicesLibrary)] [return: MarshalAs(UnmanagedType.I1)] private static extern bool AXIsProcessTrusted();
-    [DllImport(ServicesLibrary)] private static extern IntPtr AXUIElementCreateSystemWide();
+    [DllImport(ServicesLibrary)] [return: MarshalAs(UnmanagedType.I1)] private static extern bool AXIsProcessTrustedWithOptions(IntPtr options);
+    [DllImport(ServicesLibrary)] private static extern IntPtr AXUIElementCreateApplication(int pid);
     [DllImport(ServicesLibrary)] private static extern int AXUIElementSetMessagingTimeout(IntPtr element, float seconds);
     [DllImport(ServicesLibrary)] private static extern int AXUIElementCopyElementAtPosition(IntPtr application, float x, float y, out IntPtr element);
     [DllImport(ServicesLibrary)] private static extern int AXUIElementCopyAttributeValue(IntPtr element, IntPtr attribute, out IntPtr value);
-    [DllImport(ServicesLibrary)] private static extern int AXUIElementGetPid(IntPtr element, out int pid);
     [DllImport(ServicesLibrary)] [return: MarshalAs(UnmanagedType.I1)] private static extern bool AXValueGetValue(IntPtr value, int type, out CGPoint point);
     [DllImport(ServicesLibrary)] [return: MarshalAs(UnmanagedType.I1)] private static extern bool AXValueGetValue(IntPtr value, int type, out CGSize size);
     [DllImport(CoreFoundationLibrary)] private static extern void CFRelease(IntPtr value);

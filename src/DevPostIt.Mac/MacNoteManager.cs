@@ -258,7 +258,7 @@ internal sealed class MacNoteManager(NoteWorkspace workspace, AppSettingsStore s
     public async Task StartCaptureAsync()
     {
         if (exiting || capture is not null) return;
-        if (!MacScreenCapture.EnsurePermission()) return;
+        if (!MacScreenCapture.EnsurePermission() || !MacWindowLookup.OfferElementAccess()) return;
         var target = lastActive ?? windows.Values.FirstOrDefault(window => window.IsVisible) ?? windows.Values.FirstOrDefault() ?? ShowNote(workspace.Notes[0].Id);
         if (target is null) return;
         var hidden = windows.Values.Where(window => window.IsVisible).ToArray();

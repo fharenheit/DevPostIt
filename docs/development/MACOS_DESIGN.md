@@ -118,7 +118,7 @@ macOS 설계에서 가장 많이 달라지는 부분입니다. **전역 후크�
 - **입력:** 모니터마다 전체 화면 투명 `NSPanel`을 띄워 오버레이가 직접 마우스·키를 받습니다. `CGEventTap`이 필요 없어 ‘세션 동안만 설치, Esc·우클릭·60초로 해제’가 창을 닫는 것만으로 보장됩니다. 강조선도 이 패널에 그립니다. 전체 화면 앱 위에서는 `.fullScreenAuxiliary`로 표시합니다.
 - **요소 찾기(2단계):**
   1. 창 단위: `CGWindowListCopyWindowInfo`로 커서 아래 창을 찾습니다. 손쉬운 사용 권한 없이 동작합니다.
-  2. 요소 단위: 권한이 있으면 `AXUIElementCopyElementAtPosition`과 `kAXParentAttribute`로 부모를 올라갑니다. `MaxLevelsUp`과 드래그 임계값은 Windows와 같게 합니다. 일부 앱은 AX 트리가 부실하므로 그때는 창 단위로 내려갑니다.
+  2. 요소 단위: 권한이 있으면 커서 아래 창의 앱(`AXUIElementCreateApplication`)에 `AXUIElementCopyElementAtPosition`으로 묻고 `kAXParentAttribute`로 부모를 올라갑니다. 시스템 전체에 물으면 맨 위의 캡처 패널이 걸립니다. `MaxLevelsUp`과 드래그 임계값은 Windows와 같게 합니다. 일부 앱은 AX 트리가 부실하므로 그때는 창 단위로 내려갑니다.
 - **촬영:** ScreenCaptureKit `SCScreenshotManager`(macOS 14 이상), 오버레이는 필터로 제외합니다. 모니터를 걸친 영역은 모니터별로 찍어 합칩니다. `CGWindowListCreateImage`는 폐기되어 쓰지 않습니다.
 - **권한:** 화면 기록은 필수, 손쉬운 사용은 선택입니다. 없으면 이유를 말하고 시스템 설정 해당 패널로 안내합니다. 조용히 실패하지 않습니다. 화면 기록은 허용 후 재시작이 필요할 수 있고, 권한은 **코드 서명에 묶여** 있습니다(9절).
 - **전역 단축키:** Carbon `RegisterEventHotKey` (권한 불필요). 등록에 실패하면 지금처럼 넘어가고 트레이로 실행합니다.
