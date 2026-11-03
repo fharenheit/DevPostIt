@@ -35,8 +35,8 @@ jobs:
         working-directory: editor-web
         run: |
           npm ci
+          npm run build
           npx playwright install chromium
-      # WPF 빌드가 웹 제작 빌드를 수행하므로 웹 시험보다 먼저 실행합니다.
       - run: dotnet test DevPostIt.sln --no-restore
       - name: Web tests (development)
         working-directory: editor-web
