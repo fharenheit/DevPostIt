@@ -275,6 +275,74 @@ internal sealed class SmokeDelegate : NSApplicationDelegate
         Check(workspace.Notes.Count == count + 1 && workspace.Notes.Any(item => item.Markdown.Contains("# 가져온 메모")), "Markdown 가져오기");
     }
 
+    // 오버레이와 실제 촬영은 띄우지 않습니다. 화면 기록 권한과 실제 마우스가 필요해 수동 시험표로 확인합니다.
+    private async Task CheckCaptureAsync(NoteWorkspace workspace, MacNoteManager manager, AppSettingsStore store, MacNoteWindow window)
+    {
+        Check(MacCaptureSession.VirtualScreen() is { Width: > 0, Height: > 0 }, "화면 전체 영역 계산");
+        var own = window.Frame;
+        window.BringToFront();
+        await Task.Delay(100);
+        var primary = NSScreen.Screens[0].Frame.Height;
+        var found = MacWindowLookup.FindWindow((int)(own.X + own.Width / 2), (int)(primary - own.Y - own.Height / 2));
+        Check(found is not { } rect || rect != new DevPostIt.EditorHost.ScreenRect((int)own.X, (int)(primary - own.Y - own.Height), (int)own.Width, (int)own.Height), "창 찾기에서 이 앱의 창 제외");
+
+        // 40×40 체크 무늬에 모자이크를 넣으면 원래 무늬가 그림에 남지 않습니다.
+        const int size = 40;
+        var pattern = new byte[size * size * 4];
+        for (var y = 0; y < size; y++)
+            for (var x = 0; x < size; x++)
+            {
+                var value = (byte)((x + y) % 2 == 0 ? 0 : 255);
+                var at = (y * size + x) * 4;
+                pattern[at] = pattern[at + 1] = pattern[at + 2] = value;
+                pattern[at + 3] = 255;
+            }
+        using var space = CoreGraphics.CGColorSpace.CreateSrgb();
+        using var context = new CoreGraphics.CGBitmapContext(pattern, size, size, 8, size * 4, space, CoreGraphics.CGBitmapFlags.ByteOrder32Little | CoreGraphics.CGBitmapFlags.PremultipliedFirst);
+        using var source = context.ToImage();
+        var png = CaptureImage.ToPng(source!);
+        var (width, height, read) = CaptureImage.Read(png);
+        Check(width == size && height == size && read[0] == 0 && read[4] == 255, "캡처 그림을 픽셀로 읽기");
+
+        var mosaic = new DevPostIt.EditorHost.Annotation(DevPostIt.EditorHost.AnnotationTool.Mosaic, 0, 0, 16, 16, DevPostIt.EditorHost.CaptureAnnotations.Red);
+        var (_, _, covered) = CaptureImage.Read(CaptureImage.Render(png, [mosaic], 1));
+        Check(Math.Abs(covered[0] - covered[4]) <= 2 && covered[0] is > 100 and < 155, "모자이크가 픽셀 자체를 바꿈");
+        Check(covered[16 * 4 + 16 * size * 4] != covered[17 * 4 + 16 * size * 4], "모자이크 밖의 픽셀은 유지");
+
+        var arrow = new DevPostIt.EditorHost.Annotation(DevPostIt.EditorHost.AnnotationTool.Rectangle, 5, 5, 35, 35, DevPostIt.EditorHost.CaptureAnnotations.Red);
+        var (_, _, boxed) = CaptureImage.Read(CaptureImage.Render(png, [arrow], 1));
+        var border = (20 + 5 * size) * 4;
+        Check(boxed[border + 2] > 180 && boxed[border] < 110, "사각형을 빨간색으로 위쪽에 그림");
+        var mirrored = (20 + 34 * size) * 4;
+        Check(boxed[mirrored + 2] > 180, "사각형의 아래쪽도 제자리에 그림");
+
+        var words = new DevPostIt.EditorHost.Annotation(DevPostIt.EditorHost.AnnotationTool.Text, 2, 2, 0, 0, DevPostIt.EditorHost.CaptureAnnotations.Black, "가");
+        Check(!CaptureImage.Render(png, [words], 1).SequenceEqual(png), "글자 주석을 그림");
+
+        // 주석을 끄면 바로, 켜면 주석 창을 거쳐 최근 메모에 넣습니다.
+        await window.EvaluateAsync("window.hunminEditor.setMode('source')");
+        store.Current.AnnotateCapture = false;
+        await manager.FinishCaptureAsync(window, png, 1);
+        await UntilAsync(() => Directory.EnumerateFiles(Path.Combine(workspace.AssetsRoot, window.NoteId.ToString("N"))).Count(file => file.EndsWith(".png", StringComparison.Ordinal)) >= 1, "캡처 삽입");
+        Check(true, "주석을 끄면 바로 메모에 삽입");
+        store.Current.AnnotateCapture = true;
+        await manager.FinishCaptureAsync(window, png, 1);
+        var annotator = manager.Annotators.Single();
+        annotator.AddAnnotation(arrow);
+        annotator.AddAnnotation(mosaic);
+        annotator.Undo();
+        Check(annotator.AnnotationCount == 1, "주석 실행 취소");
+        var before = Directory.EnumerateFiles(Path.Combine(workspace.AssetsRoot, window.NoteId.ToString("N"))).Count();
+        annotator.Finish();
+        await UntilAsync(() => Directory.EnumerateFiles(Path.Combine(workspace.AssetsRoot, window.NoteId.ToString("N"))).Count() == before + 1, "주석 그림 삽입");
+        Check(manager.Annotators.Count == 0, "메모에 넣으면 주석 창 닫힘");
+        await manager.FinishCaptureAsync(window, png, 1);
+        var discarded = manager.Annotators.Single();
+        discarded.Close();
+        await Task.Delay(300);
+        Check(manager.Annotators.Count == 0 && Directory.EnumerateFiles(Path.Combine(workspace.AssetsRoot, window.NoteId.ToString("N"))).Count() == before + 1, "주석 창을 닫으면 그림을 버림");
+    }
+
     // 클릭 이벤트 객체를 직접 넘깁니다. 이벤트 큐와 사용자 데스크톱에는 아무것도 보내지 않습니다.
     private async Task CheckStatusClicksAsync(NoteWorkspace workspace, MacNoteManager manager)
     {
@@ -405,6 +473,7 @@ internal sealed class SmokeDelegate : NSApplicationDelegate
         await SetTextAsync(again, "# ⌘Q 직전 입력\n", state.Revision + 1, first.Title);
         await CheckToolWindowsAsync(root, reopened, restored, reopenedStore);
         await CheckNoteShellAsync(root, reopened, restored, again);
+        await CheckCaptureAsync(reopened, restored, reopenedStore, again);
         await CheckStatusClicksAsync(reopened, restored);
         finalManager = restored;
     }

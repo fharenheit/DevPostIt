@@ -10,6 +10,7 @@ public sealed class AppDelegate : NSApplicationDelegate
     private StatusBarMenu? statusBar;
     private string? lastSyncError;
     private MacNotifications? notifications;
+    private MacCaptureHotkey? hotkey;
 
     public override async void DidFinishLaunching(NSNotification notification)
     {
@@ -49,6 +50,7 @@ public sealed class AppDelegate : NSApplicationDelegate
             manager.ReminderDue += reminder => notifications.Show(reminder.Kind, reminder.Title);
             manager.StartReminders();
             manager.StartHolidayUpdates();
+            hotkey = new MacCaptureHotkey(() => { if (manager is { } current) _ = MacNoteManager.RunAsync(current.StartCaptureAsync); });
         }
         catch (Exception error)
         {
@@ -126,6 +128,8 @@ public sealed class AppDelegate : NSApplicationDelegate
     private static void Add(NSMenu main, NSMenu submenu) => main.AddItem(new NSMenuItem(submenu.Title) { Submenu = submenu });
 
     public override bool ApplicationShouldTerminateAfterLastWindowClosed(NSApplication sender) => false;
+
+    public override void WillTerminate(NSNotification notification) => hotkey?.Dispose();
 
     public override NSApplicationTerminateReply ApplicationShouldTerminate(NSApplication sender) => MacTermination.Begin(sender, manager);
 }

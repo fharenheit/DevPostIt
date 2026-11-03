@@ -10,7 +10,7 @@ internal sealed class StatusBarMenu
     private const int MaxListedNotes = 15;
     private const int MaxTitleLength = 40;
     private const int MenuGap = 4;
-    private static readonly IReadOnlySet<TrayCommand> Available = new HashSet<TrayCommand>(Enum.GetValues<TrayCommand>().Where(command => command != TrayCommand.Capture));
+    private static readonly IReadOnlySet<TrayCommand> Available = new HashSet<TrayCommand>(Enum.GetValues<TrayCommand>());
     private readonly NSStatusItem item = NSStatusBar.SystemStatusBar.CreateStatusItem(NSStatusItemLength.Square);
     private readonly MacNoteManager manager;
     private readonly NoteWorkspace workspace;
@@ -109,6 +109,7 @@ internal sealed class StatusBarMenu
         {
             case TrayCommand.NewNote: _ = MacNoteManager.RunAsync(manager.CreateAsync); break;
             case TrayCommand.Search: manager.ShowSearch(); break;
+            case TrayCommand.Capture: _ = MacNoteManager.RunAsync(manager.StartCaptureAsync); break;
             case TrayCommand.Formatter: manager.ShowFormatter(); break;
             case TrayCommand.MindMap: manager.ShowMindMap(); break;
             case TrayCommand.Todo: manager.ShowTodo(); break;

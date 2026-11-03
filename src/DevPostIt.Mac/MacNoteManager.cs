@@ -29,6 +29,8 @@ internal sealed class MacNoteManager(NoteWorkspace workspace, AppSettingsStore s
     private HolidayStore? holidays;
     private MacNoteWindow? lastActive;
     private Action? afterExit;
+    private MacCaptureSession? capture;
+    private readonly List<MacCaptureAnnotationWindow> annotators = [];
     private string ToolsRoot => Path.Combine(workspace.Root, ".hunmin", "tools");
     private MindMapStore MindMaps => mindMaps ??= new MindMapStore(Path.Combine(ToolsRoot, "mindmaps"));
     internal PlannerStore Planner => planner ??= new PlannerStore(ToolsRoot);
@@ -58,6 +60,7 @@ internal sealed class MacNoteManager(NoteWorkspace workspace, AppSettingsStore s
     internal MacPlannerWindow? Calendar => calendar;
     internal MacHelpWindow? Help => help;
     internal MacAboutWindow? About => about;
+    internal IReadOnlyList<MacCaptureAnnotationWindow> Annotators => annotators;
 
     public bool Exited { get; private set; }
     internal IReadOnlyDictionary<Guid, MacNoteWindow> Windows => windows;
@@ -251,7 +254,60 @@ internal sealed class MacNoteManager(NoteWorkspace workspace, AppSettingsStore s
             ImportReporter($"메모 {imported.Count}개를 가져왔습니다." + (imported.Count > 1 ? " 나머지는 메뉴 막대의 ‘메모 목록’에서 엽니다." : "") + (failed.Count > 0 ? $"\n\n가져오지 못한 파일:\n{string.Join("\n", failed)}" : ""));
     }
 
-    public Task StartCaptureAsync() => Task.CompletedTask;
+    // 메모 창을 숨기고 요소나 영역을 고르면 최근 메모에 넣습니다.
+    public async Task StartCaptureAsync()
+    {
+        if (exiting || capture is not null) return;
+        if (!MacScreenCapture.EnsurePermission()) return;
+        var target = lastActive ?? windows.Values.FirstOrDefault(window => window.IsVisible) ?? windows.Values.FirstOrDefault() ?? ShowNote(workspace.Notes[0].Id);
+        if (target is null) return;
+        var hidden = windows.Values.Where(window => window.IsVisible).ToArray();
+        void Restore()
+        {
+            capture = null;
+            if (exiting) return;
+            foreach (var window in hidden) if (windows.ContainsValue(window) && !icons.ContainsKey(window.NoteId)) window.OrderFront(null);
+            UpdateActivationPolicy();
+        }
+        capture = new MacCaptureSession(
+            rect => _ = RunAsync(async () =>
+            {
+                byte[] png;
+                double density;
+                // 패널이 화면에서 사라진 뒤에 찍습니다.
+                await Task.Delay(60);
+                try { (png, density) = await MacScreenCapture.CaptureAsync(rect); }
+                catch (NSErrorException error) { Restore(); MacDialogs.Ask("화면을 캡처하지 못했습니다.", error.Error.LocalizedDescription, "확인"); return; }
+                Restore();
+                await FinishCaptureAsync(target, png, density);
+            }),
+            Restore);
+        foreach (var window in hidden) window.OrderOut(null);
+        // 대기 시간에는 메뉴 등을 열 수 있습니다.
+        var delay = CaptureGeometry.DelaySeconds.Contains(store.Current.CaptureDelaySeconds) ? store.Current.CaptureDelaySeconds : 0;
+        await Task.Delay(TimeSpan.FromMilliseconds(200 + delay * 1000));
+        capture?.Start();
+    }
+
+    // 주석 창을 닫으면 그림을 버립니다. 주석을 끄면 바로 메모에 넣습니다.
+    internal Task FinishCaptureAsync(MacNoteWindow target, byte[] png, double density)
+    {
+        if (exiting) return Task.CompletedTask;
+        if (!store.Current.AnnotateCapture) return InsertCaptureAsync(target, png);
+        var window = new MacCaptureAnnotationWindow(png, density, result => _ = RunAsync(() => InsertCaptureAsync(target, result)));
+        annotators.Add(window);
+        window.WindowClosed += () => annotators.Remove(window);
+        window.BringToFront();
+        return Task.CompletedTask;
+    }
+
+    private async Task InsertCaptureAsync(MacNoteWindow target, byte[] png)
+    {
+        if (ShowNote(target.NoteId) is not { } window) return;
+        for (var attempt = 0; attempt < 100 && !window.Session.IsEditorReady; attempt++) await Task.Delay(100);
+        await window.Session.InsertImageAsync(png);
+        window.BringToFront();
+    }
 
     public async Task RestoreFromTrashAsync(Guid id)
     {
@@ -277,6 +333,8 @@ internal sealed class MacNoteManager(NoteWorkspace workspace, AppSettingsStore s
         {
             await operations.StopAsync();
             saveTimer?.Invalidate();
+            capture?.Cancel();
+            foreach (var window in annotators.ToArray()) window.Close();
             RememberNow();
             foreach (var window in windows.Values.ToArray()) if (!await window.Session.RequestCloseAsync()) return false;
             settings?.Close();
