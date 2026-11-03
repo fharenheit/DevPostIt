@@ -158,17 +158,21 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
         if (exiting || capture is not null) return;
         var target = CaptureTarget();
         var hidden = windows.Values.Where(window => window.IsVisible).ToArray();
+        // 화면을 그대로 복사하므로 항상 위인 아이콘도 숨겨야 그림에 찍히지 않습니다.
+        var hiddenIcons = icons.Values.Where(icon => icon.IsVisible).ToArray();
         void Restore()
         {
             capture = null;
             if (exiting) return;
             foreach (var window in hidden) if (!window.IsVisible && windows.ContainsValue(window)) window.Show();
+            foreach (var icon in hiddenIcons) if (icons.ContainsValue(icon)) icon.Show();
         }
         capture = new ObjectCaptureSession(
             png => { Restore(); _ = RunAsync(() => FinishCaptureAsync(target, png)); },
             Restore,
             ObjectCaptureHooks);
         foreach (var window in hidden) window.Hide();
+        foreach (var icon in hiddenIcons) icon.Hide();
         // 숨기는 효과가 끝난 뒤 시작해 메모 창이 검색에 잡히지 않게 합니다. 대기 시간에는 메뉴 등을 열 수 있습니다.
         var delay = CaptureGeometry.DelaySeconds.Contains(settingsStore.Current.CaptureDelaySeconds) ? settingsStore.Current.CaptureDelaySeconds : 0;
         await Task.Delay(TimeSpan.FromMilliseconds(200 + delay * 1000));

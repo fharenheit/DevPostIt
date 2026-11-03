@@ -599,6 +599,7 @@ internal sealed class SmokeDelegate : NSApplicationDelegate
         window.PerformMiniaturize(window);
         Check(!window.IsVisible && !window.IsMiniaturized, "접으면 창을 숨김");
         var icon = manager.Icons[first.Id];
+        Check((nint)icon.Level > (nint)NSWindowLevel.Floating, "접은 아이콘은 항상 위 메모보다도 위에 표시");
         Check(icon.IsVisible && icon.Frame.Width == 24 && icon.Frame.Height == 24, "24×24 아이콘 표시");
         var iconFrame = icon.Frame;
         window.SetFrameOrigin(new CoreGraphics.CGPoint(window.Frame.X + 40, window.Frame.Y));

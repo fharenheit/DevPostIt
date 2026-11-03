@@ -15,7 +15,7 @@ public sealed class CollapsedNoteWindow : Window
     {
         Title = $"작은 메모 — {title}";
         Width = Height = 24; WindowStyle = WindowStyle.None; ResizeMode = ResizeMode.NoResize;
-        ShowInTaskbar = false; AllowsTransparency = true; Background = System.Windows.Media.Brushes.Transparent;
+        ShowInTaskbar = false; Topmost = true; AllowsTransparency = true; Background = System.Windows.Media.Brushes.Transparent;
         var (fill, border) = NoteAppearance.IconColors(color);
         var button = new Button
         {

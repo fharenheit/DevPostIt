@@ -14,7 +14,8 @@ internal sealed class CollapsedNotePanel : NSPanel
     {
         ReleaseWhenClosed(false);
         HidesOnDeactivate = false;
-        Level = NSWindowLevel.Normal;
+        // 항상 위로 둔 메모(Floating)에도 가려지지 않게 한 단계 위에 둡니다.
+        Level = (NSWindowLevel)((nint)NSWindowLevel.Floating + 1);
         IsOpaque = false;
         BackgroundColor = NSColor.Clear;
         HasShadow = false;

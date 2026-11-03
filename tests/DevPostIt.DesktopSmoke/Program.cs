@@ -93,6 +93,7 @@ internal static class Program
         first.WindowState = WindowState.Minimized;
         await UntilAsync(() => Task.FromResult(application.Windows.OfType<CollapsedNoteWindow>().Count() == 1));
         var icon = application.Windows.OfType<CollapsedNoteWindow>().Single();
+        Check(icon.Topmost, "접은 아이콘은 항상 위에 표시");
         Check(!first.IsVisible && icon.IsVisible && icon.Width == 24 && ((Button)icon.Content).Content is null, "24px 빈 노란 아이콘 표시");
         var iconButton = (Button)icon.Content;
         iconButton.ApplyTemplate();
@@ -386,6 +387,13 @@ internal static class Program
         await Task.Delay(300);
         manager.CancelObjectCapture();
         Check(!manager.IsObjectCapturing && pdfWindow.IsVisible == visibleBefore, "개체 캡처 취소 시 메모 창 복원");
+        manager.Collapse(pdfWindow);
+        var capturedIcon = application.Windows.OfType<CollapsedNoteWindow>().Single();
+        await manager.StartObjectCaptureAsync();
+        Check(!capturedIcon.IsVisible, "개체 캡처 중 접은 아이콘 숨김");
+        manager.CancelObjectCapture();
+        Check(capturedIcon.IsVisible, "개체 캡처 취소 시 접은 아이콘 복원");
+        manager.ShowNote(pdfWindow.NoteId);
         await application.Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.ContextIdle);
         Check(application.Windows.OfType<Window>().All(window => window.Width > 1 || window is CollapsedNoteWindow), "개체 캡처 강조 창 정리");
         var (hitX, hitY) = ((int)pdfWindow.Left + 100, (int)pdfWindow.Top + 100);
