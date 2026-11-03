@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [main, 'feature/**']
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: 1
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      # 러너의 줄바꿈 변환을 끄고 저장소의 파일을 그대로 시험합니다.
+      - run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - run: npm install --global npm@11.19.1
+      - run: dotnet restore DevPostIt.sln --locked-mode
+      - name: Web dependencies
+        working-directory: editor-web
+        run: |
+          npm ci
+          npx playwright install chromium
+      # WPF 빌드가 웹 제작 빌드를 수행하므로 웹 시험보다 먼저 실행합니다.
+      - run: dotnet test DevPostIt.sln --no-restore
+      - name: Web tests (development)
+        working-directory: editor-web
+        env:
+          EDITOR_TEST_PORT: '5183'
+        run: npm test
+      - name: Web tests (production)
+        working-directory: editor-web
+        env:
+          EDITOR_PRODUCTION: '1'
+          EDITOR_TEST_PORT: '4183'
+        run: npm test
+      - name: Desktop smoke
+        run: |
+          $env:DEVPOSTIT_DESKTOP_SMOKE_ROOT = Join-Path $env:RUNNER_TEMP "desktop-check-$([Guid]::NewGuid().ToString('N'))"
+          dotnet run --project tests/DevPostIt.DesktopSmoke --no-restore
+
+  macos:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - run: npm install --global npm@11.19.1
+      - run: dotnet restore DevPostIt.Mac.slnf --locked-mode
+      - run: dotnet test DevPostIt.Mac.slnf --no-restore
+      # 웹 시험은 macOS 실패를 분류하는 4단계에서 추가합니다.
+      - name: Web build
+        working-directory: editor-web
+        run: |
+          npm ci
+          npm run build
