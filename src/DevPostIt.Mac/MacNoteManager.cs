@@ -136,10 +136,14 @@ internal sealed class MacNoteManager(NoteWorkspace workspace, AppSettingsStore s
 
     public async Task CreateAsync()
     {
+        if (await CreateNoteAsync() is { } id && !exiting) ShowNote(id);
+    }
+
+    private async Task<Guid?> CreateNoteAsync()
+    {
         using var operation = operations.TryBegin();
-        if (operation is null) return;
-        var note = await Task.Run(() => workspace.CreateAsync(CancellationToken.None));
-        if (!exiting) ShowNote(note.Id);
+        if (operation is null) return null;
+        return (await Task.Run(() => workspace.CreateAsync(CancellationToken.None))).Id;
     }
 
     public void ShowAll() { foreach (var note in workspace.Notes) ShowNote(note.Id); }
@@ -254,13 +258,15 @@ internal sealed class MacNoteManager(NoteWorkspace workspace, AppSettingsStore s
             ImportReporter($"메모 {imported.Count}개를 가져왔습니다." + (imported.Count > 1 ? " 나머지는 메뉴 막대의 ‘메모 목록’에서 엽니다." : "") + (failed.Count > 0 ? $"\n\n가져오지 못한 파일:\n{string.Join("\n", failed)}" : ""));
     }
 
+    // 메모가 하나도 없으면 null입니다. 캡처를 버릴 수 있으므로 빈 메모를 미리 만들지 않습니다.
+    internal MacNoteWindow? CaptureTarget() => lastActive ?? windows.Values.FirstOrDefault(window => window.IsVisible) ?? windows.Values.FirstOrDefault() ?? (workspace.Notes.FirstOrDefault() is { } note ? ShowNote(note.Id) : null);
+
     // 메모 창을 숨기고 요소나 영역을 고르면 최근 메모에 넣습니다.
     public async Task StartCaptureAsync()
     {
         if (exiting || capture is not null) return;
         if (!MacScreenCapture.EnsurePermission() || !MacWindowLookup.OfferElementAccess()) return;
-        var target = lastActive ?? windows.Values.FirstOrDefault(window => window.IsVisible) ?? windows.Values.FirstOrDefault() ?? ShowNote(workspace.Notes[0].Id);
-        if (target is null) return;
+        var target = CaptureTarget();
         var hidden = windows.Values.Where(window => window.IsVisible).ToArray();
         void Restore()
         {
@@ -293,7 +299,7 @@ internal sealed class MacNoteManager(NoteWorkspace workspace, AppSettingsStore s
     internal NSPasteboard CaptureClipboard { get; set; } = NSPasteboard.GeneralPasteboard;
 
     // 주석 창을 닫으면 그림을 버립니다. 주석을 끄면 바로 메모에 넣습니다.
-    internal Task FinishCaptureAsync(MacNoteWindow target, byte[] png, double density)
+    internal Task FinishCaptureAsync(MacNoteWindow? target, byte[] png, double density)
     {
         if (exiting) return Task.CompletedTask;
         if (!store.Current.AnnotateCapture) return InsertCaptureAsync(target, png);
@@ -304,10 +310,10 @@ internal sealed class MacNoteManager(NoteWorkspace workspace, AppSettingsStore s
         return Task.CompletedTask;
     }
 
-    private async Task InsertCaptureAsync(MacNoteWindow target, byte[] png)
+    private async Task InsertCaptureAsync(MacNoteWindow? target, byte[] png)
     {
         MacClipboard.WritePng(CaptureClipboard, png);
-        if (ShowNote(target.NoteId) is not { } window) return;
+        if ((target?.NoteId ?? await CreateNoteAsync()) is not { } id || ShowNote(id) is not { } window) return;
         for (var attempt = 0; attempt < 100 && !window.Session.IsEditorReady; attempt++) await Task.Delay(100);
         await window.Session.InsertImageAsync(png);
         window.BringToFront();

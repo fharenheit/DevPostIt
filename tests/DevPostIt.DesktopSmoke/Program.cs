@@ -578,6 +578,28 @@ internal static class Program
         Check(clipboardCopies.Count == 3 && !clipboardCopies[2].SequenceEqual(plainCapture), "클립보드에 넣기는 주석을 넣은 그림을 복사");
         await Task.Delay(300);
         Check(await imageEditor.ExecuteScriptAsync("window.hunminEditor.getDraft().markdown") == beforeCopy, "클립보드에 넣기는 메모를 바꾸지 않음");
+        // 메모를 모두 휴지통으로 옮긴 상태의 캡처: 메모는 그림을 넣는 순간에만 만듭니다.
+        var noNotesWorkspace = await NoteWorkspace.OpenAsync(System.IO.Path.Combine(root, "no-notes"), default);
+        var noNotes = new DesktopNoteManager(noNotesWorkspace, () => noNotesWorkspace.CreateAsync(default), () => { }) { AnnotateCapture = true };
+        var noNotesCopies = new List<byte[]>();
+        noNotes.CaptureClipboard = noNotesCopies.Add;
+        await noNotesWorkspace.TrashAsync(noNotesWorkspace.Notes.Single().Id, default);
+        Check(noNotes.CaptureTarget() is null && noNotesWorkspace.Notes.Count == 0, "메모가 없어도 캡처를 시작하고 빈 메모를 미리 만들지 않음");
+        CaptureAnnotationWindow NoNotesAnnotator() => application.Windows.OfType<CaptureAnnotationWindow>().Single();
+        await noNotes.FinishCaptureAsync(null, plainCapture);
+        NoNotesAnnotator().Close();
+        Check(noNotesWorkspace.Notes.Count == 0, "메모가 없을 때 캡처를 버리면 메모를 만들지 않음");
+        await noNotes.FinishCaptureAsync(null, plainCapture);
+        NoNotesAnnotator().CopyToClipboard();
+        Check(noNotesWorkspace.Notes.Count == 0 && noNotesCopies.Count == 1, "메모가 없을 때 클립보드에 넣기는 메모를 만들지 않음");
+        await noNotes.FinishCaptureAsync(null, plainCapture);
+        NoNotesAnnotator().Finish();
+        await UntilAsync(async () => { await Task.Yield(); return noNotesWorkspace.Notes.Count == 1; });
+        var createdForCapture = noNotes.ShowNote(noNotesWorkspace.Notes[0].Id)!;
+        await UntilAsync(async () => (await ((WebView2)createdForCapture.FindName("EditorView")).ExecuteScriptAsync("window.hunminEditor.getDraft().markdown")).Contains("!["));
+        Check(true, "메모가 없을 때 새 메모를 만들어 그림을 넣음");
+        Check(await createdForCapture.RequestCloseAsync(), "메모가 없던 데이터 폴더의 창 닫기");
+        await noNotesWorkspace.DisposeAsync();
         // 가져오기와 이미지 정리: 파일 대화상자, 확인 창, Windows 휴지통 없이 분리한 데이터 폴더에서만 확인합니다.
         var importFile = Path.Combine(root, "가져올 메모.md");
         File.WriteAllText(importFile, "# 가져온 본문");

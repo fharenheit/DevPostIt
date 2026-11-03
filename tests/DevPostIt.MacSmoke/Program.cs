@@ -414,6 +414,43 @@ internal sealed class SmokeDelegate : NSApplicationDelegate
         CheckCaptureCrop();
     }
 
+    // 첫 메모까지 휴지통으로 옮긴 상태입니다. 메모는 그림을 넣는 순간에만 만듭니다.
+    private async Task CheckCaptureWithoutNotesAsync(string root)
+    {
+        var folder = Path.Combine(root, "no-notes");
+        var store = new AppSettingsStore(Path.Combine(folder, ".hunmin", "app-settings.json"));
+        var workspace = await NoteWorkspace.OpenAsync(folder, CancellationToken.None);
+        var manager = new MacNoteManager(workspace, store);
+        var board = NSPasteboard.CreateWithUniqueName();
+        manager.CaptureClipboard = board;
+        await workspace.TrashAsync(workspace.Notes.Single().Id, CancellationToken.None);
+        Check(manager.CaptureTarget() is null && workspace.Notes.Count == 0, "메모가 없어도 캡처를 시작하고 빈 메모를 미리 만들지 않음");
+
+        var pixels = new byte[32 * 32 * 4];
+        Array.Fill(pixels, (byte)200);
+        using var space = CoreGraphics.CGColorSpace.CreateSrgb();
+        using var context = new CoreGraphics.CGBitmapContext(pixels, 32, 32, 8, 32 * 4, space, CoreGraphics.CGBitmapFlags.ByteOrder32Little | CoreGraphics.CGBitmapFlags.PremultipliedFirst);
+        using var source = context.ToImage();
+        var png = CaptureImage.ToPng(source!);
+        store.Current.AnnotateCapture = true;
+
+        await manager.FinishCaptureAsync(null, png, 1);
+        manager.Annotators.Single().Close();
+        await Task.Delay(300);
+        Check(workspace.Notes.Count == 0, "메모가 없을 때 캡처를 버리면 메모를 만들지 않음");
+
+        await manager.FinishCaptureAsync(null, png, 1);
+        manager.Annotators.Single().CopyToClipboard();
+        await Task.Delay(300);
+        Check(workspace.Notes.Count == 0 && board.GetDataForType("public.png") is not null, "메모가 없을 때 클립보드에 넣기는 메모를 만들지 않음");
+
+        await manager.FinishCaptureAsync(null, png, 1);
+        manager.Annotators.Single().Finish();
+        await UntilAsync(() => workspace.Notes.Count == 1 && Directory.Exists(Path.Combine(workspace.AssetsRoot, workspace.Notes[0].Id.ToString("N"))) && Directory.EnumerateFiles(Path.Combine(workspace.AssetsRoot, workspace.Notes[0].Id.ToString("N"))).Any(file => file.EndsWith(".png", StringComparison.Ordinal)), "메모가 없을 때 새 메모에 그림 넣기");
+        Check(manager.Windows.ContainsKey(workspace.Notes[0].Id), "메모가 없을 때 새 메모를 만들어 그림을 넣음");
+        Check(await manager.ExitAsync(), "메모가 없던 데이터 폴더의 관리자 종료");
+    }
+
     // 이벤트 객체를 캔버스에 직접 넘깁니다. 이벤트 큐와 사용자 데스크톱에는 아무것도 보내지 않습니다.
     private void CheckCaptureCrop()
     {
@@ -624,6 +661,7 @@ internal sealed class SmokeDelegate : NSApplicationDelegate
         await UntilAsync(() => again.Session.IsEditorReady, "복원한 편집기 준비");
         state = await reopened.Service.GetStateAsync(first.Id, CancellationToken.None);
         await SetTextAsync(again, "# ⌘Q 직전 입력\n", state.Revision + 1, first.Title);
+        await CheckCaptureWithoutNotesAsync(root);
         await CheckToolWindowsAsync(root, reopened, restored, reopenedStore);
         await CheckNoteShellAsync(root, reopened, restored, again);
         await CheckPreviewImagesAsync(reopened, again);

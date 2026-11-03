@@ -117,10 +117,13 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
     }
     public async Task CreateAsync()
     {
+        if (await CreateNoteAsync() is { } id && !exiting) ShowNote(id);
+    }
+    private async Task<Guid?> CreateNoteAsync()
+    {
         using var operation = operations.TryBegin();
-        if (operation is null) return;
-        var note = await (createNote?.Invoke() ?? Task.Run(() => workspace.CreateAsync(CancellationToken.None)));
-        if (!exiting) ShowNote(note.Id);
+        if (operation is null) return null;
+        return (await (createNote?.Invoke() ?? Task.Run(() => workspace.CreateAsync(CancellationToken.None)))).Id;
     }
     public void ShowAll() { foreach (var note in workspace.Notes) ShowNote(note.Id); }
     public void CollapseAll() { foreach (var window in windows.Values.ToArray()) Collapse(window); }
@@ -147,12 +150,13 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
         }
         about.Activate();
     }
+    // 메모가 하나도 없으면 null입니다. 캡처를 버릴 수 있으므로 빈 메모를 미리 만들지 않습니다.
+    internal MainWindow? CaptureTarget() => lastActive ?? windows.Values.FirstOrDefault(window => window.IsVisible) ?? windows.Values.FirstOrDefault() ?? (workspace.Notes.FirstOrDefault() is { } note ? ShowNote(note.Id) : null);
     // 메모 창을 숨기고 요소나 영역을 고르면 최근 메모에 넣습니다.
     public async Task StartObjectCaptureAsync()
     {
         if (exiting || capture is not null) return;
-        var target = lastActive ?? windows.Values.FirstOrDefault(window => window.IsVisible) ?? windows.Values.FirstOrDefault() ?? ShowNote(workspace.Notes[0].Id);
-        if (target is null) return;
+        var target = CaptureTarget();
         var hidden = windows.Values.Where(window => window.IsVisible).ToArray();
         void Restore()
         {
@@ -172,7 +176,7 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
     }
     internal void CancelObjectCapture() => capture?.Cancel();
     // 주석 창을 닫으면 그림을 버립니다. 주석을 끄면 바로 메모에 넣습니다.
-    internal Task FinishCaptureAsync(MainWindow target, byte[] png)
+    internal Task FinishCaptureAsync(MainWindow? target, byte[] png)
     {
         if (exiting) return Task.CompletedTask;
         if (!AnnotateCapture) return InsertCaptureAsync(target, png);
@@ -196,10 +200,10 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
         }
         catch (Exception error) when (error is System.Runtime.InteropServices.ExternalException or NotSupportedException or System.IO.FileFormatException) { return false; }
     }
-    private async Task InsertCaptureAsync(MainWindow target, byte[] png)
+    private async Task InsertCaptureAsync(MainWindow? target, byte[] png)
     {
         CaptureClipboard(png);
-        if (ShowNote(target.NoteId) is not { } window) return;
+        if ((target?.NoteId ?? await CreateNoteAsync()) is not { } id || ShowNote(id) is not { } window) return;
         for (var attempt = 0; attempt < 100 && !window.IsEditorReady; attempt++) await Task.Delay(100);
         await window.InsertImageAsync(png);
         window.Activate();
