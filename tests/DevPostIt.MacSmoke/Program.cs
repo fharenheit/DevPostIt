@@ -1,6 +1,7 @@
 using System.Text.Json;
 using DevPostIt.Mac;
 using DevPostIt.Storage;
+using WebKit;
 
 // macOS 메모 창의 수명 시험입니다. 별도 데이터 폴더와 웹 저장소를 쓰며 합성 입력을 보내지 않습니다.
 Environment.SetEnvironmentVariable("DEVPOSTIT_WEBKIT_STORE", Guid.NewGuid().ToString().ToUpperInvariant());
@@ -22,6 +23,7 @@ internal sealed class SmokeDelegate : NSApplicationDelegate
         this.root = root;
         try
         {
+            await RemoveEarlierWebStoresAsync();
             var run = RunAsync(root);
             if (await Task.WhenAny(run, Task.Delay(TimeSpan.FromMinutes(3))) != run) throw new TimeoutException("시험 시간을 넘겼습니다.");
             await run;
@@ -44,6 +46,23 @@ internal sealed class SmokeDelegate : NSApplicationDelegate
         var file = Directory.GetFiles(Path.Combine(root!, "notes"), "*.md", SearchOption.AllDirectories);
         Check(file.Any(path => File.ReadAllText(path).Contains("# ⌘Q 직전 입력")), "⌘Q 직전 입력을 저장");
         Finish(failures == 0 ? 0 : 1);
+    }
+
+    // 쓰는 중인 저장소는 지울 수 없어 시작할 때 이전 실행의 것을 지웁니다. 시험 앱의 번들 ID 안에서만 찾습니다.
+    private static async Task RemoveEarlierWebStoresAsync()
+    {
+        // WebKit이 초기화되기 전에 목록을 물으면 WebKit 안에서 강제 종료됩니다.
+        using var configuration = new WKWebViewConfiguration();
+        foreach (var id in await WKWebsiteDataStore.FetchAllDataStoreIdentifiersAsync())
+        {
+            var done = new TaskCompletionSource();
+            WKWebsiteDataStore.Remove(id, error =>
+            {
+                if (error is not null) Report($"이전 웹 저장소를 지우지 못함: {error.LocalizedDescription}");
+                done.TrySetResult();
+            });
+            await done.Task;
+        }
     }
 
     private void Finish(int code)
