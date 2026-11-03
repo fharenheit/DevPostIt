@@ -9,6 +9,7 @@ internal sealed class StatusBarMenu
 {
     private const int MaxListedNotes = 15;
     private const int MaxTitleLength = 40;
+    private const int MenuGap = 4;
     private static readonly IReadOnlySet<TrayCommand> Available = new HashSet<TrayCommand>
     {
         TrayCommand.NewNote, TrayCommand.NoteList, TrayCommand.Trash, TrayCommand.ShowAll, TrayCommand.CollapseAll, TrayCommand.Exit,
@@ -17,27 +18,35 @@ internal sealed class StatusBarMenu
     private readonly MacNoteManager manager;
     private readonly NoteWorkspace workspace;
 
+    // 시험은 화면에 메뉴를 띄우지 않고 이 값을 바꿉니다.
+    internal Action<NSMenu> PresentMenu { get; set; }
+
     public StatusBarMenu(MacNoteManager manager, NoteWorkspace workspace)
     {
         this.manager = manager;
         this.workspace = workspace;
+        PresentMenu = OpenBelowButton;
         var button = item.Button;
         button.Image = CreateIcon();
         button.ToolTip = "메모장";
         // 바인딩의 인수 형식은 NSEventType이지만 Cocoa가 받는 값은 NSEventMask입니다.
         button.SendActionOn((NSEventType)(ulong)(NSEventMask.LeftMouseUp | NSEventMask.RightMouseUp));
-        button.Activated += (_, _) => Clicked();
+        button.Activated += (_, _) => HandleClick(NSApplication.SharedApplication.CurrentEvent);
     }
 
-    private void Clicked()
+    internal void HandleClick(NSEvent? current)
     {
-        var current = NSApplication.SharedApplication.CurrentEvent;
         var showMenu = current?.Type == NSEventType.RightMouseUp || current?.ModifierFlags.HasFlag(NSEventModifierMask.ControlKeyMask) == true;
         if (!showMenu) { _ = MacNoteManager.RunAsync(manager.CreateAsync); return; }
-        // 메뉴를 붙여 두면 왼쪽 클릭도 메뉴를 열므로 표시할 때만 붙입니다.
-        item.Menu = CreateMenu();
-        item.Button.PerformClick(item.Button);
-        item.Menu = null!;
+        // 클릭 처리가 끝난 뒤에 엽니다. 처리 중에 열면 메뉴 추적이 이 클릭과 겹칩니다.
+        var menu = CreateMenu();
+        item.Button.BeginInvokeOnMainThread(() => PresentMenu(menu));
+    }
+
+    private void OpenBelowButton(NSMenu menu)
+    {
+        var button = item.Button;
+        menu.PopUpMenu(null, new CGPoint(0, button.IsFlipped ? button.Bounds.Height + MenuGap : -MenuGap), button);
     }
 
     private NSMenu CreateMenu()

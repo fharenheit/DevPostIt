@@ -1,6 +1,7 @@
 using System.Text.Json;
 using DevPostIt.Mac;
 using DevPostIt.Storage;
+using CoreGraphics;
 using WebKit;
 
 // macOS 메모 창의 수명 시험입니다. 별도 데이터 폴더와 웹 저장소를 쓰며 합성 입력을 보내지 않습니다.
@@ -107,6 +108,30 @@ internal sealed class SmokeDelegate : NSApplicationDelegate
     private static Task SetTextAsync(MacNoteWindow window, string text, long revision, string title) =>
         window.EvaluateAsync($"window.hunminEditor.load({JsonSerializer.Serialize(window.NoteId.ToString())}, {JsonSerializer.Serialize(text)}, {revision}, {JsonSerializer.Serialize(title)})");
 
+    // 클릭 이벤트 객체를 직접 넘깁니다. 이벤트 큐와 사용자 데스크톱에는 아무것도 보내지 않습니다.
+    private async Task CheckStatusClicksAsync(NoteWorkspace workspace, MacNoteManager manager)
+    {
+        NSEvent Click(NSEventType type, NSEventModifierMask flags = 0) =>
+            NSEvent.MouseEvent(type, CGPoint.Empty, flags, NSProcessInfo.ProcessInfo.SystemUptime, 0, null, 0, 0, 0f);
+        var opened = 0;
+        // 실제 메뉴를 열면 추적이 끝나지 않으므로 표시 대신 횟수를 셉니다.
+        var status = new StatusBarMenu(manager, workspace) { PresentMenu = _ => opened++ };
+        var notes = workspace.Notes.Count;
+
+        status.HandleClick(Click(NSEventType.RightMouseUp));
+        await Task.Delay(1000);
+        Check(opened == 1 && workspace.Notes.Count == notes, $"오른쪽 클릭은 메뉴만 표시 (메뉴 {opened}번, 새 메모 {workspace.Notes.Count - notes}개)");
+
+        status.HandleClick(Click(NSEventType.LeftMouseUp, NSEventModifierMask.ControlKeyMask));
+        await Task.Delay(1000);
+        Check(opened == 2 && workspace.Notes.Count == notes, $"⌃클릭은 메뉴만 표시 (메뉴 {opened}번, 새 메모 {workspace.Notes.Count - notes}개)");
+
+        var before = workspace.Notes.Count;
+        status.HandleClick(Click(NSEventType.LeftMouseUp));
+        await UntilAsync(() => workspace.Notes.Count == before + 1, "왼쪽 클릭의 새 메모");
+        Check(opened == 2, "왼쪽 클릭은 메뉴 없이 새 메모");
+    }
+
     private async Task RunAsync(string root)
     {
         var store = new AppSettingsStore(Path.Combine(root, ".hunmin", "app-settings.json"));
@@ -205,6 +230,7 @@ internal sealed class SmokeDelegate : NSApplicationDelegate
         await UntilAsync(() => again.Session.IsEditorReady, "복원한 편집기 준비");
         state = await reopened.Service.GetStateAsync(first.Id, CancellationToken.None);
         await SetTextAsync(again, "# ⌘Q 직전 입력\n", state.Revision + 1, first.Title);
+        await CheckStatusClicksAsync(reopened, restored);
         finalManager = restored;
     }
 }
