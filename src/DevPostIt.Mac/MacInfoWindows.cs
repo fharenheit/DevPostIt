@@ -131,7 +131,7 @@ internal static class MacDiagramApp
     }
 }
 
-// 클립보드의 이미지를 PNG로 읽습니다. 시험은 별도 NSPasteboard를 넘깁니다.
+// 클립보드의 이미지를 PNG로 읽고 씁니다. 시험은 별도 NSPasteboard를 넘깁니다.
 internal static class MacClipboard
 {
     private const string PngType = "public.png";
@@ -146,6 +146,13 @@ internal static class MacClipboard
         if (files.Length != 1 || NSUrl.FromString(files[0]!)?.Path is not { } path || !File.Exists(path)) return null;
         using var data = NSData.FromFile(path);
         return data is null ? null : ToPng(data);
+    }
+
+    public static void WritePng(NSPasteboard board, byte[] png)
+    {
+        using var data = NSData.FromArray(png);
+        board.ClearContents();
+        board.SetDataForType(data, PngType);
     }
 
     private static byte[]? ToPng(NSData data)

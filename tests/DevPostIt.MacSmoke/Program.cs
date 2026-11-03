@@ -371,10 +371,15 @@ internal sealed class SmokeDelegate : NSApplicationDelegate
 
         // 주석을 끄면 바로, 켜면 주석 창을 거쳐 최근 메모에 넣습니다.
         await window.EvaluateAsync("window.hunminEditor.setMode('source')");
+        // 사용자의 클립보드를 덮어쓰지 않도록 별도 NSPasteboard를 씁니다.
+        var captureBoard = NSPasteboard.CreateWithUniqueName();
+        manager.CaptureClipboard = captureBoard;
+        var boardPng = () => captureBoard.GetDataForType("public.png")?.ToArray();
         store.Current.AnnotateCapture = false;
         await manager.FinishCaptureAsync(window, png, 1);
         await UntilAsync(() => Directory.EnumerateFiles(Path.Combine(workspace.AssetsRoot, window.NoteId.ToString("N"))).Count(file => file.EndsWith(".png", StringComparison.Ordinal)) >= 1, "캡처 삽입");
         Check(true, "주석을 끄면 바로 메모에 삽입");
+        Check(boardPng() is { } direct && direct.SequenceEqual(png), "캡처한 그림을 클립보드에 넣음");
         store.Current.AnnotateCapture = true;
         await manager.FinishCaptureAsync(window, png, 1);
         var annotator = manager.Annotators.Single();
@@ -386,10 +391,14 @@ internal sealed class SmokeDelegate : NSApplicationDelegate
         annotator.Finish();
         await UntilAsync(() => Directory.EnumerateFiles(Path.Combine(workspace.AssetsRoot, window.NoteId.ToString("N"))).Count() == before + 1, "주석 그림 삽입");
         Check(manager.Annotators.Count == 0, "메모에 넣으면 주석 창 닫힘");
+        Check(boardPng() is { } annotated && !annotated.SequenceEqual(png), "클립보드에는 주석을 넣은 그림이 들어감");
+        var copies = captureBoard.ChangeCount;
         await manager.FinishCaptureAsync(window, png, 1);
         var discarded = manager.Annotators.Single();
+        Check(captureBoard.ChangeCount == copies, "주석을 마치기 전에는 클립보드를 바꾸지 않음");
         discarded.Close();
         await Task.Delay(300);
+        Check(captureBoard.ChangeCount == copies, "버린 그림은 클립보드에 넣지 않음");
         Check(manager.Annotators.Count == 0 && Directory.EnumerateFiles(Path.Combine(workspace.AssetsRoot, window.NoteId.ToString("N"))).Count() == before + 1, "주석 창을 닫으면 그림을 버림");
     }
 

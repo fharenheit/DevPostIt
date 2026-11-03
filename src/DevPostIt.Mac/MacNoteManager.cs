@@ -289,6 +289,9 @@ internal sealed class MacNoteManager(NoteWorkspace workspace, AppSettingsStore s
         capture?.Start();
     }
 
+    // 시험은 사용자의 클립보드 대신 별도 NSPasteboard를 넘깁니다.
+    internal NSPasteboard CaptureClipboard { get; set; } = NSPasteboard.GeneralPasteboard;
+
     // 주석 창을 닫으면 그림을 버립니다. 주석을 끄면 바로 메모에 넣습니다.
     internal Task FinishCaptureAsync(MacNoteWindow target, byte[] png, double density)
     {
@@ -303,6 +306,7 @@ internal sealed class MacNoteManager(NoteWorkspace workspace, AppSettingsStore s
 
     private async Task InsertCaptureAsync(MacNoteWindow target, byte[] png)
     {
+        MacClipboard.WritePng(CaptureClipboard, png);
         if (ShowNote(target.NoteId) is not { } window) return;
         for (var attempt = 0; attempt < 100 && !window.Session.IsEditorReady; attempt++) await Task.Delay(100);
         await window.Session.InsertImageAsync(png);

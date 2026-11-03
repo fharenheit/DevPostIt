@@ -30,11 +30,13 @@ public static class HelpContent
     ];
     private const string MacCapturePermission = "macOS에서는 처음 캡처할 때 화면 기록 권한이 필요합니다. 시스템 설정에서 허용한 뒤 앱을 다시 시작합니다. 손쉬운 사용 권한도 허용하면 창 안의 요소까지 고르고, 허용하지 않으면 창 단위로 고릅니다.";
 
+    private const string MacCaptureClipboard = "macOS에서는 메모에 넣는 그림을 클립보드에도 복사하므로 다른 앱에 바로 붙여 넣을 수 있습니다. 주석을 넣었으면 주석까지 들어간 그림이 복사되고, 취소한 그림은 복사되지 않습니다.";
+
     public static IReadOnlyList<HelpSection> ForMacOS =>
         [.. Sections.Select(section =>
         {
             var paragraphs = section.Paragraphs.Select(paragraph => MacTerms.Aggregate(paragraph, (text, term) => text.Replace(term.From, term.To, StringComparison.Ordinal))).ToList();
-            if (section.Title == "화면 캡처") paragraphs.Add(MacCapturePermission);
+            if (section.Title == "화면 캡처") paragraphs.AddRange([MacCaptureClipboard, MacCapturePermission]);
             return new HelpSection(section.Title, paragraphs);
         })];
 
