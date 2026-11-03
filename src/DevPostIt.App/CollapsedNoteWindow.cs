@@ -55,18 +55,15 @@ public sealed class CollapsedNoteWindow : Window
 
 internal static class NoteAppearance
 {
-    // 제목 표시줄 색(0x00BBGGRR)과 접힌 아이콘 색입니다. 머리글 색은 style.css의 data-note-color와 맞춥니다.
-    public static int CaptionColor(string? color) => color switch
+    // 제목 표시줄 색(0x00BBGGRR)과 접힌 아이콘 색입니다.
+    public static int CaptionColor(string? color)
     {
-        "green" => 0x00DCF3D8, "blue" => 0x00F8EAD6, "pink" => 0x00E8DDFB, "purple" => 0x00F7DFE6, "gray" => 0x00E1E6E8, _ => 0x00BFF3FF,
-    };
-    public static (Color Fill, Color Border) IconColors(string? color) => color switch
+        var caption = Desktop.NotePalette.Caption(color);
+        return caption.R | caption.G << 8 | caption.B << 16;
+    }
+    public static (Color Fill, Color Border) IconColors(string? color)
     {
-        "green" => (Color.FromRgb(169, 229, 181), Color.FromRgb(96, 166, 112)),
-        "blue" => (Color.FromRgb(169, 211, 242), Color.FromRgb(92, 146, 190)),
-        "pink" => (Color.FromRgb(246, 179, 203), Color.FromRgb(190, 110, 140)),
-        "purple" => (Color.FromRgb(201, 184, 240), Color.FromRgb(136, 112, 190)),
-        "gray" => (Color.FromRgb(201, 198, 190), Color.FromRgb(140, 136, 126)),
-        _ => (Color.FromRgb(255, 232, 143), Color.FromRgb(205, 178, 86)),
-    };
+        var (fill, border) = Desktop.NotePalette.Icon(color);
+        return (Color.FromRgb(fill.R, fill.G, fill.B), Color.FromRgb(border.R, border.G, border.B));
+    }
 }

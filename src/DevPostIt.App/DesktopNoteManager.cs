@@ -374,13 +374,8 @@ public sealed class DesktopNoteManager(NoteWorkspace workspace, Func<Task<Note>>
     // 앱을 다시 켜면 지난번에 열어 둔 메모를 같은 상태로 엽니다.
     public void RestoreSession()
     {
-        if (settingsStore.Current.StartInTray) return;
-        var known = workspace.Notes.Select(note => note.Id).ToHashSet();
-        var open = settingsStore.Current.OpenNotes?.Where(known.Contains).ToArray() ?? [];
-        if (open.Length == 0) { ShowNote(workspace.Notes[0].Id); return; }
-        var collapsed = settingsStore.Current.CollapsedNotes.ToHashSet();
-        foreach (var id in open)
-            if (ShowNote(id) is { } window && collapsed.Contains(id)) Collapse(window);
+        foreach (var item in Desktop.SessionRestore.Plan(workspace.Notes.Select(note => note.Id).ToArray(), settingsStore.Current))
+            if (ShowNote(item.Id) is { } window && item.Collapsed) Collapse(window);
     }
     public async Task ExitAsync()
     {
