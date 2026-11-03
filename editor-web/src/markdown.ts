@@ -1,4 +1,4 @@
-import { noteAssetUrl } from './platform';
+import { editorTarget, noteAssetUrl } from './platform';
 import MarkdownIt from 'markdown-it';
 import DOMPurify from 'dompurify';
 import { parseImageAlt } from './image-size';
@@ -71,10 +71,14 @@ markdown.core.ruler.after('inline', 'table-line-breaks', state => {
   });
 });
 
+// DOMPurify 기본값은 앱 이미지의 사용자 지정 스킴을 지웁니다. 이 규칙은 data-line 같은 일반 속성 값에도 적용되므로 스킴이 없는 값은 그대로 허용합니다.
+const macUris = /^(?:devpostit-assets:\/\/notes\/|https?:|mailto:|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i;
+
 export function renderMarkdown(source: string): string {
   return DOMPurify.sanitize(markdown.render(source), {
     ALLOWED_TAGS: ['p', 'br', 'hr', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'strong', 'em', 's', 'blockquote', 'ul', 'ol', 'li', 'pre', 'code', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'span', 'input', 'img', 'a'],
     ALLOWED_ATTR: ['class', 'type', 'checked', 'start', 'align', 'src', 'alt', 'data-line', 'data-end', 'data-index', 'aria-label', 'href', 'title', 'width'],
     ALLOW_DATA_ATTR: false,
+    ...(editorTarget === 'macos' ? { ALLOWED_URI_REGEXP: macUris } : {}),
   });
 }

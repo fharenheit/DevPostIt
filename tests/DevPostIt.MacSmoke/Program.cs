@@ -276,6 +276,56 @@ internal sealed class SmokeDelegate : NSApplicationDelegate
     }
 
     // 오버레이와 실제 촬영은 띄우지 않습니다. 화면 기록 권한과 실제 마우스가 필요해 수동 시험표로 확인합니다.
+    // Playwright WebKit이 가로챈 이미지를 표시하지 못해 건너뛴 웹 시험의 동작을 실제 WKWebView와 스킴 처리기로 확인합니다.
+    // 클릭은 페이지 안의 DOM 호출이며 사용자 데스크톱에 입력을 보내지 않습니다. draw.io를 여는 단추는 누르지 않습니다.
+    private async Task CheckPreviewImagesAsync(NoteWorkspace workspace, MacNoteWindow window)
+    {
+        const string images = "document.querySelectorAll('#preview img')";
+        const string menu = "document.querySelector('[aria-label=\"이미지 크기\"]')";
+        static string Choose(string label) => $"[...document.querySelectorAll('[aria-label=\"이미지 크기\"] button')].find(b => b.textContent === {JsonSerializer.Serialize(label)}).click()";
+        async Task WaitAsync(string expression, string name)
+        {
+            var deadline = DateTime.UtcNow.AddSeconds(30);
+            while (!await Evaluate<bool>(window, expression))
+            {
+                if (DateTime.UtcNow > deadline) throw new TimeoutException($"{name}: {await window.EvaluateAsync("document.querySelector('#preview').outerHTML")} / {await window.EvaluateAsync("window.hunminEditor.getDraft().markdown")}");
+                await Task.Delay(50);
+            }
+            Check(true, name);
+        }
+
+        var image = await workspace.SaveImageAsync(window.NoteId, Convert.FromBase64String(Png), CancellationToken.None);
+        var (diagram, _) = await workspace.CreateDiagramAsync(window.NoteId, CancellationToken.None);
+        var note = workspace.Notes.Single(item => item.Id == window.NoteId);
+        var original = await Evaluate<string>(window, "window.hunminEditor.getDraft().markdown");
+        var state = await workspace.Service.GetStateAsync(window.NoteId, CancellationToken.None);
+        await SetTextAsync(window, $"{image}\n\n{diagram}\n", state.Revision + 1, note.Title);
+        await window.EvaluateAsync("window.hunminEditor.setMode('preview')");
+        await WaitAsync($"{images}.length === 2 && {images}[0].naturalWidth > 0", "미리보기에 PNG 표시");
+        await WaitAsync($"{images}[1].naturalWidth > 0", "미리보기에 draw.io SVG 표시");
+
+        await window.EvaluateAsync($"{images}[0].click()");
+        await WaitAsync($"{menu} !== null && !{menu}.hidden", "이미지를 누르면 크기 메뉴 표시");
+        Check(!await Evaluate<bool>(window, "[...document.querySelectorAll('button')].some(b => b.textContent === 'draw.io로 편집' && b.checkVisibility())"), "PNG 메뉴에는 draw.io 편집 없음");
+        await window.EvaluateAsync($"{images}[1].click()");
+        await WaitAsync("[...document.querySelectorAll('button')].some(b => b.textContent === 'draw.io로 편집' && b.checkVisibility())", "draw.io 그림 메뉴에 편집 표시");
+
+        await window.EvaluateAsync(Choose("50%"));
+        await WaitAsync("window.hunminEditor.getDraft().markdown.includes('![다이어그램|50%](')", "크기 메뉴가 원문의 그 이미지만 바꿈");
+        Check(await Evaluate<bool>(window, $"{images}[1].getAttribute('width') === '50%' && {images}[0].getAttribute('width') === null"), "고른 크기를 미리보기에 반영");
+
+        // 앱으로 돌아오면 draw.io 그림만 다시 읽습니다. 스킴 처리기가 다시 읽는 주소도 표시해야 합니다.
+        var pngBefore = await Evaluate<string>(window, $"{images}[0].getAttribute('src')");
+        var svgBefore = await Evaluate<string>(window, $"{images}[1].getAttribute('src')");
+        await Task.Delay(5);
+        ((NSWindowDelegate)window.Delegate!).DidBecomeKey(NSNotification.FromName("DevPostItSmoke", window));
+        await WaitAsync($"{images}[1].getAttribute('src') !== {JsonSerializer.Serialize(svgBefore)} && {images}[1].complete && {images}[1].naturalWidth > 0", "돌아오면 draw.io 그림을 다시 읽음");
+        Check(await Evaluate<string>(window, $"{images}[0].getAttribute('src')") == pngBefore, "PNG는 다시 읽지 않음");
+        await window.EvaluateAsync("window.hunminEditor.setMode('source')");
+        state = await workspace.Service.GetStateAsync(window.NoteId, CancellationToken.None);
+        await SetTextAsync(window, original!, state.Revision + 1, note.Title);
+    }
+
     private async Task CheckCaptureAsync(NoteWorkspace workspace, MacNoteManager manager, AppSettingsStore store, MacNoteWindow window)
     {
         Check(MacCaptureSession.VirtualScreen() is { Width: > 0, Height: > 0 }, "화면 전체 영역 계산");
@@ -473,6 +523,7 @@ internal sealed class SmokeDelegate : NSApplicationDelegate
         await SetTextAsync(again, "# ⌘Q 직전 입력\n", state.Revision + 1, first.Title);
         await CheckToolWindowsAsync(root, reopened, restored, reopenedStore);
         await CheckNoteShellAsync(root, reopened, restored, again);
+        await CheckPreviewImagesAsync(reopened, again);
         await CheckCaptureAsync(reopened, restored, reopenedStore, again);
         await CheckStatusClicksAsync(reopened, restored);
         finalManager = restored;

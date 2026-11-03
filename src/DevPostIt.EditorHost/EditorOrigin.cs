@@ -59,8 +59,9 @@ public static class EditorOrigin
 
     public static bool IsMacNoteAsset(string source) => Uri.TryCreate(source, UriKind.Absolute, out var uri) &&
         uri.Scheme == MacAssetScheme && uri.Host == "notes" && uri.IsDefaultPort && uri.UserInfo.Length == 0 &&
-        uri.Query.Length == 0 && uri.Fragment.Length == 0 &&
-        System.Text.RegularExpressions.Regex.IsMatch(uri.AbsolutePath, "^/[0-9a-f]{32}/[0-9a-f]{32}\\.(png|drawio\\.svg)\\z");
+        uri.Fragment.Length == 0 &&
+        // 미리보기는 저장한 그림을 다시 읽으려고 draw.io 그림에만 ?v=숫자를 붙입니다.
+        System.Text.RegularExpressions.Regex.IsMatch(uri.PathAndQuery, "^/[0-9a-f]{32}/[0-9a-f]{32}\\.(png|drawio\\.svg(\\?v=[0-9]+)?)\\z");
 
     public static bool IsLocalResource(string source) => Uri.TryCreate(source, UriKind.Absolute, out var uri) &&
         uri.Scheme == Uri.UriSchemeHttps && uri.Host == "devpostit.local" && uri.Port == 443 && uri.UserInfo.Length == 0;

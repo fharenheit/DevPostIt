@@ -33,6 +33,12 @@ public sealed class MacOriginTests
     [InlineData("devpostit-assets://notes/0123456789abcdef0123456789abcdef/../../secret.png", false)]
     [InlineData("devpostit-assets://other/0123456789abcdef0123456789abcdef/0123456789abcdef0123456789abcdef.png", false)]
     [InlineData("https://devpostit-assets.local/0123456789abcdef0123456789abcdef/0123456789abcdef0123456789abcdef.png", false)]
+    [InlineData("devpostit-assets://notes/0123456789abcdef0123456789abcdef/fedcba9876543210fedcba9876543210.drawio.svg?v=1793692031906", true)]
+    [InlineData("devpostit-assets://notes/0123456789abcdef0123456789abcdef/fedcba9876543210fedcba9876543210.drawio.svg?v=", false)]
+    [InlineData("devpostit-assets://notes/0123456789abcdef0123456789abcdef/fedcba9876543210fedcba9876543210.drawio.svg?v=1&x=2", false)]
+    [InlineData("devpostit-assets://notes/0123456789abcdef0123456789abcdef/fedcba9876543210fedcba9876543210.drawio.svg?x=1", false)]
+    [InlineData("devpostit-assets://notes/0123456789abcdef0123456789abcdef/fedcba9876543210fedcba9876543210.drawio.svg?v=1#a", false)]
+    [InlineData("devpostit-assets://notes/0123456789abcdef0123456789abcdef/fedcba9876543210fedcba9876543210.png?v=1", false)]
     public void Mac_note_asset_is_exact(string source, bool expected) => Assert.Equal(expected, EditorOrigin.IsMacNoteAsset(source));
 
     [Fact]
