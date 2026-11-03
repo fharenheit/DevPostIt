@@ -81,3 +81,28 @@ jobs:
         run: |
           npx playwright install webkit
           npm test
+
+  macos-app:
+    # macos-latest는 Xcode 버전이 달라질 수 있으므로 이미지와 Xcode를 macos-workload.json에 맞춰 고정합니다.
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - run: npm install --global npm@11.19.1
+      - run: sudo xcode-select -s /Applications/Xcode_26.6.app
+      - run: dotnet workload install macos --from-rollback-file macos-workload.json
+      - run: dotnet restore src/DevPostIt.Mac --locked-mode
+      - run: dotnet build src/DevPostIt.Mac -c Release --no-restore
+      - name: Package
+        run: ditto -c -k --keepParent src/DevPostIt.Mac/bin/Release/net10.0-macos/osx-arm64/DevPostIt.app DevPostIt-macos-arm64.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DevPostIt-macos-arm64
+          path: DevPostIt-macos-arm64.zip
+          if-no-files-found: error

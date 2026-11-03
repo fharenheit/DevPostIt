@@ -15,8 +15,6 @@
     <SupportedOSPlatformVersion>14.0</SupportedOSPlatformVersion>
     <ApplicationId>io.github.fharenheit.devpostit.smoke</ApplicationId>
     <ApplicationTitle>DevPostIt Smoke</ApplicationTitle>
-    <!-- 워크로드 27.0.10742는 Xcode 27.1을 요구합니다. 맞는 워크로드가 나오면 이 설정을 지웁니다. -->
-    <ValidateXcodeVersion>false</ValidateXcodeVersion>
     <!-- 저장 코드는 리플렉션 기반 JSON을 쓰므로 어셈블리를 잘라 내지 않습니다. -->
     <LinkMode>None</LinkMode>
     <EnableTrimAnalyzer>false</EnableTrimAnalyzer>
