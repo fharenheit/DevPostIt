@@ -65,6 +65,15 @@ dotnet test DevPostIt.Mac.slnf --no-restore
   - WebKit에서만 실패한 14개는 4단계에서 분류합니다: `bridge.spec.ts:159`, `font-settings.spec.ts:8,115,148,167`, `fonts.spec.ts:4,19`, `ime.spec.ts:4`, `note-features.spec.ts:44,233`, `preview-tools.spec.ts:65,81,173,186`. `ime.spec.ts:4`(CDP)와 `note-features.spec.ts`의 2개(클립보드 권한, PDF)는 시험 도구의 한계일 수 있습니다. `bridge.spec.ts:159`(한글 조합 중간값)는 먼저 확인합니다.
 - 실제 WKWebView(macOS 26.6.2, 작은 시험 페이지)에서 확인한 내용은 설계 문서 5절에 있습니다. 제작 번들에서 `.NET` 호스트로 실행한 적은 없습니다.
 
+### IME 시험 중간 결과 (2026-11-03)
+
+실제 입력 1회의 기록입니다. 합격 판정이 아닙니다.
+
+- 메모 창의 한글은 ‘한글이 잘 입력이 되고..’처럼 올바른 글자로 기록되었고, 조합 중 오타도 고쳐졌습니다.
+- **조합 이벤트가 0건입니다.** 한글 키의 `keydown`은 `keyCode=229`, `isComposing=false`였고 `compositionstart`와 조합 `beforeinput`이 없었습니다. 입력 소스 종류는 확인하지 못했습니다.
+- 그래서 `compositionstart`와 `event.isComposing`에 기대는 코드(`editor.ts`, `bridge.ts`, `mindmap.ts`, `todo.ts`)의 보호가 이 환경에서 동작하지 않을 수 있습니다. 조합 도중의 글자도 `note.changed`로 나갔습니다.
+- 기록에 없는 항목: 조합 중 Enter, 이름 변경, 마인드맵, 할 일. 실행 취소는 기록만으로 판단할 수 없습니다.
+
 ### IME 시험 도구
 
 시험 도구 `ime-gate`(Swift)는 세션 임시 폴더에 두어 저장소에 없고, 다음 세션에서 없을 수 있습니다. 다시 만들 때의 조건입니다.
