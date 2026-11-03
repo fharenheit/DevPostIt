@@ -1,15 +1,15 @@
 import { test, expect, type Page } from '@playwright/test';
-import { openEditor, draft, mode, replaceText } from './helpers';
+import { openEditor, draft, mode, replaceText, documentStart, documentEnd } from './helpers';
 
 const press = (page: Page, name: string) => page.getByRole('toolbar', { name: 'Markdown 서식', exact: true }).getByRole('button', { name, exact: true }).click();
 async function start(page: Page, text: string) {
   await openEditor(page);
   await replaceText(page, text);
-  await page.keyboard.press('Control+Home');
+  await page.keyboard.press(documentStart);
 }
 const markdown = async (page: Page) => (await draft(page)).markdown;
 async function selectLines(page: Page, count: number) {
-  await page.keyboard.press('Control+Home');
+  await page.keyboard.press(documentStart);
   for (let i = 1; i < count; i++) await page.keyboard.press('Shift+ArrowDown');
   await page.keyboard.press('Shift+End');
 }
@@ -167,7 +167,7 @@ test('구분선과 표는 앞뒤 문단과 빈 줄로 분리한다', async ({ pa
 
 test('빈 줄의 구분선이 윗줄을 제목으로 바꾸지 않는다', async ({ page }) => {
   await start(page, '위\n');
-  await page.keyboard.press('Control+End');
+  await page.keyboard.press(documentEnd);
   await press(page, '구분선');
   await mode(page, 'preview');
   await expect(page.locator('#preview hr')).toHaveCount(1);
@@ -178,10 +178,10 @@ test('한 번의 실행 취소로 되돌리고 혼합 줄바꿈 원문을 복원
   const raw = '﻿가\r\n나\n다';
   await openEditor(page, raw);
   await page.locator('#source .monaco-editor').click({ position: { x: 130, y: 20 } });
-  await page.keyboard.press('Control+Home');
+  await page.keyboard.press(documentStart);
   await press(page, '인용');
   expect((await draft(page)).dirty).toBe(true);
-  await page.keyboard.press('Control+z');
+  await page.keyboard.press('ControlOrMeta+z');
   await expect.poll(() => draft(page)).toMatchObject({ markdown: raw, dirty: false });
 });
 

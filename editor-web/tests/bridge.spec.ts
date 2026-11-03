@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { replaceText, mode, draft, openSettings } from './helpers';
+import { replaceText, mode, draft, openSettings, appPrimary } from './helpers';
 
 const id = '018f5df0-7e6c-7ad0-a8c1-9b67490da11b';
 test('제목 더블클릭은 접기 대신 이름 편집을 연다', async ({ page }) => {
@@ -13,7 +13,7 @@ test('제목 더블클릭은 접기 대신 이름 편집을 연다', async ({ pa
 test('Ctrl+,는 호스트에 설정 창을 요청하고 메모 안에 대화상자를 띄우지 않는다', async ({ page }) => {
   await hosted(page);
   await send(page);
-  await page.keyboard.press('Control+,');
+  await page.keyboard.press(`${appPrimary}+,`);
   await expect.poll(async () => (await messages(page)).at(-1)).toMatchObject({ type: 'window.settingsRequested', revision: 7, payload: {} });
   await expect(page.getByRole('dialog', { name: '설정', exact: true })).toHaveCount(0);
   await send(page, 'ui.openSettings', 7, {});
@@ -126,7 +126,7 @@ test('준비→호스트 문서 로드→변경 메시지→저장 요청을 실
   await expect.poll(async () => (await messages(page)).filter(m => m.type === 'note.changed').at(-1)?.payload.markdown).toBe('한글 수정');
   const changed = (await messages(page)).filter(m => m.type === 'note.changed').at(-1);
   expect(changed.noteId).toBe(id);
-  await page.keyboard.press('Control+s');
+  await page.keyboard.press('ControlOrMeta+s');
   await expect.poll(async () => (await messages(page)).at(-1)?.type).toBe('note.saveRequested');
   await send(page, 'note.conflict', changed.revision, { message: '저장 기능 연결 전입니다.' });
   await expect(page.getByRole('status').filter({ hasText: '저장 기능 연결 전입니다.' })).toBeVisible();
@@ -156,7 +156,8 @@ test('잘못된 호스트 메시지와 오래된 저장 응답은 현재 본문�
   expect((await messages(page)).length).toBe(count);
 });
 
-test('한글 조합 중간값을 호스트에 보내지 않고 완료한 본문만 전송한다', async ({ page, context }) => {
+test('한글 조합 중간값을 호스트에 보내지 않고 완료한 본문만 전송한다', async ({ page, browserName, context }) => {
+  test.skip(browserName !== 'chromium', '조합 시험은 CDP를 씁니다. WKWebView의 IME는 수동 시험으로 확인합니다.');
   await hosted(page);
   await send(page, 'note.load', 7, { markdown: '' });
   await page.locator('#source .monaco-editor').click({ position: { x: 130, y: 40 } });

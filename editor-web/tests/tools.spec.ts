@@ -164,9 +164,9 @@ test.describe('마인드맵', () => {
     const picked = await page.locator('.mm-node.selected .mm-text').innerText();
     await page.keyboard.press('Delete');
     expect(await nodeTexts(page)).not.toContain(picked);
-    await page.keyboard.press('Control+z');
+    await page.keyboard.press('ControlOrMeta+z');
     expect(await nodeTexts(page)).toContain(picked);
-    await page.keyboard.press('Control+y');
+    await page.keyboard.press('ControlOrMeta+y');
     expect(await nodeTexts(page)).not.toContain(picked);
   });
 
@@ -200,7 +200,7 @@ test.describe('마인드맵', () => {
     await expect(nodeNamed(page, '나')).toHaveClass(/drop-child/);
     await page.mouse.up();
     await expect.poll(async () => (await storedMap(page))[0].root.children.find((node: MapNode) => node.text === '나')?.children.map((node: MapNode) => node.text)).toEqual(['가']);
-    await page.keyboard.press('Control+z');
+    await page.keyboard.press('ControlOrMeta+z');
     await expect.poll(async () => (await storedMap(page))[0].root.children.map((node: MapNode) => node.text)).toContain('가');
   });
 
@@ -284,13 +284,13 @@ test.describe('마인드맵', () => {
     });
     expect(await nodeTexts(page)).toEqual(expect.arrayContaining(['일', '이', '삼']));
     await nodeNamed(page, '일').click();
-    await page.keyboard.press('Control+d');
+    await page.keyboard.press('ControlOrMeta+d');
     await expect(nodeNamed(page, '이')).toHaveCount(2);
   });
 
   test('색, 굵게, 표시, 메모, 링크를 저장한다', async ({ page }) => {
     await openMap(page);
-    await page.keyboard.press('Control+b');
+    await page.keyboard.press('ControlOrMeta+b');
     await page.locator('#mm-icon').selectOption('star');
     await page.locator('#mm-color').evaluate((input: HTMLInputElement) => { input.value = '#112233'; input.dispatchEvent(new Event('change', { bubbles: true })); });
     await page.locator('#mm-note').fill('메모 내용');
@@ -307,7 +307,7 @@ test.describe('마인드맵', () => {
     await page.keyboard.press('Enter');
     await nodeNamed(page, '가').click();
     await page.keyboard.press('Space');
-    await page.keyboard.press('Control+f');
+    await page.keyboard.press('ControlOrMeta+f');
     await page.locator('#mm-find-input').fill('숨은');
     await page.locator('#mm-find-input').press('Enter');
     await expect(nodeNamed(page, '숨은주제')).toHaveClass(/selected/);
@@ -318,11 +318,11 @@ test.describe('마인드맵', () => {
     await openMap(page);
     const scale = () => page.locator('#mm-stage').evaluate(stage => new DOMMatrix(getComputedStyle(stage).transform).a);
     const before = await scale();
-    await page.keyboard.press('Control+=');
+    await page.keyboard.press('ControlOrMeta+=');
     expect(await scale()).toBeGreaterThan(before);
     await page.locator('#mm-canvas').hover();
     await page.mouse.wheel(0, 200);
-    await page.keyboard.press('Control+0');
+    await page.keyboard.press('ControlOrMeta+0');
     expect(await scale()).toBeCloseTo(before, 1);
   });
 

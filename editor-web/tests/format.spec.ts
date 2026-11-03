@@ -1,9 +1,9 @@
 import { test, expect, type Page } from '@playwright/test';
-import { openEditor, draft } from './helpers';
+import { openEditor, draft, documentStart } from './helpers';
 
 async function atLine(page: Page, line: number) {
   await page.locator('#source .monaco-editor').click({ position: { x: 100, y: 40 } });
-  await page.keyboard.press('Control+Home');
+  await page.keyboard.press(documentStart);
   for (let i = 1; i < line; i++) await page.keyboard.press('ArrowDown');
 }
 
@@ -25,7 +25,7 @@ for (const [lang, code, expected] of [
   expect((await draft(page)).markdown).toBe(prefix + expected + suffix);
   if (expected !== code) {
     await atLine(page, 4);
-    await page.keyboard.press('Control+z');
+    await page.keyboard.press('ControlOrMeta+z');
     expect((await draft(page)).markdown).toBe(prefix + code + suffix);
   }
 });
@@ -73,7 +73,7 @@ test('혼합 줄바꿈의 앞뒤 원문을 정리와 실행 취소에서 정확�
   await expect(page.locator('#format-status')).toContainText('정리했습니다');
   expect((await draft(page)).markdown).toBe('앞\r\n```json\n{ "a": 1 }\n```\n뒤\n');
   await atLine(page, 3);
-  await page.keyboard.press('Control+z');
+  await page.keyboard.press('ControlOrMeta+z');
   expect((await draft(page)).markdown).toBe(original);
 });
 

@@ -1,3 +1,4 @@
+import { documentStart, macTarget } from './helpers';
 import { test, expect, type Page } from '@playwright/test';
 
 declare global { interface Window { hunminFormatter: { getValue(): string; setValue(text: string): void; getLanguage(): string } } }
@@ -75,9 +76,10 @@ test('포맷은 한 번의 실행 취소로 되돌리고 단축키로도 실행�
   await page.getByLabel('언어').selectOption('json');
   await page.locator('#formatter-code .monaco-editor').click();
   await page.keyboard.insertText('{"a":1}');
-  await page.keyboard.press('Control+Alt+f');
+  // Monaco는 Windows 빌드를 Mac 브라우저에서 열면 CtrlCmd를 ⌘로 읽습니다. macOS 빌드는 ⌃⌥F입니다.
+  await page.keyboard.press(process.platform === 'darwin' && !macTarget ? 'Meta+Alt+f' : 'Control+Alt+f');
   await expect.poll(() => value(page)).toBe('{ "a": 1 }\n');
-  await page.keyboard.press('Control+z');
+  await page.keyboard.press('ControlOrMeta+z');
   await expect.poll(() => value(page)).toBe('{"a":1}');
   await page.keyboard.press('Shift+Alt+f');
   await expect.poll(() => value(page)).toBe('{ "a": 1 }\n');
@@ -107,12 +109,12 @@ test('찾기, 명령 팔레트, 여러 커서 등 Monaco 기능을 쓴다', asyn
   await open(page);
   await page.evaluate(() => window.hunminFormatter.setValue('alpha beta alpha'));
   await page.locator('#formatter-code .monaco-editor').click();
-  await page.keyboard.press('Control+f');
+  await page.keyboard.press('ControlOrMeta+f');
   await expect(page.locator('#formatter-code .find-widget.visible')).toBeVisible();
   await page.keyboard.press('Escape');
-  await page.keyboard.press('Control+Home');
-  await page.keyboard.press('Control+d');
-  await page.keyboard.press('Control+d');
+  await page.keyboard.press(documentStart);
+  await page.keyboard.press('ControlOrMeta+d');
+  await page.keyboard.press('ControlOrMeta+d');
   await page.keyboard.insertText('x');
   await expect.poll(() => value(page)).toBe('x beta x');
   await page.keyboard.press('F1');

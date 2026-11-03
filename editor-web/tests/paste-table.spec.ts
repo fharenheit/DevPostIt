@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { openEditor, draft, mode, replaceText } from './helpers';
+import { openEditor, draft, mode, replaceText, documentStart, documentEnd } from './helpers';
 
 // Excel이 클립보드에 넣는 형식과 같은 구조입니다.
 const excelHtml = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta name=ProgId content=Excel.Sheet><style>td {mso-number-format:General;}</style></head><body link="#0563C1">
@@ -37,20 +37,21 @@ test('Excel에서 복사한 셀을 Markdown 표로 붙여넣는다', async ({ pa
   await expect(page.locator('#preview td').last()).toHaveText('3');
 });
 
-test('실제 Ctrl+V로 클립보드의 표를 붙여넣는다', async ({ page, context }) => {
+test('실제 Ctrl+V로 클립보드의 표를 붙여넣는다', async ({ page, browserName, context }) => {
+  test.skip(browserName !== 'chromium', 'WebKit에는 클립보드 권한 설정이 없습니다.');
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await openEditor(page);
   await page.locator('#source .monaco-editor').click({ position: { x: 130, y: 20 } });
   await page.evaluate(async ({ html, text }) => {
     await navigator.clipboard.write([new ClipboardItem({ 'text/html': new Blob([html], { type: 'text/html' }), 'text/plain': new Blob([text], { type: 'text/plain' }) })]);
   }, { html: excelHtml, text: excelText });
-  await page.keyboard.press('Control+v');
+  await page.keyboard.press('ControlOrMeta+v');
   await expect.poll(() => markdown(page)).toBe(excelMarkdown);
 });
 
 test('문단 사이에서는 빈 줄로 분리하고 커서를 표 뒤에 둔다', async ({ page }) => {
   await start(page, '위\n아래');
-  await page.keyboard.press('Control+Home');
+  await page.keyboard.press(documentStart);
   await page.keyboard.press('End');
   await paste(page, excelHtml, excelText);
   expect(await markdown(page)).toBe(`위\n\n${excelMarkdown}\n\n아래`);
@@ -58,7 +59,7 @@ test('문단 사이에서는 빈 줄로 분리하고 커서를 표 뒤에 둔다
 
 test('글 가운데에서는 앞뒤 글을 나누고 선택 영역은 표로 바꾼다', async ({ page }) => {
   await start(page, '앞X뒤');
-  await page.keyboard.press('Control+Home');
+  await page.keyboard.press(documentStart);
   await page.keyboard.press('ArrowRight');
   await page.keyboard.press('Shift+ArrowRight');
   await paste(page, excelHtml, excelText);
@@ -75,9 +76,9 @@ test('표 뒤에 이어서 입력하면 표 다음 위치에 들어간다', asyn
 
 test('한 번의 실행 취소로 되돌린다', async ({ page }) => {
   await start(page, '본문');
-  await page.keyboard.press('Control+End');
+  await page.keyboard.press(documentEnd);
   await paste(page, excelHtml, excelText);
-  await page.keyboard.press('Control+z');
+  await page.keyboard.press('ControlOrMeta+z');
   await expect.poll(() => markdown(page)).toBe('본문');
 });
 

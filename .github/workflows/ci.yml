@@ -68,9 +68,16 @@ jobs:
       - run: npm install --global npm@11.19.1
       - run: dotnet restore DevPostIt.Mac.slnf --locked-mode
       - run: dotnet test DevPostIt.Mac.slnf --no-restore
-      # 웹 시험은 macOS 실패를 분류하는 4단계에서 추가합니다.
       - name: Web build
         working-directory: editor-web
         run: |
           npm ci
           npm run build
+      - name: Web tests (WebKit, macOS target)
+        working-directory: editor-web
+        env:
+          EDITOR_TARGET: macos
+          EDITOR_BROWSER: webkit
+        run: |
+          npx playwright install webkit
+          npm test

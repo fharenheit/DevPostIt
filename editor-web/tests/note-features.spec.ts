@@ -1,15 +1,15 @@
 import { test, expect, type Page } from '@playwright/test';
-import { openEditor, draft, mode, replaceText } from './helpers';
+import { openEditor, draft, mode, replaceText, documentStart, appPrimary, assetOrigin } from './helpers';
 
 const markdown = async (page: Page) => (await draft(page)).markdown;
 async function select(page: Page, text: string) {
   await openEditor(page);
   await replaceText(page, text);
-  await page.keyboard.press('Control+Home');
+  await page.keyboard.press(documentStart);
   await page.keyboard.press('Shift+End');
 }
 
-for (const [keys, expected] of [['Control+b', '**본문**'], ['Control+i', '*본문*'], ['Control+Shift+x', '~~본문~~'], ['Control+e', '`본문`'], ['Control+1', '# 본문'], ['Control+2', '## 본문'], ['Control+3', '### 본문']] as const) {
+for (const [keys, expected] of [['ControlOrMeta+b', '**본문**'], ['ControlOrMeta+i', '*본문*'], ['ControlOrMeta+Shift+x', '~~본문~~'], ['ControlOrMeta+e', '`본문`'], ['ControlOrMeta+1', '# 본문'], ['ControlOrMeta+2', '## 본문'], ['ControlOrMeta+3', '### 본문']] as const) {
   test(`${keys} 단축키로 서식을 넣는다`, async ({ page }) => {
     await select(page, '본문');
     await page.keyboard.press(keys);
@@ -19,7 +19,7 @@ for (const [keys, expected] of [['Control+b', '**본문**'], ['Control+i', '*본
 
 test('Ctrl+K로 링크를 넣는다', async ({ page }) => {
   await select(page, '문서');
-  await page.keyboard.press('Control+k');
+  await page.keyboard.press('ControlOrMeta+k');
   expect(await markdown(page)).toBe('[문서](url)');
 });
 
@@ -37,11 +37,12 @@ test('미리보기의 체크박스를 누르면 원문의 해당 줄만 바꾸�
   await expect(page.locator('#preview pre')).toContainText('- [ ] 코드 안');
   await mode(page, 'source');
   await page.locator('#source .monaco-editor').click({ position: { x: 130, y: 20 } });
-  await page.keyboard.press('Control+z');
+  await page.keyboard.press('ControlOrMeta+z');
   await expect.poll(() => markdown(page)).toBe(source.replace('- [ ] 첫째', '- [x] 첫째'));
 });
 
-test('미리보기 코드 블록의 복사 버튼은 하이라이트 전 원문을 복사한다', async ({ page, context }) => {
+test('미리보기 코드 블록의 복사 버튼은 하이라이트 전 원문을 복사한다', async ({ page, browserName, context }) => {
+  test.skip(browserName !== 'chromium', 'WebKit에는 클립보드 권한 설정이 없습니다.');
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   const code = 'function a() {\n  return "메모  두칸";\n}';
   await openEditor(page, `\`\`\`ts\n${code}\n\`\`\`\n`);
@@ -62,7 +63,7 @@ test('앱이 저장한 이미지만 표시하고 다른 이미지는 요청하�
   await openEditor(page, `![붙임](${assetRef})\n\n![외부](https://example.com/a.png)\n\n![경로](../../secret/a.png)\n`);
   await mode(page, 'preview');
   await expect(page.locator('#preview img')).toHaveCount(1);
-  await expect(page.locator('#preview img')).toHaveAttribute('src', 'https://devpostit-assets.local/0123456789abcdef0123456789abcdef/fedcba9876543210fedcba9876543210.png');
+  await expect(page.locator('#preview img')).toHaveAttribute('src', `${assetOrigin}/0123456789abcdef0123456789abcdef/fedcba9876543210fedcba9876543210.png`);
   await expect(page.locator('#preview')).toContainText('[이미지: 외부]');
   await expect(page.locator('#preview')).toContainText('[이미지: 경로]');
   expect(requests).toEqual([]);
@@ -135,7 +136,7 @@ test('항상 위와 색상을 앱에 알리고 앱이 보낸 값을 표시한다
 test('Ctrl+Shift+F는 앱에 검색 창을 요청한다', async ({ page }) => {
   await hosted(page);
   await send(page, 'note.load', 7, { markdown: '본문' });
-  await page.keyboard.press('Control+Shift+f');
+  await page.keyboard.press(`${appPrimary}+Shift+f`);
   await expect.poll(async () => (await sent(page)).at(-1)?.type).toBe('window.searchRequested');
 });
 
@@ -230,7 +231,8 @@ test('PDF 저장 후에도 미리보기에서 시작했으면 미리보기를 �
   await expect(page.locator('#preview-mode')).toHaveAttribute('aria-pressed', 'true');
 });
 
-test('인쇄 화면은 제목과 본문만 남기고 긴 문서를 자르지 않는다', async ({ page }) => {
+test('인쇄 화면은 제목과 본문만 남기고 긴 문서를 자르지 않는다', async ({ page, browserName }) => {
+  test.skip(browserName !== 'chromium', 'PDF 저장은 Chromium만 지원합니다. macOS PDF는 MacSmoke가 확인합니다.');
   const body = Array.from({ length: 200 }, (_, index) => `문단 ${index}`).join('\n\n');
   await openEditor(page, `# 긴 문서\n\n${body}\n\n\`\`\`ts\nconst a = 1;\n\`\`\`\n`);
   await mode(page, 'preview');
@@ -276,7 +278,7 @@ test('캡처 버튼과 Ctrl+Shift+C는 앱에 캡처를 요청하고 본문을 �
   await expect.poll(async () => (await sent(page)).at(-1)).toMatchObject({ type: 'window.captureRequested', revision: 7, payload: {} });
   const count = (await sent(page)).length;
   await page.locator('#source .monaco-editor').click({ position: { x: 130, y: 20 } });
-  await page.keyboard.press('Control+Shift+c');
+  await page.keyboard.press(`${appPrimary}+Shift+c`);
   await expect.poll(async () => (await sent(page)).length).toBe(count + 1);
   expect((await sent(page)).at(-1).type).toBe('window.captureRequested');
   expect(await markdown(page)).toBe('본문');

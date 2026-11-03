@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { openEditor, mode, openSettings, draft } from './helpers';
+import { openEditor, mode, openSettings, draft, appPrimary } from './helpers';
 
 const css = (page: Page, selector: string, property: string) => page.locator(selector).first().evaluate((element, name) => getComputedStyle(element).getPropertyValue(name), property);
 const preferences = { font: 'd2', ligatures: true, size: 15 };
@@ -8,10 +8,10 @@ const seed = (page: Page, value: object) => page.addInitScript(item => localStor
 test('미리보기 코드도 선택한 편집 글꼴과 합자 설정을 따른다', async ({ page }) => {
   await openEditor(page, '```ts\nconst a = 1;\n```\n');
   await mode(page, 'preview');
-  expect(await css(page, '#preview code', 'font-family')).toMatch(/^"D2 Ligature"/);
+  expect(await css(page, '#preview code', 'font-family')).toMatch(/^"?D2 Ligature"?/);
   const settings = await openSettings(page);
   await settings.getByLabel('편집 글꼴').selectOption('jetbrains');
-  await expect.poll(() => css(page, '#preview code', 'font-family')).toMatch(/^"JetBrains Mono"/);
+  await expect.poll(() => css(page, '#preview code', 'font-family')).toMatch(/^"?JetBrains Mono"?/);
   await settings.getByLabel('합자 사용').uncheck();
   await expect.poll(() => css(page, '#preview code', 'font-variant-ligatures')).toBe('none');
 });
@@ -29,7 +29,8 @@ test('굵은 글꼴을 포함하고 편집기 제목이 실제로 굵게 표시�
 
 test('JetBrains Mono와 Consolas에서 한글 폭이 라틴 글자의 2배에 맞는다', async ({ page }) => {
   await openEditor(page);
-  for (const [stack, face] of [['"JetBrains Mono", "D2 Hangul 120", monospace', 'D2 Hangul 120'], ['Consolas, "D2 Hangul 110", monospace', 'D2 Hangul 110'], ['"D2 Ligature", monospace', 'D2 Ligature']]) {
+  // Consolas는 Windows 글꼴입니다.
+  for (const [stack, face] of [['"JetBrains Mono", "D2 Hangul 120", monospace', 'D2 Hangul 120'], ...(process.platform === 'darwin' ? [] : [['Consolas, "D2 Hangul 110", monospace', 'D2 Hangul 110'], ['"D2 Ligature", monospace', 'D2 Ligature']])]) {
     const ratio = await page.evaluate(async ({ stack, face }) => {
       await document.fonts.load(`100px "${face}"`, '가');
       await document.fonts.load('100px "JetBrains Mono"', 'a');
@@ -73,11 +74,11 @@ test('줄 간격을 편집기와 미리보기에 함께 적용한다', async ({ 
   await expect(settings.getByLabel('줄 간격 값')).toHaveText('2.2');
 });
 
-for (const [keys, expected] of [['Control+=', '16px'], ['Control+-', '14px']] as const) {
-  test(`${keys}로 글자 크기를 바꾸고 저장한다`, async ({ page }) => {
+for (const [keys, expected] of [['=', '16px'], ['-', '14px']] as const) {
+  test(`Ctrl+${keys}로 글자 크기를 바꾸고 저장한다`, async ({ page }) => {
     await openEditor(page, '본문');
     await page.locator('#source .monaco-editor').click({ position: { x: 130, y: 20 } });
-    await page.keyboard.press(keys);
+    await page.keyboard.press(`${appPrimary}+${keys}`);
     await expect.poll(() => page.evaluate(() => document.documentElement.style.fontSize)).toBe(expected);
     expect((await draft(page)).markdown).toBe('본문');
     await page.reload();
@@ -89,9 +90,9 @@ test('Ctrl+0은 전체 크기를 기본값으로 되돌리고 범위를 넘지 �
   await seed(page, { ...preferences, size: 24 });
   await openEditor(page, '본문');
   await page.locator('#source .monaco-editor').click({ position: { x: 130, y: 20 } });
-  await page.keyboard.press('Control+=');
+  await page.keyboard.press(`${appPrimary}+=`);
   await expect.poll(() => page.evaluate(() => document.documentElement.style.fontSize)).toBe('24px');
-  await page.keyboard.press('Control+0');
+  await page.keyboard.press(`${appPrimary}+0`);
   await expect.poll(() => page.evaluate(() => document.documentElement.style.fontSize)).toBe('15px');
 });
 
@@ -115,9 +116,9 @@ test('합자가 없는 Consolas에서는 합자 설정을 끈다', async ({ page
 test('설정 창 예시가 선택한 글꼴을 따른다', async ({ page }) => {
   await page.goto('/settings.html');
   await expect(page.locator('#font-sample')).toContainText('=>');
-  expect(await css(page, '#font-sample', 'font-family')).toMatch(/^"D2 Ligature"/);
+  expect(await css(page, '#font-sample', 'font-family')).toMatch(/^"?D2 Ligature"?/);
   await page.getByLabel('편집 글꼴').selectOption('jetbrains');
-  expect(await css(page, '#font-sample', 'font-family')).toMatch(/^"JetBrains Mono"/);
+  expect(await css(page, '#font-sample', 'font-family')).toMatch(/^"?JetBrains Mono"?/);
   await expect(page.locator('#font-sample')).toHaveCSS('font-size', '14px');
 });
 
@@ -148,7 +149,7 @@ test('앱이 보낸 설치 글꼴을 고르면 메모와 본문에 적용하고 
 test('저장된 글꼴 설정의 잘못된 값은 기본값으로 읽는다', async ({ page }) => {
   await seed(page, { font: 'custom:x"; color:red', ligatures: true, size: 15 });
   await openEditor(page);
-  await expect(page.locator('.monaco-editor .view-lines')).toHaveCSS('font-family', /^"D2 Ligature"/);
+  await expect(page.locator('.monaco-editor .view-lines')).toHaveCSS('font-family', /^"?D2 Ligature"?/);
   await page.evaluate(() => localStorage.setItem('devpostit.editor.preferences.v1', JSON.stringify({ font: 'd2', ligatures: true, size: 15, editorSize: 99, lineHeight: 50, bodyFont: 'a"b' })));
   await page.reload();
   await expect(page.locator('.monaco-editor .view-lines')).toHaveCSS('font-size', '13px');
@@ -177,7 +178,7 @@ test('복원 때 앱이 보낸 글꼴 설정을 적용하고 손상된 값은 �
   expect(await page.evaluate(() => localStorage.getItem('devpostit.editor.preferences.v1'))).not.toBe('not json');
   await send('ui.preferences', { value: JSON.stringify({ font: 'jetbrains', ligatures: false, size: 18 }) });
   await expect.poll(() => page.evaluate(() => document.documentElement.style.fontSize)).toBe('18px');
-  await expect(page.locator('.monaco-editor .view-lines')).toHaveCSS('font-family', /^"JetBrains Mono"/);
+  await expect(page.locator('.monaco-editor .view-lines')).toHaveCSS('font-family', /^"?JetBrains Mono"?/);
 });
 
 const previewSize = (page: Page) => page.locator('#preview').evaluate(element => getComputedStyle(element).fontSize);

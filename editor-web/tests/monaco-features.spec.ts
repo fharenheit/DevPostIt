@@ -1,12 +1,12 @@
 import { test, expect, type Page } from '@playwright/test';
-import { openEditor, draft, mode, openSettings, replaceText } from './helpers';
+import { openEditor, draft, mode, openSettings, replaceText, documentStart, replaceKey, foldKey, unfoldKey } from './helpers';
 
 const markdown = async (page: Page) => (await draft(page)).markdown;
 const minimapWidth = (page: Page) => page.locator('#source .minimap').evaluate(element => (element as HTMLElement).offsetWidth);
 async function start(page: Page, text: string) {
   await openEditor(page);
   await replaceText(page, text);
-  await page.keyboard.press('Control+Home');
+  await page.keyboard.press(documentStart);
 }
 
 test('현재 줄을 강조하고 포커스가 없어도 유지한다', async ({ page }) => {
@@ -18,7 +18,7 @@ test('현재 줄을 강조하고 포커스가 없어도 유지한다', async ({ 
 
 test('Ctrl+F로 찾으면 일치 개수를 보여 주고 원문은 바꾸지 않는다', async ({ page }) => {
   await start(page, '사과 배\n사과');
-  await page.keyboard.press('Control+f');
+  await page.keyboard.press('ControlOrMeta+f');
   await expect(page.locator('#source .find-widget.visible')).toBeVisible();
   await page.keyboard.insertText('사과');
   await expect(page.locator('#source .find-widget .matchesCount')).toContainText('2');
@@ -29,16 +29,16 @@ test('Ctrl+F로 찾으면 일치 개수를 보여 주고 원문은 바꾸지 않
 
 test('Ctrl+H로 모두 바꾸기를 하고 한 번에 되돌린다', async ({ page }) => {
   await start(page, '사과 배\n사과');
-  await page.keyboard.press('Control+h');
+  await page.keyboard.press(replaceKey);
   await expect(page.locator('#source .find-widget.replaceToggled')).toBeVisible();
   await page.keyboard.insertText('사과');
   await page.keyboard.press('Tab');
   await page.keyboard.insertText('포도');
-  await page.keyboard.press('Control+Alt+Enter');
+  await page.keyboard.press('ControlOrMeta+Alt+Enter');
   await expect.poll(() => markdown(page)).toBe('포도 배\n포도');
   await page.keyboard.press('Escape');
   await page.locator('#source .monaco-editor').click({ position: { x: 130, y: 20 } });
-  await page.keyboard.press('Control+z');
+  await page.keyboard.press('ControlOrMeta+z');
   await expect.poll(() => markdown(page)).toBe('사과 배\n사과');
 });
 
@@ -66,8 +66,8 @@ test('F1로 명령 팔레트를 열어 줄 이동을 실행한다', async ({ pag
 
 test('여러 커서로 같은 글자를 함께 고친다', async ({ page }) => {
   await start(page, 'ab ab');
-  await page.keyboard.press('Control+d');
-  await page.keyboard.press('Control+d');
+  await page.keyboard.press('ControlOrMeta+d');
+  await page.keyboard.press('ControlOrMeta+d');
   await page.keyboard.insertText('cd');
   await expect.poll(() => markdown(page)).toBe('cd cd');
 });
@@ -78,7 +78,7 @@ test('줄 이동·복제·주석 단축키가 동작한다', async ({ page }) =>
   await expect.poll(() => markdown(page)).toBe('둘째\n첫째');
   await page.keyboard.press('Shift+Alt+ArrowDown');
   await expect.poll(() => markdown(page)).toBe('둘째\n첫째\n첫째');
-  await page.keyboard.press('Control+/');
+  await page.keyboard.press('ControlOrMeta+/');
   await expect.poll(() => markdown(page)).toContain('<!--');
 });
 
@@ -86,13 +86,13 @@ test('Markdown 구역을 접고 펼 수 있다', async ({ page }) => {
   const source = '# 제목\n\n  들여쓴 본문\n    더 들여쓴 본문\n  다음 본문\n\n# 다음';
   await openEditor(page, source);
   await page.locator('#source .monaco-editor').click({ position: { x: 130, y: 20 } });
-  await page.keyboard.press('Control+Home');
+  await page.keyboard.press(documentStart);
   await page.keyboard.press('ArrowDown');
   await page.keyboard.press('ArrowDown');
-  await page.keyboard.press('Control+Shift+[');
+  await page.keyboard.press(foldKey);
   await expect(page.locator('#source .inline-folded')).toBeAttached();
   await expect(page.locator('#source .view-line').filter({ hasText: '더 들여쓴 본문' })).toHaveCount(0);
-  await page.keyboard.press('Control+Shift+]');
+  await page.keyboard.press(unfoldKey);
   await expect(page.locator('#source .view-line').filter({ hasText: '더 들여쓴 본문' })).toHaveCount(1);
   expect(await draft(page)).toMatchObject({ markdown: source, dirty: false });
 });

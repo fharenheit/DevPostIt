@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { openEditor, draft, mode } from './helpers';
 
-test('Chromium 한글 IME 조합 완료 후 전환해도 중복·누락이 없다', async ({ page, context }) => {
+test('Chromium 한글 IME 조합 완료 후 전환해도 중복·누락이 없다', async ({ page, browserName, context }) => {
+  test.skip(browserName !== 'chromium', '조합 시험은 CDP를 씁니다. WKWebView의 IME는 수동 시험으로 확인합니다.');
   await openEditor(page);
   await page.locator('#source .monaco-editor').click({ position: { x: 130, y: 40 } });
   const cdp = await context.newCDPSession(page);

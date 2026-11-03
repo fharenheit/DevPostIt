@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { openEditor, draft, mode } from './helpers';
+import { openEditor, draft, mode, assetOrigin } from './helpers';
 
 const a = 'a'.repeat(32), b = 'b'.repeat(32), c = 'c'.repeat(32);
 const image = (alt: string, file = b) => `![${alt}](../assets/${a}/${file}.png)`;
@@ -62,7 +62,8 @@ test('이미지 대체 글자 뒤의 크기를 표시 폭으로 쓰고 글자에
   await expect(images.nth(3)).not.toHaveAttribute('width', /.*/);
 });
 
-test('미리보기에서 이미지를 눌러 크기를 고르면 원문의 그 이미지만 바꾸고 한 번에 되돌린다', async ({ page }) => {
+test('미리보기에서 이미지를 눌러 크기를 고르면 원문의 그 이미지만 바꾸고 한 번에 되돌린다', async ({ page, browserName }) => {
+  test.skip(browserName === 'webkit', 'Playwright WebKit에서 가로챈 이미지가 표시되지 않아 누를 수 없습니다. 실제 WKWebView 동작은 MacSmoke가 확인합니다.');
   const text = `앞\n${image('첫째')} ${image('둘째', c)}\n\n뒤`;
   await openEditor(page, text);
   await mode(page, 'preview');
@@ -78,7 +79,8 @@ test('미리보기에서 이미지를 눌러 크기를 고르면 원문의 그 �
   await expect(page.locator('#preview img').nth(1)).not.toHaveAttribute('width', /.*/);
 });
 
-test('이미지 크기 메뉴는 Esc와 바깥 클릭으로 닫고 원문을 바꾸지 않는다', async ({ page }) => {
+test('이미지 크기 메뉴는 Esc와 바깥 클릭으로 닫고 원문을 바꾸지 않는다', async ({ page, browserName }) => {
+  test.skip(browserName === 'webkit', 'Playwright WebKit에서 가로챈 이미지가 표시되지 않아 누를 수 없습니다. 실제 WKWebView 동작은 MacSmoke가 확인합니다.');
   const text = `${image('그림')}\n\n본문`;
   await openEditor(page, text);
   await mode(page, 'preview');
@@ -148,7 +150,7 @@ test('draw.io 이미지는 미리보기에 표시하고 다른 SVG는 요청하�
   await openEditor(page, `${diagram()}\n\n![나쁨](../assets/${a}/${b}.svg)`);
   await mode(page, 'preview');
   await expect(page.locator('#preview img')).toHaveCount(1);
-  await expect(page.locator('#preview img')).toHaveAttribute('src', new RegExp(`^https://devpostit-assets\\.local/${a}/${b}\\.drawio\\.svg`));
+  await expect(page.locator('#preview img')).toHaveAttribute('src', new RegExp(`^${assetOrigin.replace(/[./]/g, '\\$&')}/${a}/${b}\\.drawio\\.svg`));
   await expect(page.locator('#preview')).toContainText('[이미지: 나쁨]');
 });
 
@@ -170,7 +172,8 @@ test('브라우저 단독 실행의 다이어그램 버튼은 앱이 필요하�
   await expect(page.locator('#host-status')).toContainText('다이어그램은 앱에서');
 });
 
-test('draw.io 이미지의 메뉴에서만 편집을 요청한다', async ({ page }) => {
+test('draw.io 이미지의 메뉴에서만 편집을 요청한다', async ({ page, browserName }) => {
+  test.skip(browserName === 'webkit', 'Playwright WebKit에서 가로챈 이미지가 표시되지 않아 누를 수 없습니다. 실제 WKWebView 동작은 MacSmoke가 확인합니다.');
   await hosted(page);
   await send(page, 'note.load', 7, { markdown: `${image('그림')}\n\n${diagram()}` });
   await mode(page, 'preview');
@@ -183,7 +186,8 @@ test('draw.io 이미지의 메뉴에서만 편집을 요청한다', async ({ pag
   await expect.poll(async () => (await sent(page)).at(-1)).toMatchObject({ type: 'note.editDiagramRequested', payload: { file: `${a}/${b}.drawio.svg` } });
 });
 
-test('앱으로 돌아오면 draw.io 그림만 다시 읽어 저장한 내용을 보여 준다', async ({ page }) => {
+test('앱으로 돌아오면 draw.io 그림만 다시 읽어 저장한 내용을 보여 준다', async ({ page, browserName }) => {
+  test.skip(browserName === 'webkit', 'Playwright WebKit에서 가로챈 이미지가 표시되지 않아 누를 수 없습니다. 실제 WKWebView 동작은 MacSmoke가 확인합니다.');
   await hosted(page);
   await send(page, 'note.load', 7, { markdown: `${image('그림')}\n\n${diagram()}` });
   await mode(page, 'preview');
@@ -197,4 +201,22 @@ test('앱으로 돌아오면 draw.io 그림만 다시 읽어 저장한 내용을
   await page.locator('#preview img').nth(1).click();
   await page.getByRole('button', { name: '50%', exact: true }).click();
   expect((await draft(page)).markdown).toContain(`![다이어그램|50%](../assets/${a}/${b}.drawio.svg)`);
+});
+
+test('허용하지 않은 주소의 링크와 이미지는 표시하지 않는다', async ({ page }) => {
+  await openEditor(page, `[나쁨](devpostit://app/index.html) [자바](javascript:alert(1)) [앱](devpostit-assets://notes/${a}/${b}.png)\n\n![외부](devpostit-assets://other/${a}/${b}.png)`);
+  await mode(page, 'preview');
+  await expect(page.locator('#preview a')).toHaveCount(0);
+  await expect(page.locator('#preview img')).toHaveCount(0);
+  await expect(page.locator('#preview')).toContainText('[이미지: 외부]');
+});
+
+test('이미지의 크기와 원문 위치 속성을 미리보기에 유지한다', async ({ page }) => {
+  await openEditor(page, `${image('그림|50%')}\n\n3. 셋째`);
+  await mode(page, 'preview');
+  const shown = page.locator('#preview img');
+  await expect(shown).toHaveAttribute('width', '50%');
+  await expect(shown).toHaveAttribute('data-line', '0');
+  await expect(shown).toHaveAttribute('data-index', '0');
+  await expect(page.locator('#preview ol')).toHaveAttribute('start', '3');
 });

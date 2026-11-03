@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { openEditor, draft, mode } from './helpers';
+import { openEditor, draft, mode, documentStart } from './helpers';
 
 async function openFormatter(page: Page) {
   await page.goto('/formatter.html');
@@ -47,7 +47,7 @@ for (const [language, source, expected] of [
   test(`메모의 ${language} 코드 블록을 정리한다`, async ({ page }) => {
     await openEditor(page, `\`\`\`${language}\n${source}\n\`\`\`\n`);
     await page.locator('#source .monaco-editor').click({ position: { x: 100, y: 40 } });
-    await page.keyboard.press('Control+Home');
+    await page.keyboard.press(documentStart);
     await page.keyboard.press('ArrowDown');
     await page.getByRole('button', { name: '코드 정리', exact: true }).click();
     await expect(page.locator('#format-status')).toHaveText('코드를 정리했습니다.');
@@ -58,7 +58,7 @@ for (const [fence, source, expected] of [['c#', 'class A{void F(){}}', 'class A\
   test(`코드 블록의 언어 표시 ${fence}로도 정리한다`, async ({ page }) => {
     await openEditor(page, `\`\`\`${fence}\n${source}\n\`\`\`\n`);
     await page.locator('#source .monaco-editor').click({ position: { x: 100, y: 40 } });
-    await page.keyboard.press('Control+Home');
+    await page.keyboard.press(documentStart);
     await page.keyboard.press('ArrowDown');
     await page.getByRole('button', { name: '코드 정리', exact: true }).click();
     await expect(page.locator('#format-status')).toHaveText('코드를 정리했습니다.');
@@ -75,7 +75,7 @@ for (const language of ['rust', 'scala', 'ruby', 'r']) {
     const text = `\`\`\`${language}\nx  =  1\n\`\`\`\n`;
     await openEditor(page, text);
     await page.locator('#source .monaco-editor').click({ position: { x: 100, y: 40 } });
-    await page.keyboard.press('Control+Home');
+    await page.keyboard.press(documentStart);
     await page.keyboard.press('ArrowDown');
     await page.getByRole('button', { name: '코드 정리', exact: true }).click();
     await expect(page.locator('#format-status')).toContainText('색 구분만');
